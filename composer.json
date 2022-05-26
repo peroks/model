@@ -9,7 +9,7 @@
 			"Peroks\\Model\\": "src/"
 		}
 	},
-	"platform": {
-		"php": "^7.4"
+	"require": {
+		"php": "^7.4 || ^8.0"
 	}
 }
