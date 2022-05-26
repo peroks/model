@@ -6,7 +6,7 @@
 	"license": "MIT",
 	"autoload": {
 		"psr-4": {
-			"Peroks\\Model\\": "./src"
+			"Peroks\\Model\\": "src/"
 		}
 	},
 	"platform": {
