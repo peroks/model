@@ -4,6 +4,12 @@
 	"description": "Object handling and storage for REST API applications",
 	"minimum-stability": "stable",
 	"license": "MIT",
+	"authors": [
+		{
+			"name": "Per Egil Roksvaag",
+			"homepage": "https://github.com/peroks"
+		}
+	],
 	"autoload": {
 		"psr-4": {
 			"Peroks\\Model\\": "src/"
