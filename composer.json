@@ -3,5 +3,13 @@
 	"type": "library",
 	"description": "Object handling and storage for REST API applications",
 	"minimum-stability": "stable",
+	"autoload": {
+		"psr-4": {
+			"Peroks\\Model\\": "./src"
+		}
+	},
+	"platform": {
+		"php": "^7.4"
+	},
 	"license": "MIT"
 }
