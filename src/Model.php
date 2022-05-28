@@ -211,12 +211,13 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	public function has( string $id, string $context = Property::READABLE ): bool {
 		$properties = static::properties();
 
-		if ( Property::READABLE === $context && array_key_exists( $id, $properties ) ) {
-			return $properties[ $id ][ $context ] ?? true;
-		}
-
-		if ( Property::WRITABLE === $context ) {
-			return $properties[ $id ][ $context ] ?? false;
+		if ( array_key_exists( $id, $properties ) ) {
+			if ( Property::READABLE === $context ) {
+				return $properties[ $id ][ $context ] ?? true;
+			}
+			if ( Property::WRITABLE === $context ) {
+				return $properties[ $id ][ $context ] ?? true;
+			}
 		}
 
 		return false;
@@ -265,11 +266,18 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	 */
 	public function form(): array {
 		foreach ( static::properties() as $id => $property ) {
-			$property[ Property::VALUE ] = $this->get( $id, $property );
+			if ( $property[ Property::DISABLED ] ?? false ) {
+				continue;
+			}
+
+			if ( $property[ Property::READABLE ] ?? true ) {
+				$property[ Property::VALUE ] = $this->get( $id, $property );
+			}
 
 			if ( $property[ Property::VALUE ] instanceof ModelInterface ) {
 				$property[ Property::PROPERTIES ] = $property[ Property::VALUE ]->form();
 			}
+
 			$result[] = Property::create( $property );
 		}
 		return $result ?? [];

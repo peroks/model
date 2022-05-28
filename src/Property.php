@@ -131,9 +131,9 @@ class Property extends Model {
 			'writable'   => [
 				'id'      => 'writable',
 				'name'    => 'Writable',
-				'desc'    => 'Whether the property is writable or not, defaults to false',
+				'desc'    => 'Whether the property is writable or not, defaults to true',
 				'type'    => self::TYPE_BOOL,
-				'default' => false,
+				'default' => true,
 			],
 			'pattern'    => [
 				'id'   => 'pattern',
