@@ -7,7 +7,7 @@
  * @copyright Per Egil Roksvaag
  * @license MIT
  */
-class Store {
+class Store implements StoreInterface {
 
 	/**
 	 * @var array Stored data.
