@@ -22,7 +22,7 @@
  * @copyright Per Egil Roksvaag
  * @license MIT
  */
-class Property extends Base {
+class Property extends Model {
 
 	// Property ids.
 	const ID         = 'id';

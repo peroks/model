@@ -58,9 +58,9 @@ class Store {
 	 * @param string $class The model class name.
 	 * @param bool $create Whether to create a new model if not found.
 	 *
-	 * @return Model|null A new or existing model of the given class.
+	 * @return ModelInterface|null A new or existing model of the given class.
 	 */
-	public function get( string $id, string $class, bool $create = true ): ?Model {
+	public function get( string $id, string $class, bool $create = true ): ?ModelInterface {
 		if ( $create || $this->exists( $id, $class ) ) {
 			$data = array_replace( $this->data[ $class ][ $id ] ?? [], $this->changes[ $class ][ $id ] ?? [] );
 			return new $class( $data );
@@ -75,7 +75,7 @@ class Store {
 	 * @param string $class The model class name.
 	 * @param bool $create Whether to create a new model if not found.
 	 *
-	 * @return Model[] An array of new or existing models of the given class.
+	 * @return ModelInterface[] An array of new or existing models of the given class.
 	 */
 	public function collect( array $ids, string $class, bool $create = true ): array {
 		foreach ( $ids as $id ) {
@@ -106,7 +106,7 @@ class Store {
 	 *
 	 * @param string $class The model class name.
 	 *
-	 * @return Model[] An assoc array of models keyed by the model ids.
+	 * @return ModelInterface[] An assoc array of models keyed by the model ids.
 	 */
 	public function list( string $class ): array {
 		$result = array_map( [ $class, 'create' ], array_replace(
@@ -114,7 +114,7 @@ class Store {
 			$this->changes[ $class ] ?? []
 		) );
 
-		/** @var Model $class */
+		/** @var ModelInterface $class */
 		return array_column( $result, null, $class::primary() );
 	}
 
@@ -124,7 +124,7 @@ class Store {
 	 * @param string $class The model class name.
 	 * @param array $filter Properties (key/value pairs) to match the stored models.
 	 *
-	 * @return Model[] An assoc array of models keyed by the model ids.
+	 * @return ModelInterface[] An assoc array of models keyed by the model ids.
 	 */
 	public function filter( string $class, array $filter ): array {
 		$all = $this->list( $class );
@@ -133,7 +133,7 @@ class Store {
 			return $all;
 		}
 
-		return array_filter( $all, function( Model $model ) use ( $filter ): bool {
+		return array_filter( $all, function( ModelInterface $model ) use ( $filter ): bool {
 			return array_intersect_assoc( $filter, $model->data() ) === $filter;
 		} );
 	}
@@ -149,11 +149,11 @@ class Store {
 	 * it will be replaced by the new model. The new model is validated before
 	 * saving.
 	 *
-	 * @param Model $model The model to store.
+	 * @param ModelInterface $model The model to store.
 	 *
 	 * @return string The stored model id.
 	 */
-	public function set( Model $model ): string {
+	public function set( ModelInterface $model ): string {
 		$id    = $model->id();
 		$class = get_class( $model );
 		$data  = $model->validate()->raw();
@@ -169,11 +169,11 @@ class Store {
 	 * it will be updated (patched) with the new model data. The updated model
 	 * is validated before saving.
 	 *
-	 * @param Model $model The model to store.
+	 * @param ModelInterface $model The model to store.
 	 *
 	 * @return string The stored model id.
 	 */
-	public function update( Model $model ): string {
+	public function update( ModelInterface $model ): string {
 		$id     = $model->id();
 		$class  = get_class( $model );
 		$stored = $this->get( $id, $class )->merge( $model );
@@ -251,7 +251,7 @@ class Store {
 			}
 		}
 
-		/** @var Model $class */
+		/** @var ModelInterface $class */
 		foreach ( $data ?? [] as $class => $pairs ) {
 			foreach ( $pairs as $inst ) {
 				$this->set( $class::create( $inst ) );
