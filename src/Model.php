@@ -39,7 +39,6 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	 */
 	public function __construct( array $data = [] ) {
 		$this->data = static::normalize( $data );
-		$this->validate();
 	}
 
 	/**
@@ -307,7 +306,7 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 
 				// Validate a single model instance.
 				if ( Property::TYPE_OBJECT === $type ) {
-					if ( empty( is_a( $value, $model ) ) ) {
+					if ( empty( is_a( $value, $model ) && $value instanceof ModelInterface ) ) {
 						$error = sprintf( '%s must be an instance of %s', $name, $model );
 						throw new Exception( $error, 400 );
 					}
@@ -318,7 +317,7 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 				// Validate an array of model instances.
 				if ( Property::TYPE_ARRAY === $type ) {
 					foreach ( $value as $instance ) {
-						if ( empty( is_a( $instance, $model ) ) ) {
+						if ( empty( is_a( $instance, $model ) && $instance instanceof ModelInterface ) ) {
 							$error = sprintf( '%s must be an array of %s instances', $name, $model );
 							throw new Exception( $error, 400 );
 						}
