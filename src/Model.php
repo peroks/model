@@ -39,6 +39,7 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	 */
 	public function __construct( array $data = [] ) {
 		$this->data = static::normalize( $data );
+		$this->validate();
 	}
 
 	/**
@@ -248,9 +249,9 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	 *
 	 * @param ModelInterface $model The model to get data from.
 	 *
-	 * @return ModelInterface The merges model.
+	 * @return static The merged model.
 	 */
-	public function merge( ModelInterface $model ): ModelInterface {
+	public function merge( ModelInterface $model ): self {
 		$this->changes = array_replace( $this->changes, static::normalize( $model->raw() ) );
 		return $this;
 	}
@@ -295,16 +296,36 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 				continue;
 			}
 
-			// Validate models.
-			if ( $value instanceof ModelInterface ) {
-				$value->validate();
-				continue;
-			}
-
 			// Check type constraint.
 			if ( $type && $type !== gettype( $value ) ) {
 				$error = sprintf( '%s must be a %s', $name, $type );
 				throw new Exception( $error, 400 );
+			}
+
+			// Validate models.
+			if ( $model = $property[ Property::MODEL ] ?? null ) {
+
+				// Validate a single model instance.
+				if ( Property::TYPE_OBJECT === $type ) {
+					if ( empty( is_a( $value, $model ) ) ) {
+						$error = sprintf( '%s must be an instance of %s', $name, $model );
+						throw new Exception( $error, 400 );
+					}
+					$value->validate();
+					continue;
+				}
+
+				// Validate an array of model instances.
+				if ( Property::TYPE_ARRAY === $type ) {
+					foreach ( $value as $instance ) {
+						if ( empty( is_a( $instance, $model ) ) ) {
+							$error = sprintf( '%s must be an array of %s instances', $name, $model );
+							throw new Exception( $error, 400 );
+						}
+						$instance->validate();
+					}
+					continue;
+				}
 			}
 
 			// Check enumeration constraint.

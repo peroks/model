@@ -109,8 +109,10 @@ interface StoreInterface {
 	 *
 	 * @param string $id The model id.
 	 * @param string $class The model class name.
+	 *
+	 * @return bool True if the model existed, false otherwise.
 	 */
-	public function delete( string $id, string $class ): void;
+	public function delete( string $id, string $class ): bool;
 
 	/* -------------------------------------------------------------------------
 	 * File handling

@@ -188,12 +188,16 @@ class Store implements StoreInterface {
 	 *
 	 * @param string $id The model id.
 	 * @param string $class The model class name.
+	 *
+	 * @return bool True if the model existed, false otherwise.
 	 */
-	public function delete( string $id, string $class ): void {
+	public function delete( string $id, string $class ): bool {
 		if ( $this->exists( $id, $class ) ) {
 			$this->data[ $class ][ $id ]    = null;
 			$this->changes[ $class ][ $id ] = null;
+			return true;
 		}
+		return false;
 	}
 
 	/* -------------------------------------------------------------------------

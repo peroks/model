@@ -45,9 +45,9 @@ interface ModelInterface {
 	 *
 	 * @param ModelInterface $model The model to get data from.
 	 *
-	 * @return ModelInterface The merges model.
+	 * @return static The merges model.
 	 */
-	public function merge( ModelInterface $model ): ModelInterface;
+	public function merge( ModelInterface $model ): self;
 
 	/**
 	 * Gets the model's property definitions with values.
