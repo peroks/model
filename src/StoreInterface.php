@@ -14,12 +14,6 @@ interface StoreInterface {
 	const SET_MERGE   = 'merge';    // Recursively merge data from the new model into the existing one.
 
 	/* -------------------------------------------------------------------------
-	 * Constructor and destructor
-	 * ---------------------------------------------------------------------- */
-
-	public static function load( $source, $options = [] ): self;
-
-	/* -------------------------------------------------------------------------
 	 * Retrieving models.
 	 * ---------------------------------------------------------------------- */
 
@@ -79,7 +73,7 @@ interface StoreInterface {
 	public function filter( string $class, array $filter ): array;
 
 	/* -------------------------------------------------------------------------
-	 * Creating, updating and deleting instances
+	 * Updating and deleting models
 	 * ---------------------------------------------------------------------- */
 
 	/**
@@ -104,27 +98,4 @@ interface StoreInterface {
 	 * @return bool True if the model existed, false otherwise.
 	 */
 	public function delete( string $id, string $class ): bool;
-
-	/* -------------------------------------------------------------------------
-	 * File handling
-	 * ---------------------------------------------------------------------- */
-
-	/**
-	 * Imports data from a source
-	 *
-	 * @param Store|array|string $source The source containing the data to import.
-	 * @param string $mode How to import the data: merge or replace
-	 */
-	public function import( $source, string $mode = 'merge' ): void;
-
-	public function export(): array;
-
-	public function open();
-
-	/**
-	 * Saves the updated data to a JSON file.
-	 *
-	 * @return bool True if data changes exists and were saved, false otherwise.
-	 */
-	public function save(): bool;
 }
