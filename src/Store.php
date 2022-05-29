@@ -139,45 +139,34 @@ class Store implements StoreInterface {
 	}
 
 	/* -------------------------------------------------------------------------
-	 * Creating, updating and deleting instances
+	 * Updating and deleting models
 	 * ---------------------------------------------------------------------- */
 
 	/**
 	 * Saves and validates a model in the data store.
 	 *
-	 * If a model with the same id and class already exists in the data store,
-	 * it will be replaced by the new model. The new model is validated before
-	 * saving.
+	 * Depending on the $mode, the existing model wil be replaced, patched or
+	 * merged into. The resulting model is validated before saving.
 	 *
 	 * @param ModelInterface $model The model to store.
+	 * @param string $mode How to update existing data: 'replace', 'patch' or 'merge'.
 	 *
 	 * @return string The stored model id.
 	 */
-	public function set( ModelInterface $model ): string {
+	public function set( ModelInterface $model, string $mode = self::SET_PATCH ): string {
 		$id    = $model->id();
 		$class = get_class( $model );
-		$data  = $model->validate()->raw();
 
-		$this->changes[ $class ][ $id ] = static::array_filter_null( $data );
-		return $id;
-	}
-
-	/**
-	 * Updates and validated a model in the data store.
-	 *
-	 * If a model with the same id and class already exists in the data store,
-	 * it will be updated (patched) with the new model data. The updated model
-	 * is validated before saving.
-	 *
-	 * @param ModelInterface $model The model to store.
-	 *
-	 * @return string The stored model id.
-	 */
-	public function update( ModelInterface $model ): string {
-		$id     = $model->id();
-		$class  = get_class( $model );
-		$stored = $this->get( $id, $class )->merge( $model );
-		$data   = $stored->validate()->raw();
+		if ( self::SET_PATCH ) {
+			$stored = $this->get( $id, $class )->merge( $model );
+			$data   = $stored->validate()->raw();
+		} elseif ( self::SET_MERGE ) {
+			$stored = $this->get( $id, $class );
+			$data   = array_merge_recursive( $stored->raw(), $model->raw() );
+			$data   = $stored::create( $data )->validate()->raw();
+		} else {
+			$data = $model->validate()->raw();
+		}
 
 		$this->changes[ $class ][ $id ] = static::array_filter_null( $data );
 		return $id;

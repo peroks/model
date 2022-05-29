@@ -9,6 +9,10 @@
  */
 interface StoreInterface {
 
+	const SET_REPLACE = 'replace';  // Replace the existing model with the new one.
+	const SET_PATCH   = 'patch';    // Patch (update) the existing model with the new one.
+	const SET_MERGE   = 'merge';    // Recursively merge data from the new model into the existing one.
+
 	/* -------------------------------------------------------------------------
 	 * Constructor and destructor
 	 * ---------------------------------------------------------------------- */
@@ -81,28 +85,15 @@ interface StoreInterface {
 	/**
 	 * Saves and validates a model in the data store.
 	 *
-	 * If a model with the same id and class already exists in the data store,
-	 * it will be replaced by the new model. The new model is validated before
-	 * saving.
+	 * Depending on the $mode, the existing model wil be replaced, updated or
+	 * merged into. The resulting model is validated before saving.
 	 *
 	 * @param ModelInterface $model The model to store.
+	 * @param string $mode How to update existing data: 'replace', 'patch' or 'merge'.
 	 *
 	 * @return string The stored model id.
 	 */
-	public function set( ModelInterface $model ): string;
-
-	/**
-	 * Updates and validated a model in the data store.
-	 *
-	 * If a model with the same id and class already exists in the data store,
-	 * it will be updated (patched) with the new model data. The updated model
-	 * is validated before saving.
-	 *
-	 * @param ModelInterface $model The model to store.
-	 *
-	 * @return string The stored model id.
-	 */
-	public function update( ModelInterface $model ): string;
+	public function set( ModelInterface $model, string $mode = self::SET_PATCH ): string;
 
 	/**
 	 * Deletes a model from the data store.
