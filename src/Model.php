@@ -1,5 +1,6 @@
 <?php namespace Peroks\Model;
 
+use ArrayAccess;
 use Exception;
 use Iterator;
 use JsonSerializable;
@@ -11,7 +12,7 @@ use JsonSerializable;
  * @copyright Per Egil Roksvaag
  * @license MIT
  */
-abstract class Model implements ModelInterface, Iterator, JsonSerializable {
+abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSerializable {
 
 	// Valid data formats
 	const DATA_RAW        = 'raw'; // Get the raw internal data array.
@@ -164,7 +165,7 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	 * Sets a model property.
 	 *
 	 * @param string $id The property id.
-	 * @param $value
+	 * @param mixed $value The property value.
 	 *
 	 * @return bool True if the property was set, false otherwise.
 	 */
@@ -455,5 +456,53 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	 */
 	public function valid(): bool {
 		return is_string( $this->key() );
+	}
+
+	/* -------------------------------------------------------------------------
+	 * ArrayAccess implementation
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Checks if the given property id (offset) exists.
+	 *
+	 * @param mixed $offset The property id.
+	 *
+	 * @return bool
+	 */
+	public function offsetExists( $offset ): bool {
+		return array_key_exists( $offset, static::properties() );
+	}
+
+	/**
+	 * Gets a model property (offset).
+	 *
+	 * @param mixed $offset The property id.
+	 *
+	 * @return mixed
+	 */
+	public function offsetGet( $offset ) {
+		return $this->get( $offset );
+	}
+
+	/**
+	 * Sets a model property (offset).
+	 *
+	 * @param mixed $offset The property id.
+	 * @param mixed $value The property value.
+	 */
+	public function offsetSet( $offset, $value ): void {
+		$this->set( $offset, $value );
+	}
+
+	/**
+	 * Unset the property is (offset).
+	 *
+	 * We can't completely remove the model property because the properties
+	 * are immutable, but we can set the value to null.
+	 *
+	 * @param mixed $offset The property id.
+	 */
+	public function offsetUnset( $offset ): void {
+		$this->set( $offset, null );
 	}
 }
