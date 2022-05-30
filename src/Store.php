@@ -115,7 +115,7 @@ class Store implements StoreInterface {
 		) );
 
 		/** @var ModelInterface $class */
-		return array_column( $result, null, $class::primary() );
+		return array_column( $result, null, $class::idProperty() );
 	}
 
 	/**
@@ -134,7 +134,7 @@ class Store implements StoreInterface {
 		}
 
 		return array_filter( $all, function( ModelInterface $model ) use ( $filter ): bool {
-			return array_intersect_assoc( $filter, $model->data() ) === $filter;
+			return array_intersect_assoc( $filter, $model->data( Model::DATA_FULL ) ) === $filter;
 		} );
 	}
 
@@ -158,14 +158,14 @@ class Store implements StoreInterface {
 		$class = get_class( $model );
 
 		if ( self::SET_PATCH ) {
-			$stored = $this->get( $id, $class )->merge( $model );
-			$data   = $stored->validate()->raw();
+			$stored = $this->get( $id, $class )->patch( $model->data() );
+			$data   = $stored->validate()->data();
 		} elseif ( self::SET_MERGE ) {
 			$stored = $this->get( $id, $class );
-			$data   = array_merge_recursive( $stored->raw(), $model->raw() );
-			$data   = $stored::create( $data )->validate()->raw();
+			$data   = array_merge_recursive( $stored->data(), $model->data() );
+			$data   = $stored::create( $data )->validate()->data();
 		} else {
-			$data = $model->validate()->raw();
+			$data = $model->validate()->data();
 		}
 
 		$this->changes[ $class ][ $id ] = static::array_filter_null( $data );

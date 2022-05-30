@@ -19,45 +19,30 @@ interface ModelInterface {
 	/**
 	 * Checks if the model has the given property for reading or writing.
 	 *
-	 * @param string $id A property id.
+	 * @param string $id The property id.
 	 * @param string $context Check if the property is 'readable' or 'writable'.
 	 *
 	 * @return bool True if the model has the given property, false otherwise.
 	 */
-	public function has( string $id, string $context = 'readable' ): bool;
+	public function has( string $id, string $context = Property::READABLE ): bool;
 
 	/**
-	 * Gets the internal data and changes arrays merged into one.
+	 * Gets an array representing the model's property values.
 	 *
-	 * @return array An assoc array of the raw model data.
+	 * @param string $format Specifies the format of the returned data array.
+	 *
+	 * @return Property[]|array An array of the model data.
 	 */
-	public function raw(): array;
+	public function data( string $format = '' ): array;
 
 	/**
-	 * Gets a full array of all the model's property values.
+	 * Patches a model with the given data array.
 	 *
-	 * @return array An assoc array of the full model data.
+	 * @param array $data The data to merge into the model.
+	 *
+	 * @return static The updated model instance.
 	 */
-	public function data(): array;
-
-	/**
-	 * Merges the data of the given model into this one.
-	 *
-	 * @param ModelInterface $model The model to get data from.
-	 *
-	 * @return static The merges model.
-	 */
-	public function merge( ModelInterface $model ): self;
-
-	/**
-	 * Gets the model's property definitions with values.
-	 *
-	 * The result of this method can be used to populate input forms for
-	 * user interfaces.
-	 *
-	 * @return Property[] An array of property definitions with values.
-	 */
-	public function form(): array;
+	public function patch( array $data ): self;
 
 	/**
 	 * Validates the model values against its property definitions.
@@ -67,18 +52,18 @@ interface ModelInterface {
 	public function validate(): self;
 
 	/**
-	 * Creates a new model.
+	 * Creates a new model with data from the given model or array.
 	 *
-	 * @param array $data The model data.
+	 * @param ModelInterface|array $data The model data.
 	 *
 	 * @return static A model instance.
 	 */
-	public static function create( array $data = [] ): self;
+	public static function create( $data = [] ): self;
 
 	/**
 	 * Gets the model's id property.
 	 *
 	 * @return string The model's id property.
 	 */
-	public static function primary(): string;
+	public static function idProperty(): string;
 }

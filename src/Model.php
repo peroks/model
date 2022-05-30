@@ -13,6 +13,11 @@ use JsonSerializable;
  */
 abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 
+	// Data formats
+	const DATA_RAW        = 'raw'; // Get the raw internal data array.
+	const DATA_FULL       = 'fUll'; // Get a full data array with default values for missing properties.
+	const DATA_PROPERTIES = 'properties'; // Get an array of the model properties.
+
 	/**
 	 * An assoc array of the model properties.
 	 */
@@ -35,9 +40,15 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	/**
 	 * Constructor.
 	 *
-	 * @param array $data The model data as key/value pairs.
+	 * @param ModelInterface|array $data The model data.
 	 */
-	public function __construct( array $data = [] ) {
+	public function __construct( $data = [] ) {
+		if ( $data instanceof static ) {
+			$data = $data->data();
+		} elseif ( $data instanceof ModelInterface ) {
+			$data = $data->data( self::DATA_FULL );
+		}
+
 		$this->data = static::normalize( $data );
 	}
 
@@ -187,6 +198,33 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 		return [];
 	}
 
+	/**
+	 * Gets the model's property definitions with values.
+	 *
+	 * The result of this method can be used to populate input forms for
+	 * user interfaces.
+	 *
+	 * @return Property[] An array of property definitions with values.
+	 */
+	protected function form(): array {
+		foreach ( static::properties() as $id => $property ) {
+			if ( $property[ Property::DISABLED ] ?? false ) {
+				continue;
+			}
+
+			if ( $property[ Property::READABLE ] ?? true ) {
+				$property[ Property::VALUE ] = $this->get( $id, $property );
+			}
+
+			if ( $property[ Property::VALUE ] instanceof ModelInterface ) {
+				$property[ Property::PROPERTIES ] = $property[ Property::VALUE ]->data( Model::DATA_PROPERTIES );
+			}
+
+			$result[] = Property::create( $property );
+		}
+		return $result ?? [];
+	}
+
 	/* -------------------------------------------------------------------------
 	 * ModelInterface implementation
 	 * ---------------------------------------------------------------------- */
@@ -197,7 +235,7 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	 * @return int|string The model id.
 	 */
 	public function id() {
-		return $this->get( static::primary() );
+		return $this->get( static::idProperty() );
 	}
 
 	/**
@@ -224,63 +262,41 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	}
 
 	/**
-	 * Gets the internal data and changes arrays merged into one.
+	 * Gets an array representing the model's property values.
 	 *
-	 * @return array An assoc array of the raw model data.
+	 * @param string $format Specifies the format of the returned data array.
+	 *
+	 * @return Property[]|array An array of the model data.
 	 */
-	public function raw(): array {
+	public function data( string $format = '' ): array {
+
+		// Get values for all properties by filling up with default or null values.
+		if ( self::DATA_FULL === $format ) {
+			foreach ( static::properties() as $id => $property ) {
+				$result[ $id ] = $this->changes[ $id ] ?? $this->data[ $id ] ?? $property[ Property::DEFAULT ] ?? null;
+			}
+			return $result ?? [];
+		}
+
+		// Gets an array of Property models for populating frontend forms.
+		if ( self::DATA_PROPERTIES === $format ) {
+			return $this->form();
+		}
+
+		// Gets the internal raw data.
 		return array_replace( $this->data, $this->changes );
 	}
 
 	/**
-	 * Gets a full array of all the model's property values.
+	 * Patches a model with the given data array.
 	 *
-	 * @return array An assoc array of the full model data.
+	 * @param array $data The data to merge into the model.
+	 *
+	 * @return static The updated model instance.
 	 */
-	public function data(): array {
-		foreach ( static::properties() as $id => $property ) {
-			$result[ $id ] = $this->changes[ $id ] ?? $this->data[ $id ] ?? $property[ Property::DEFAULT ] ?? null;
-		}
-		return $result ?? [];
-	}
-
-	/**
-	 * Merges the data of the given model into this one.
-	 *
-	 * @param ModelInterface $model The model to get data from.
-	 *
-	 * @return static The merged model.
-	 */
-	public function merge( ModelInterface $model ): self {
-		$this->changes = array_replace( $this->changes, static::normalize( $model->raw() ) );
+	public function patch( array $data ): self {
+		$this->changes = array_replace( $this->changes, static::normalize( $data ) );
 		return $this;
-	}
-
-	/**
-	 * Gets the model's property definitions with values.
-	 *
-	 * The result of this method can be used to populate input forms for
-	 * user interfaces.
-	 *
-	 * @return Property[] An array of property definitions with values.
-	 */
-	public function form(): array {
-		foreach ( static::properties() as $id => $property ) {
-			if ( $property[ Property::DISABLED ] ?? false ) {
-				continue;
-			}
-
-			if ( $property[ Property::READABLE ] ?? true ) {
-				$property[ Property::VALUE ] = $this->get( $id, $property );
-			}
-
-			if ( $property[ Property::VALUE ] instanceof ModelInterface ) {
-				$property[ Property::PROPERTIES ] = $property[ Property::VALUE ]->form();
-			}
-
-			$result[] = Property::create( $property );
-		}
-		return $result ?? [];
 	}
 
 	/**
@@ -362,13 +378,13 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	}
 
 	/**
-	 * Creates a new model.
+	 * Creates a new model with data from the given model or array.
 	 *
-	 * @param array $data The model data.
+	 * @param ModelInterface|array $data The model data.
 	 *
 	 * @return static A model instance.
 	 */
-	public static function create( array $data = [] ): self {
+	public static function create( $data = [] ): self {
 		return new static( $data );
 	}
 
@@ -377,7 +393,7 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	 *
 	 * @return string The model's id property.
 	 */
-	public static function primary(): string {
+	public static function idProperty(): string {
 		return 'id';
 	}
 
