@@ -393,9 +393,7 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	 *
 	 * @return array An array of property definitions or the given property definition.
 	 */
-	public static function properties( string $id = '' ): array {
-		return [];
-	}
+	abstract public static function properties( string $id = '' ): array;
 
 	/* -------------------------------------------------------------------------
 	 * JsonSerializable implementation
