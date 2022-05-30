@@ -459,7 +459,11 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	}
 
 	/* -------------------------------------------------------------------------
-	 * ArrayAccess implementation
+	 * ArrayAccess implementation.
+	 * -------------------------------------------------------------------------
+	 * The support for this interface is limited, because a model's properties
+	 * are fixed. In contrast to a real array, adding or removing a
+	 * property (offset) from a model doesn't work.
 	 * ---------------------------------------------------------------------- */
 
 	/**
@@ -467,7 +471,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 *
 	 * @param mixed $offset The property id.
 	 *
-	 * @return bool
+	 * @return bool True of the given property exists, false otherwise.
 	 */
 	public function offsetExists( $offset ): bool {
 		return array_key_exists( $offset, static::properties() );
@@ -478,7 +482,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 *
 	 * @param mixed $offset The property id.
 	 *
-	 * @return mixed
+	 * @return mixed The property value.
 	 */
 	public function offsetGet( $offset ) {
 		return $this->get( $offset );
@@ -486,6 +490,9 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 
 	/**
 	 * Sets a model property (offset).
+	 *
+	 * We can only set properties that are existing and writable. Adding new
+	 * properties will fail silently.
 	 *
 	 * @param mixed $offset The property id.
 	 * @param mixed $value The property value.
@@ -497,8 +504,9 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	/**
 	 * Unset the property is (offset).
 	 *
-	 * We can't completely remove the model property because the properties
-	 * are immutable, but we can set the value to null.
+	 * We can't completely remove the model property because a model's
+	 * properties are fixed, but we can set the value to null if it's
+	 * writable.
 	 *
 	 * @param mixed $offset The property id.
 	 */
