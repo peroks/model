@@ -66,4 +66,13 @@ interface ModelInterface {
 	 * @return string The model's id property.
 	 */
 	public static function idProperty(): string;
+
+	/**
+	 * Gets the model's property definitions.
+	 *
+	 * @param string $id The property id.
+	 *
+	 * @return array An array of property definitions or the given property definition.
+	 */
+	public static function properties( string $id = '' ): array;
 }

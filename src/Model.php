@@ -188,17 +188,6 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	}
 
 	/**
-	 * Gets the model's property definitions.
-	 *
-	 * @param string $id The property id.
-	 *
-	 * @return array An array of property definitions or the given property definition.
-	 */
-	protected static function properties( string $id = '' ): array {
-		return [];
-	}
-
-	/**
 	 * Gets the model's property definitions with values.
 	 *
 	 * The result of this method can be used to populate input forms for
@@ -395,6 +384,17 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 	 */
 	public static function idProperty(): string {
 		return 'id';
+	}
+
+	/**
+	 * Gets the model's property definitions.
+	 *
+	 * @param string $id The property id.
+	 *
+	 * @return array An array of property definitions or the given property definition.
+	 */
+	public static function properties( string $id = '' ): array {
+		return [];
 	}
 
 	/* -------------------------------------------------------------------------
