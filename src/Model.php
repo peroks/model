@@ -13,7 +13,7 @@ use JsonSerializable;
  */
 abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 
-	// Data formats
+	// Valid data formats
 	const DATA_RAW        = 'raw'; // Get the raw internal data array.
 	const DATA_FULL       = 'fUll'; // Get a full data array with default values for missing properties.
 	const DATA_PROPERTIES = 'properties'; // Get an array of the model properties.
@@ -217,7 +217,7 @@ abstract class Model implements ModelInterface, Iterator, JsonSerializable {
 			}
 
 			if ( $property[ Property::VALUE ] instanceof ModelInterface ) {
-				$property[ Property::PROPERTIES ] = $property[ Property::VALUE ]->data( Model::DATA_PROPERTIES );
+				$property[ Property::PROPERTIES ] = $property[ Property::VALUE ]->data( self::DATA_PROPERTIES );
 			}
 
 			$result[] = Property::create( $property );
