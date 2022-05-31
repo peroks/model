@@ -17,14 +17,14 @@ interface ModelInterface {
 	public function id();
 
 	/**
-	 * Checks if the model has the given property for reading or writing.
+	 * Checks if the model has the given property.
 	 *
 	 * @param string $id The property id.
 	 * @param string $context Check if the property is 'readable' or 'writable'.
 	 *
 	 * @return bool True if the model has the given property, false otherwise.
 	 */
-	public function has( string $id, string $context = Property::READABLE ): bool;
+	public function has( string $id, string $context = '' ): bool;
 
 	/**
 	 * Gets an array representing the model's property values.

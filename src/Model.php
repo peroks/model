@@ -229,14 +229,14 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	}
 
 	/**
-	 * Checks if the model has the given property for reading or writing.
+	 * Checks if the model has the given property.
 	 *
 	 * @param string $id The property id.
 	 * @param string $context Check if the property is 'readable' or 'writable'.
 	 *
 	 * @return bool True if the model has the given property, false otherwise.
 	 */
-	public function has( string $id, string $context = Property::READABLE ): bool {
+	public function has( string $id, string $context = '' ): bool {
 		$properties = static::properties();
 
 		if ( array_key_exists( $id, $properties ) ) {
@@ -246,8 +246,8 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 			if ( Property::WRITABLE === $context ) {
 				return $properties[ $id ][ $context ] ?? true;
 			}
+			return true;
 		}
-
 		return false;
 	}
 
@@ -463,7 +463,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 * -------------------------------------------------------------------------
 	 * The support for this interface is limited, because a model's properties
 	 * are fixed. In contrast to a real array, adding or removing a
-	 * property (offset) from a model doesn't work.
+	 * property (offset) from a model will fail silently.
 	 * ---------------------------------------------------------------------- */
 
 	/**
