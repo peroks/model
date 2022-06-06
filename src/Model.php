@@ -171,6 +171,10 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 */
 	protected function set( string $id, $value ): bool {
 		if ( $this->has( $id, Property::WRITABLE ) ) {
+			if ( $value instanceof ModelInterface ) {
+				$value = $value->data();
+			}
+
 			$this->changes[ $id ] = $value;
 			return true;
 		}
