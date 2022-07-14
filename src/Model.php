@@ -90,7 +90,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 * Gets the model as a json encoded string.
 	 */
 	public function __toString(): string {
-		return json_encode( $this, JSON_UNESCAPED_UNICODE, JSON_UNESCAPED_SLASHES );
+		return json_encode( $this, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
 	}
 
 	/**
@@ -436,6 +436,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 *
 	 * @return int|string|null
 	 */
+	#[\ReturnTypeWillChange]
 	public function key() {
 		$properties = array_keys( static::properties() );
 		return $properties[ $this->position ] ?? null;
@@ -488,6 +489,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 *
 	 * @return mixed The property value.
 	 */
+	#[\ReturnTypeWillChange]
 	public function offsetGet( $offset ) {
 		return $this->get( $offset );
 	}
