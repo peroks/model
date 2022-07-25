@@ -425,6 +425,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 *
 	 * @return mixed
 	 */
+	#[\ReturnTypeWillChange]
 	public function current() {
 		$properties = array_values( static::properties() );
 		$property   = $properties[ $this->position ];
