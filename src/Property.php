@@ -3,19 +3,19 @@
 /**
  * The property properties.
  *
- * @property-read string $id The property id.
- * @property-read string $name The property name.
- * @property-read string $desc The property description.
- * @property-read string $type The property type (defaults to ANY).
- * @property-read string $model The class name of another model.
+ * @property string $id The property id.
+ * @property string $name The property name.
+ * @property string $desc The property description.
+ * @property string $type The property type (defaults to ANY).
+ * @property string $model The class name of another model.
  * @property array $properties A model, object or array property definition.
- * @property-read bool $required Whether the property is required or not, defaults to false.
- * @property-read bool $disabled Whether the property is disabled or not, defaults to false.
- * @property-read bool $readable Whether the property is readable or not, defaults to true.
- * @property-read bool $writeable Whether the property is writable or not, defaults to false.
- * @property-read string $pattern A regex pattern to validate the property value against.
- * @property-read array $enum An array containing all allowed values.
- * @property-read mixed $default The property default value.
+ * @property bool $required Whether the property is required or not, defaults to false.
+ * @property bool $disabled Whether the property is disabled or not, defaults to false.
+ * @property bool $readable Whether the property is readable or not, defaults to true.
+ * @property bool $writeable Whether the property is writable or not, defaults to false.
+ * @property string $pattern A regex pattern to validate the property value against.
+ * @property array $enum An array containing all allowed values.
+ * @property mixed $default The property default value.
  * @property mixed value The property value.
  *
  * @author Per Egil Roksvaag
@@ -101,11 +101,10 @@ class Property extends Model {
 				'type' => self::TYPE_STRING,
 			],
 			'properties' => [
-				'id'       => 'properties',
-				'name'     => 'Properties',
-				'desc'     => 'A model, object or array property definition',
-				'type'     => self::TYPE_ARRAY,
-				'writable' => true,
+				'id'   => 'properties',
+				'name' => 'Properties',
+				'desc' => 'A model, object or array property definition',
+				'type' => self::TYPE_ARRAY,
 			],
 			'required'   => [
 				'id'      => 'required',
@@ -154,11 +153,10 @@ class Property extends Model {
 				'type' => self::TYPE_ANY,
 			],
 			'value'      => [
-				'id'       => 'value',
-				'name'     => 'Property value',
-				'desc'     => 'The property value',
-				'type'     => self::TYPE_ANY,
-				'writable' => true,
+				'id'   => 'value',
+				'name' => 'Property value',
+				'desc' => 'The property value',
+				'type' => self::TYPE_ANY,
 			],
 		];
 

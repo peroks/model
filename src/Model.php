@@ -24,6 +24,11 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 */
 	protected int $position = 0;
 
+	/**
+	 * @var array An array of custom properties.
+	 */
+	static protected array $properties = [];
+
 	/* -------------------------------------------------------------------------
 	 * Magic functions
 	 * ---------------------------------------------------------------------- */
@@ -414,6 +419,17 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	}
 
 	/**
+	 * Gets the model's property definitions.
+	 *
+	 * @param string $id The property id.
+	 *
+	 * @return array An array of property definitions or the given property definition.
+	 */
+	public static function properties( string $id = '' ): array {
+		return $id ? static::$properties[ $id ] : static::$properties;
+	}
+
+	/**
 	 * Gets the model's id property.
 	 *
 	 * @return string The model's id property.
@@ -423,13 +439,14 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	}
 
 	/**
-	 * Gets the model's property definitions.
+	 * Adds a custom property to a model.
 	 *
-	 * @param string $id The property id.
-	 *
-	 * @return array An array of property definitions or the given property definition.
+	 * @param Property $property The custom property.
 	 */
-	abstract public static function properties( string $id = '' ): array;
+	public static function addProperty( Property $property ): void {
+		$property->validate();
+		static::$properties[ $property->id() ] = $property->data();
+	}
 
 	/* -------------------------------------------------------------------------
 	 * JsonSerializable implementation

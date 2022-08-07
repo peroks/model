@@ -83,13 +83,6 @@ interface ModelInterface {
 	public static function create( $data = [] ): self;
 
 	/**
-	 * Gets the model's id property.
-	 *
-	 * @return string The model's id property.
-	 */
-	public static function idProperty(): string;
-
-	/**
 	 * Gets the model's property definitions.
 	 *
 	 * @param string $id The property id.
@@ -97,4 +90,18 @@ interface ModelInterface {
 	 * @return array An array of property definitions or the given property definition.
 	 */
 	public static function properties( string $id = '' ): array;
+
+	/**
+	 * Gets the model's id property.
+	 *
+	 * @return string The model's id property.
+	 */
+	public static function idProperty(): string;
+
+	/**
+	 * Adds a custom property to a model.
+	 *
+	 * @param Property $property The custom property.
+	 */
+	public static function addProperty( Property $property ): void;
 }
