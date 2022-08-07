@@ -9,6 +9,12 @@
  */
 interface ModelInterface {
 
+	// Valid data formats
+	const DATA_RAW        = 'raw'; // Get the raw internal data array.
+	const DATA_FULL       = 'fUll'; // Get a full data array with default values for missing properties.
+	const DATA_COMPACT    = 'compact'; // Get a compact data array stripped of all null and default values.
+	const DATA_PROPERTIES = 'properties'; // Get an array of the model properties.
+
 	/**
 	 * Gets the model id.
 	 *
@@ -34,6 +40,22 @@ interface ModelInterface {
 	 * @return Property[]|array An array of the model data.
 	 */
 	public function data( string $format = '' ): array;
+
+	/**
+	 * Gets a reference to the internal data array.
+	 *
+	 * @return array A reference to the internal data array.
+	 */
+	public function &getReference(): array;
+
+	/**
+	 * Sets the internal data array by reference.
+	 *
+	 * @param array $data The new internal data.
+	 *
+	 * @return static
+	 */
+	public function setReference( array &$data ): self;
 
 	/**
 	 * Patches a model with the given data array.

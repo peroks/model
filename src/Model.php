@@ -14,20 +14,10 @@ use JsonSerializable;
  */
 abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSerializable {
 
-	// Valid data formats
-	const DATA_RAW        = 'raw'; // Get the raw internal data array.
-	const DATA_FULL       = 'fUll'; // Get a full data array with default values for missing properties.
-	const DATA_PROPERTIES = 'properties'; // Get an array of the model properties.
-
 	/**
 	 * An assoc array of the model properties.
 	 */
 	protected array $data = [];
-
-	/**
-	 * An assoc array of changed model properties.
-	 */
-	protected array $changes = [];
 
 	/**
 	 * The current position of the model's iterator.
@@ -96,7 +86,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	/**
 	 * Prepares the model data for serialization.
 	 *
-	 * @return array The model's data and current changes.
+	 * @return array The model's data and position.
 	 */
 	public function __serialize(): array {
 		return get_object_vars( $this );
@@ -109,7 +99,6 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 */
 	public function __unserialize( array $restored ) {
 		$this->data     = $restored['data'];
-		$this->changes  = $restored['changes'];
 		$this->position = $restored['position'];
 	}
 
@@ -127,7 +116,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 */
 	protected function get( string $id, array $property = [] ) {
 		$property = $property ?: static::properties( $id );
-		$value    = $this->changes[ $id ] ?? $this->data[ $id ] ?? $property[ Property::DEFAULT ] ?? null;
+		$value    = $this->data[ $id ] ?? $property[ Property::DEFAULT ] ?? null;
 
 		// Shortcut non-readable properties and null values.
 		if ( empty( $property[ Property::READABLE ] ?? true ) || is_null( $value ) ) {
@@ -140,15 +129,21 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 			$model = $property[ Property::MODEL ] ?? null;
 
 			if ( $model ) {
+				if ( empty( array_key_exists( $id, $this->data ) ) ) {
+					$this->data[ $id ] = $value;
+				}
 
 				// Convert an array to an array of models.
 				if ( $value && Property::TYPE_ARRAY === $type ) {
-					return array_map( [ $model, 'create' ], $value );
+					foreach ( $this->data[ $id ] as &$entry ) {
+						$temp[] = $model::create()->setReference( $entry );
+					}
+					return $temp ?? [];
 				}
 
 				// Convert an array to a model.
 				if ( Property::TYPE_OBJECT === $type ) {
-					return $model::create( $value );
+					return $model::create()->setReference( $this->data[ $id ] );
 				}
 			}
 
@@ -175,7 +170,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 				$value = $value->data();
 			}
 
-			$this->changes[ $id ] = $value;
+			$this->data[ $id ] = $value;
 			return true;
 		}
 		return false;
@@ -264,10 +259,22 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 */
 	public function data( string $format = '' ): array {
 
+		// Get a compact data array stripped of all null and default values.
+		if ( self::DATA_COMPACT === $format ) {
+			foreach ( static::properties() as $id => $property ) {
+				if ( array_key_exists( $id, $this->data ) ) {
+					if ( $this->data[ $id ] !== ( $property[ Property::DEFAULT ] ?? null ) ) {
+						$result[ $id ] = $this->data[ $id ];
+					}
+				}
+			}
+			return $result ?? [];
+		}
+
 		// Get values for all properties by filling up with default or null values.
 		if ( self::DATA_FULL === $format ) {
 			foreach ( static::properties() as $id => $property ) {
-				$result[ $id ] = $this->changes[ $id ] ?? $this->data[ $id ] ?? $property[ Property::DEFAULT ] ?? null;
+				$result[ $id ] = $this->data[ $id ] ?? $property[ Property::DEFAULT ] ?? null;
 			}
 			return $result ?? [];
 		}
@@ -278,7 +285,29 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 		}
 
 		// Gets the internal raw data.
-		return array_replace( $this->data, $this->changes );
+		return $this->data;
+	}
+
+	/**
+	 * Gets a reference to the internal data array.
+	 *
+	 * @return array A reference to the internal data array.
+	 */
+	public function &getReference(): array {
+		return $this->data;
+	}
+
+	/**
+	 * Sets the internal data array by reference.
+	 *
+	 * @param array $data The new internal data.
+	 *
+	 * @return static
+	 */
+	public function setReference( array &$data ): self {
+		$data       = static::normalize( $data );
+		$this->data = &$data;
+		return $this;
 	}
 
 	/**
@@ -289,7 +318,9 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 * @return static The updated model instance.
 	 */
 	public function patch( array $data ): self {
-		$this->changes = array_replace( $this->changes, static::normalize( $data ) );
+		foreach ( static::normalize( $data ) as $id => $value ) {
+			$this->data[ $id ] = $value;
+		}
 		return $this;
 	}
 

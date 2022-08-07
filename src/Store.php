@@ -134,7 +134,7 @@ class Store implements StoreInterface {
 		}
 
 		return array_filter( $all, function( ModelInterface $model ) use ( $filter ): bool {
-			return array_intersect_assoc( $filter, $model->data( Model::DATA_FULL ) ) === $filter;
+			return array_intersect_assoc( $filter, $model->data( ModelInterface::DATA_FULL ) ) === $filter;
 		} );
 	}
 
@@ -159,16 +159,16 @@ class Store implements StoreInterface {
 
 		if ( self::SET_PATCH ) {
 			$stored = $this->get( $id, $class )->patch( $model->data() );
-			$data   = $stored->validate()->data();
+			$data   = $stored->validate()->data( ModelInterface::DATA_COMPACT );
 		} elseif ( self::SET_MERGE ) {
 			$stored = $this->get( $id, $class );
 			$data   = array_merge_recursive( $stored->data(), $model->data() );
-			$data   = $stored::create( $data )->validate()->data();
+			$data   = $stored::create( $data )->validate()->data( ModelInterface::DATA_COMPACT );
 		} else {
-			$data = $model->validate()->data();
+			$data = $model->validate()->data( ModelInterface::DATA_COMPACT );
 		}
 
-		$this->changes[ $class ][ $id ] = static::array_filter_null( $data );
+		$this->changes[ $class ][ $id ] = $data;
 		return $id;
 	}
 
@@ -320,18 +320,5 @@ class Store implements StoreInterface {
 
 	public static function sort( array &$data ) {
 		ksort( $data, SORT_NATURAL );
-	}
-
-	/**
-	 * Removes all null values from an array.
-	 *
-	 * @param array|object $array The source array.
-	 *
-	 * @return array The modified array.
-	 */
-	public static function array_filter_null( $array ): array {
-		return array_filter( (array) $array, function( $value ) {
-			return isset( $value );
-		} );
 	}
 }
