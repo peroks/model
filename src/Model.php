@@ -305,13 +305,18 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	/**
 	 * Sets the internal data array by reference.
 	 *
-	 * @param array $data The new internal data.
+	 * @param ModelInterface|array $data The new internal data.
 	 *
 	 * @return static
 	 */
-	public function setReference( array &$data ): self {
-		$data       = static::normalize( $data );
-		$this->data = &$data;
+	public function setReference( &$data ): self {
+		if ( $data instanceof ModelInterface ) {
+			$this->data = $data->getReference();
+		} else {
+			$data       = static::normalize( $data );
+			$this->data = &$data;
+		}
+
 		return $this;
 	}
 

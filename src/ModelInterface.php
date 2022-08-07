@@ -51,11 +51,11 @@ interface ModelInterface {
 	/**
 	 * Sets the internal data array by reference.
 	 *
-	 * @param array $data The new internal data.
+	 * @param ModelInterface|array $data The new internal data.
 	 *
 	 * @return static
 	 */
-	public function setReference( array &$data ): self;
+	public function setReference( &$data ): self;
 
 	/**
 	 * Patches a model with the given data array.
