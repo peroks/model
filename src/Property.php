@@ -50,116 +50,108 @@ class Property extends Model {
 	const TYPE_OBJECT  = 'object';
 
 	/**
-	 * Gets the model's property definitions.
-	 *
-	 * @param string $id A property definition id.
-	 *
-	 * @return array An array of property definitions or the given property definition.
+	 * @var array An array of model properties.
 	 */
-	public static function properties( string $id = '' ): array {
-		$properties = [
-			'id'         => [
-				'id'       => 'id',
-				'name'     => 'Property id',
-				'desc'     => 'The property id',
-				'type'     => self::TYPE_STRING,
-				'required' => true,
+	protected static array $properties = [
+		'id'         => [
+			'id'       => 'id',
+			'name'     => 'Property id',
+			'desc'     => 'The property id',
+			'type'     => self::TYPE_STRING,
+			'required' => true,
+		],
+		'name'       => [
+			'id'       => 'name',
+			'name'     => 'Property name',
+			'desc'     => 'The property name',
+			'type'     => self::TYPE_STRING,
+			'required' => true,
+		],
+		'desc'       => [
+			'id'   => 'desc',
+			'name' => 'Property description',
+			'desc' => 'The property description',
+			'type' => self::TYPE_STRING,
+		],
+		'type'       => [
+			'id'      => 'type',
+			'name'    => 'Property type',
+			'desc'    => 'The property type: boolean, integer, double, string, array, object',
+			'type'    => self::TYPE_STRING,
+			'default' => self::TYPE_ANY,
+			'enum'    => [
+				self::TYPE_ANY,
+				self::TYPE_BOOL,
+				self::TYPE_INTEGER,
+				self::TYPE_FLOAT,
+				self::TYPE_STRING,
+				self::TYPE_ARRAY,
+				self::TYPE_OBJECT,
 			],
-			'name'       => [
-				'id'       => 'name',
-				'name'     => 'Property name',
-				'desc'     => 'The property name',
-				'type'     => self::TYPE_STRING,
-				'required' => true,
-			],
-			'desc'       => [
-				'id'   => 'desc',
-				'name' => 'Property description',
-				'desc' => 'The property description',
-				'type' => self::TYPE_STRING,
-			],
-			'type'       => [
-				'id'      => 'type',
-				'name'    => 'Property type',
-				'desc'    => 'The property type: boolean, integer, double, string, array, object',
-				'type'    => self::TYPE_STRING,
-				'default' => self::TYPE_ANY,
-				'enum'    => [
-					self::TYPE_ANY,
-					self::TYPE_BOOL,
-					self::TYPE_INTEGER,
-					self::TYPE_FLOAT,
-					self::TYPE_STRING,
-					self::TYPE_ARRAY,
-					self::TYPE_OBJECT,
-				],
-			],
-			'model'      => [
-				'id'   => 'model',
-				'name' => 'Model class name',
-				'desc' => 'The class name of another model',
-				'type' => self::TYPE_STRING,
-			],
-			'properties' => [
-				'id'   => 'properties',
-				'name' => 'Properties',
-				'desc' => 'A model, object or array property definition',
-				'type' => self::TYPE_ARRAY,
-			],
-			'required'   => [
-				'id'      => 'required',
-				'name'    => 'Required',
-				'desc'    => 'Whether the property is required or not, defaults to false.',
-				'type'    => self::TYPE_BOOL,
-				'default' => false,
-			],
-			'disabled'   => [
-				'id'      => 'disabled',
-				'name'    => 'Disabled',
-				'desc'    => 'Whether the property is disabled or not, defaults to false',
-				'type'    => self::TYPE_BOOL,
-				'default' => false,
-			],
-			'readable'   => [
-				'id'      => 'readable',
-				'name'    => 'Readable',
-				'desc'    => 'Whether the property is readable or not, defaults to true',
-				'type'    => self::TYPE_BOOL,
-				'default' => true,
-			],
-			'writable'   => [
-				'id'      => 'writable',
-				'name'    => 'Writable',
-				'desc'    => 'Whether the property is writable or not, defaults to true',
-				'type'    => self::TYPE_BOOL,
-				'default' => true,
-			],
-			'pattern'    => [
-				'id'   => 'pattern',
-				'name' => 'Regex validation',
-				'desc' => 'A regex pattern to validate the property value against',
-				'type' => self::TYPE_STRING,
-			],
-			'enum'       => [
-				'id'   => 'enum',
-				'name' => 'Enumeration',
-				'desc' => 'An array containing all allowed values',
-				'type' => self::TYPE_ARRAY,
-			],
-			'default'    => [
-				'id'   => 'default',
-				'name' => 'Default value',
-				'desc' => 'The property default value',
-				'type' => self::TYPE_ANY,
-			],
-			'value'      => [
-				'id'   => 'value',
-				'name' => 'Property value',
-				'desc' => 'The property value',
-				'type' => self::TYPE_ANY,
-			],
-		];
-
-		return $id ? $properties[ $id ] : $properties;
-	}
+		],
+		'model'      => [
+			'id'   => 'model',
+			'name' => 'Model class name',
+			'desc' => 'The class name of another model',
+			'type' => self::TYPE_STRING,
+		],
+		'properties' => [
+			'id'   => 'properties',
+			'name' => 'Properties',
+			'desc' => 'A model, object or array property definition',
+			'type' => self::TYPE_ARRAY,
+		],
+		'required'   => [
+			'id'      => 'required',
+			'name'    => 'Required',
+			'desc'    => 'Whether the property is required or not, defaults to false.',
+			'type'    => self::TYPE_BOOL,
+			'default' => false,
+		],
+		'disabled'   => [
+			'id'      => 'disabled',
+			'name'    => 'Disabled',
+			'desc'    => 'Whether the property is disabled or not, defaults to false',
+			'type'    => self::TYPE_BOOL,
+			'default' => false,
+		],
+		'readable'   => [
+			'id'      => 'readable',
+			'name'    => 'Readable',
+			'desc'    => 'Whether the property is readable or not, defaults to true',
+			'type'    => self::TYPE_BOOL,
+			'default' => true,
+		],
+		'writable'   => [
+			'id'      => 'writable',
+			'name'    => 'Writable',
+			'desc'    => 'Whether the property is writable or not, defaults to true',
+			'type'    => self::TYPE_BOOL,
+			'default' => true,
+		],
+		'pattern'    => [
+			'id'   => 'pattern',
+			'name' => 'Regex validation',
+			'desc' => 'A regex pattern to validate the property value against',
+			'type' => self::TYPE_STRING,
+		],
+		'enum'       => [
+			'id'   => 'enum',
+			'name' => 'Enumeration',
+			'desc' => 'An array containing all allowed values',
+			'type' => self::TYPE_ARRAY,
+		],
+		'default'    => [
+			'id'   => 'default',
+			'name' => 'Default value',
+			'desc' => 'The property default value',
+			'type' => self::TYPE_ANY,
+		],
+		'value'      => [
+			'id'   => 'value',
+			'name' => 'Property value',
+			'desc' => 'The property value',
+			'type' => self::TYPE_ANY,
+		],
+	];
 }
