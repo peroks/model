@@ -134,7 +134,7 @@ class Store implements StoreInterface {
 		}
 
 		return array_filter( $all, function( ModelInterface $model ) use ( $filter ): bool {
-			return array_intersect_assoc( $filter, $model->data( ModelInterface::DATA_FULL ) ) === $filter;
+			return array_intersect_assoc( $filter, $model->data( ModelData::FULL ) ) === $filter;
 		} );
 	}
 
@@ -159,13 +159,13 @@ class Store implements StoreInterface {
 
 		if ( self::SET_PATCH ) {
 			$stored = $this->get( $id, $class )->patch( $model->data() );
-			$data   = $stored->validate()->data( ModelInterface::DATA_COMPACT );
+			$data   = $stored->validate()->data( ModelData::COMPACT );
 		} elseif ( self::SET_MERGE ) {
 			$stored = $this->get( $id, $class );
 			$data   = array_merge_recursive( $stored->data(), $model->data() );
-			$data   = $stored::create( $data )->validate()->data( ModelInterface::DATA_COMPACT );
+			$data   = $stored::create( $data )->validate()->data( ModelData::COMPACT );
 		} else {
-			$data = $model->validate()->data( ModelInterface::DATA_COMPACT );
+			$data = $model->validate()->data( ModelData::COMPACT );
 		}
 
 		$this->changes[ $class ][ $id ] = $data;

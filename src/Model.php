@@ -42,7 +42,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 		if ( $data instanceof static ) {
 			$data = $data->data();
 		} elseif ( $data instanceof ModelInterface ) {
-			$data = $data->data( self::DATA_FULL );
+			$data = $data->data( ModelData::FULL );
 		}
 
 		$this->data = static::normalize( $data );
@@ -211,7 +211,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 			}
 
 			if ( $property[ PropertyItem::VALUE ] instanceof ModelInterface ) {
-				$property[ PropertyItem::PROPERTIES ] = $property[ PropertyItem::VALUE ]->data( self::DATA_PROPERTIES );
+				$property[ PropertyItem::PROPERTIES ] = $property[ PropertyItem::VALUE ]->data( ModelData::PROPERTIES );
 			}
 
 			$result[] = Property::create( $property );
@@ -265,7 +265,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	public function data( string $format = '' ): array {
 
 		// Get a compact data array stripped of all null and default values.
-		if ( self::DATA_COMPACT === $format ) {
+		if ( ModelData::COMPACT === $format ) {
 			foreach ( static::properties() as $id => $property ) {
 				if ( array_key_exists( $id, $this->data ) ) {
 					if ( $this->data[ $id ] !== ( $property[ PropertyItem::DEFAULT ] ?? null ) ) {
@@ -277,7 +277,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 		}
 
 		// Get values for all properties by filling up with default or null values.
-		if ( self::DATA_FULL === $format ) {
+		if ( ModelData::FULL === $format ) {
 			foreach ( static::properties() as $id => $property ) {
 				$result[ $id ] = $this->data[ $id ] ?? $property[ PropertyItem::DEFAULT ] ?? null;
 			}
@@ -285,7 +285,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 		}
 
 		// Gets an array of Property models for populating frontend forms.
-		if ( self::DATA_PROPERTIES === $format ) {
+		if ( ModelData::PROPERTIES === $format ) {
 			return $this->form();
 		}
 

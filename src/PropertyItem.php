@@ -4,7 +4,8 @@
  * PropertyId constants.
  *
  * @author Per Egil Roksvaag
- * @copyright Silverscreen Tours GmbH
+ * @copyright Per Egil Roksvaag
+ * @license MIT
  */
 abstract class PropertyItem {
 	const ID         = 'id';

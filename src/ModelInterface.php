@@ -9,12 +9,6 @@
  */
 interface ModelInterface {
 
-	// Valid data formats
-	const DATA_RAW        = 'raw'; // Get the raw internal data array.
-	const DATA_FULL       = 'fUll'; // Get a full data array with default values for missing properties.
-	const DATA_COMPACT    = 'compact'; // Get a compact data array stripped of all null and default values.
-	const DATA_PROPERTIES = 'properties'; // Get an array of the model properties.
-
 	/**
 	 * Gets the model id.
 	 *
