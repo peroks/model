@@ -24,134 +24,109 @@
  */
 class Property extends Model {
 
-	// Property ids.
-	const ID         = 'id';
-	const NAME       = 'name';
-	const DESC       = 'desc';
-	const TYPE       = 'type';
-	const MODEL      = 'model';
-	const PROPERTIES = 'properties';
-	const REQUIRED   = 'required';
-	const DISABLED   = 'disabled';
-	const READABLE   = 'readable';
-	const WRITABLE   = 'writable';
-	const PATTERN    = 'pattern';
-	const ENUM       = 'enum';
-	const DEFAULT    = 'default';
-	const VALUE      = 'value';
-
-	// Property types.
-	const TYPE_ANY     = '';
-	const TYPE_BOOL    = 'boolean';
-	const TYPE_INTEGER = 'integer';
-	const TYPE_FLOAT   = 'double';
-	const TYPE_STRING  = 'string';
-	const TYPE_ARRAY   = 'array';
-	const TYPE_OBJECT  = 'object';
-
 	/**
 	 * @var array An array of model properties.
 	 */
 	protected static array $properties = [
 		'id'         => [
-			'id'       => 'id',
-			'name'     => 'Property id',
-			'desc'     => 'The property id',
-			'type'     => self::TYPE_STRING,
-			'required' => true,
+			PropertyItem::ID       => 'id',
+			PropertyItem::NAME     => 'Property id',
+			PropertyItem::DESC     => 'The property id',
+			PropertyItem::TYPE     => PropertyType::STRING,
+			PropertyItem::REQUIRED => true,
 		],
 		'name'       => [
-			'id'       => 'name',
-			'name'     => 'Property name',
-			'desc'     => 'The property name',
-			'type'     => self::TYPE_STRING,
-			'required' => true,
+			PropertyItem::ID       => 'name',
+			PropertyItem::NAME     => 'Property name',
+			PropertyItem::DESC     => 'The property name',
+			PropertyItem::TYPE     => PropertyType::STRING,
+			PropertyItem::REQUIRED => true,
 		],
 		'desc'       => [
-			'id'   => 'desc',
-			'name' => 'Property description',
-			'desc' => 'The property description',
-			'type' => self::TYPE_STRING,
+			PropertyItem::ID   => 'desc',
+			PropertyItem::NAME => 'Property description',
+			PropertyItem::DESC => 'The property description',
+			PropertyItem::TYPE => PropertyType::STRING,
 		],
 		'type'       => [
-			'id'      => 'type',
-			'name'    => 'Property type',
-			'desc'    => 'The property type: boolean, integer, double, string, array, object',
-			'type'    => self::TYPE_STRING,
-			'default' => self::TYPE_ANY,
-			'enum'    => [
-				self::TYPE_ANY,
-				self::TYPE_BOOL,
-				self::TYPE_INTEGER,
-				self::TYPE_FLOAT,
-				self::TYPE_STRING,
-				self::TYPE_ARRAY,
-				self::TYPE_OBJECT,
+			PropertyItem::ID      => 'type',
+			PropertyItem::NAME    => 'Property type',
+			PropertyItem::DESC    => 'The property type: boolean, integer, double, string, array, object',
+			PropertyItem::TYPE    => PropertyType::STRING,
+			PropertyItem::DEFAULT => PropertyType::ANY,
+			PropertyItem::ENUM    => [
+				PropertyType::ANY,
+				PropertyType::BOOL,
+				PropertyType::INTEGER,
+				PropertyType::FLOAT,
+				PropertyType::STRING,
+				PropertyType::ARRAY,
+				PropertyType::OBJECT,
 			],
 		],
 		'model'      => [
-			'id'   => 'model',
-			'name' => 'Model class name',
-			'desc' => 'The class name of another model',
-			'type' => self::TYPE_STRING,
+			PropertyItem::ID   => 'model',
+			PropertyItem::NAME => 'Model class name',
+			PropertyItem::DESC => 'The class name of another model',
+			PropertyItem::TYPE => PropertyType::STRING,
 		],
 		'properties' => [
-			'id'   => 'properties',
-			'name' => 'Properties',
-			'desc' => 'A model, object or array property definition',
-			'type' => self::TYPE_ARRAY,
+			PropertyItem::ID   => 'properties',
+			PropertyItem::NAME => 'Properties',
+			PropertyItem::DESC => 'A model, object or array property definition',
+			PropertyItem::TYPE => PropertyType::ARRAY,
 		],
 		'required'   => [
-			'id'      => 'required',
-			'name'    => 'Required',
-			'desc'    => 'Whether the property is required or not, defaults to false.',
-			'type'    => self::TYPE_BOOL,
-			'default' => false,
+			PropertyItem::ID      => 'required',
+			PropertyItem::NAME    => 'Required',
+			PropertyItem::DESC    => 'Whether the property is required or not, defaults to false.',
+			PropertyItem::TYPE    => PropertyType::BOOL,
+			PropertyItem::DEFAULT => false,
 		],
 		'disabled'   => [
-			'id'      => 'disabled',
-			'name'    => 'Disabled',
-			'desc'    => 'Whether the property is disabled or not, defaults to false',
-			'type'    => self::TYPE_BOOL,
-			'default' => false,
+			PropertyItem::ID      => 'disabled',
+			PropertyItem::NAME    => 'Disabled',
+			PropertyItem::DESC    => 'Whether the property is disabled or not, defaults to false',
+			PropertyItem::TYPE    => PropertyType::BOOL,
+			PropertyItem::DEFAULT => false,
 		],
 		'readable'   => [
-			'id'      => 'readable',
-			'name'    => 'Readable',
-			'desc'    => 'Whether the property is readable or not, defaults to true',
-			'type'    => self::TYPE_BOOL,
-			'default' => true,
+			PropertyItem::ID      => 'readable',
+			PropertyItem::NAME    => 'Readable',
+			PropertyItem::DESC    => 'Whether the property is readable or not, defaults to true',
+			PropertyItem::TYPE    => PropertyType::BOOL,
+			PropertyItem::DEFAULT => true,
 		],
 		'writable'   => [
-			'id'      => 'writable',
-			'name'    => 'Writable',
-			'desc'    => 'Whether the property is writable or not, defaults to true',
-			'type'    => self::TYPE_BOOL,
-			'default' => true,
+			PropertyItem::ID      => 'writable',
+			PropertyItem::NAME    => 'Writable',
+			PropertyItem::DESC    => 'Whether the property is writable or not, defaults to true',
+			PropertyItem::TYPE    => PropertyType::BOOL,
+			PropertyItem::DEFAULT => true,
 		],
 		'pattern'    => [
-			'id'   => 'pattern',
-			'name' => 'Regex validation',
-			'desc' => 'A regex pattern to validate the property value against',
-			'type' => self::TYPE_STRING,
+			PropertyItem::ID   => 'pattern',
+			PropertyItem::NAME => 'Regex validation',
+			PropertyItem::DESC => 'A regex pattern to validate the property value against',
+			PropertyItem::TYPE => PropertyType::STRING,
 		],
 		'enum'       => [
-			'id'   => 'enum',
-			'name' => 'Enumeration',
-			'desc' => 'An array containing all allowed values',
-			'type' => self::TYPE_ARRAY,
+			PropertyItem::ID   => 'enum',
+			PropertyItem::NAME => 'Enumeration',
+			PropertyItem::DESC => 'An array containing all allowed values',
+			PropertyItem::TYPE => PropertyType::ARRAY,
 		],
 		'default'    => [
-			'id'   => 'default',
-			'name' => 'Default value',
-			'desc' => 'The property default value',
-			'type' => self::TYPE_ANY,
+			PropertyItem::ID   => 'default',
+			PropertyItem::NAME => 'Default value',
+			PropertyItem::DESC => 'The property default value',
+			PropertyItem::TYPE => PropertyType::ANY,
 		],
 		'value'      => [
-			'id'   => 'value',
-			'name' => 'Property value',
-			'desc' => 'The property value',
-			'type' => self::TYPE_ANY,
+			PropertyItem::ID   => 'value',
+			PropertyItem::NAME => 'Property value',
+			PropertyItem::DESC => 'The property value',
+			PropertyItem::TYPE => PropertyType::ANY,
 		],
 	];
 }

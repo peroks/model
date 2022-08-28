@@ -121,17 +121,17 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 */
 	protected function get( string $id, array $property = [] ) {
 		$property = $property ?: static::properties( $id );
-		$value    = $this->data[ $id ] ?? $property[ Property::DEFAULT ] ?? null;
+		$value    = $this->data[ $id ] ?? $property[ PropertyItem::DEFAULT ] ?? null;
 
 		// Shortcut non-readable properties and null values.
-		if ( empty( $property[ Property::READABLE ] ?? true ) || is_null( $value ) ) {
+		if ( empty( $property[ PropertyItem::READABLE ] ?? true ) || is_null( $value ) ) {
 			return null;
 		}
 
 		// Maybe convert arrays to models or objects.
 		if ( is_array( $value ) ) {
-			$type  = $property[ Property::TYPE ] ?? null;
-			$model = $property[ Property::MODEL ] ?? null;
+			$type  = $property[ PropertyItem::TYPE ] ?? null;
+			$model = $property[ PropertyItem::MODEL ] ?? null;
 
 			if ( $model ) {
 				if ( empty( array_key_exists( $id, $this->data ) ) ) {
@@ -139,7 +139,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 				}
 
 				// Convert an array to an array of models.
-				if ( $value && Property::TYPE_ARRAY === $type ) {
+				if ( $value && PropertyType::ARRAY === $type ) {
 					foreach ( $this->data[ $id ] as &$entry ) {
 						$temp[] = $model::create()->setReference( $entry );
 					}
@@ -147,13 +147,13 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 				}
 
 				// Convert an array to a model.
-				if ( Property::TYPE_OBJECT === $type ) {
+				if ( PropertyType::OBJECT === $type ) {
 					return $model::create()->setReference( $this->data[ $id ] );
 				}
 			}
 
 			// Convert an array to a standard object.
-			if ( Property::TYPE_OBJECT === $type ) {
+			if ( PropertyType::OBJECT === $type ) {
 				return (object) $value;
 			}
 		}
@@ -170,7 +170,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 * @return bool True if the property was set, false otherwise.
 	 */
 	protected function set( string $id, $value ): bool {
-		if ( $this->has( $id, Property::WRITABLE ) ) {
+		if ( $this->has( $id, PropertyItem::WRITABLE ) ) {
 			if ( $value instanceof ModelInterface ) {
 				$value = $value->data();
 			}
@@ -202,16 +202,16 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 */
 	protected function form(): array {
 		foreach ( static::properties() as $id => $property ) {
-			if ( $property[ Property::DISABLED ] ?? false ) {
+			if ( $property[ PropertyItem::DISABLED ] ?? false ) {
 				continue;
 			}
 
-			if ( $property[ Property::READABLE ] ?? true ) {
-				$property[ Property::VALUE ] = $this->get( $id, $property );
+			if ( $property[ PropertyItem::READABLE ] ?? true ) {
+				$property[ PropertyItem::VALUE ] = $this->get( $id, $property );
 			}
 
-			if ( $property[ Property::VALUE ] instanceof ModelInterface ) {
-				$property[ Property::PROPERTIES ] = $property[ Property::VALUE ]->data( self::DATA_PROPERTIES );
+			if ( $property[ PropertyItem::VALUE ] instanceof ModelInterface ) {
+				$property[ PropertyItem::PROPERTIES ] = $property[ PropertyItem::VALUE ]->data( self::DATA_PROPERTIES );
 			}
 
 			$result[] = Property::create( $property );
@@ -244,10 +244,10 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 		$properties = static::properties();
 
 		if ( array_key_exists( $id, $properties ) ) {
-			if ( Property::READABLE === $context ) {
+			if ( PropertyItem::READABLE === $context ) {
 				return $properties[ $id ][ $context ] ?? true;
 			}
-			if ( Property::WRITABLE === $context ) {
+			if ( PropertyItem::WRITABLE === $context ) {
 				return $properties[ $id ][ $context ] ?? true;
 			}
 			return true;
@@ -268,7 +268,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 		if ( self::DATA_COMPACT === $format ) {
 			foreach ( static::properties() as $id => $property ) {
 				if ( array_key_exists( $id, $this->data ) ) {
-					if ( $this->data[ $id ] !== ( $property[ Property::DEFAULT ] ?? null ) ) {
+					if ( $this->data[ $id ] !== ( $property[ PropertyItem::DEFAULT ] ?? null ) ) {
 						$result[ $id ] = $this->data[ $id ];
 					}
 				}
@@ -279,7 +279,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 		// Get values for all properties by filling up with default or null values.
 		if ( self::DATA_FULL === $format ) {
 			foreach ( static::properties() as $id => $property ) {
-				$result[ $id ] = $this->data[ $id ] ?? $property[ Property::DEFAULT ] ?? null;
+				$result[ $id ] = $this->data[ $id ] ?? $property[ PropertyItem::DEFAULT ] ?? null;
 			}
 			return $result ?? [];
 		}
@@ -342,12 +342,12 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	public function validate(): self {
 		foreach ( static::properties() as $id => $property ) {
 			$value = $this->get( $id, $property );
-			$name  = $property[ Property::NAME ];
-			$type  = $property[ Property::TYPE ] ?? Property::TYPE_ANY;
+			$name  = $property[ PropertyItem::NAME ];
+			$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::ANY;
 
 			// Check that all required properties are set.
 			if ( is_null( $value ) ) {
-				if ( $property[ Property::REQUIRED ] ?? false ) {
+				if ( $property[ PropertyItem::REQUIRED ] ?? false ) {
 					$error = sprintf( '%s is required', $name );
 					throw new Exception( $error, 400 );
 				}
@@ -361,10 +361,10 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 			}
 
 			// Validate models.
-			if ( $model = $property[ Property::MODEL ] ?? null ) {
+			if ( $model = $property[ PropertyItem::MODEL ] ?? null ) {
 
 				// Validate a single model instance.
-				if ( Property::TYPE_OBJECT === $type ) {
+				if ( PropertyType::OBJECT === $type ) {
 					if ( empty( is_a( $value, $model ) && $value instanceof ModelInterface ) ) {
 						$error = sprintf( '%s must be an instance of %s', $name, $model );
 						throw new Exception( $error, 400 );
@@ -374,7 +374,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 				}
 
 				// Validate an array of model instances.
-				if ( Property::TYPE_ARRAY === $type ) {
+				if ( PropertyType::ARRAY === $type ) {
 					foreach ( $value as $instance ) {
 						if ( empty( is_a( $instance, $model ) && $instance instanceof ModelInterface ) ) {
 							$error = sprintf( '%s must be an array of %s instances', $name, $model );
@@ -387,7 +387,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 			}
 
 			// Check enumeration constraint.
-			if ( $enum = $property[ Property::ENUM ] ?? [] ) {
+			if ( $enum = $property[ PropertyItem::ENUM ] ?? [] ) {
 				if ( is_scalar( $value ) && empty( in_array( $value, $enum, true ) ) ) {
 					$error = sprintf( '%s must be one of %s', $name, join( ', ', $enum ) );
 					throw new Exception( $error, 400 );
@@ -399,8 +399,8 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 			}
 
 			// Check regex pattern constraint.
-			if ( isset( $property[ Property::PATTERN ] ) ) {
-				$pattern = '/' . str_replace( '/', '\\/', $property[ Property::PATTERN ] ) . '/';
+			if ( isset( $property[ PropertyItem::PATTERN ] ) ) {
+				$pattern = '/' . str_replace( '/', '\\/', $property[ PropertyItem::PATTERN ] ) . '/';
 
 				if ( empty( preg_match( $pattern, $value ) ) ) {
 					$error = sprintf( '%s must match the regex pattern %s', $name, $property['pattern'] );
@@ -482,7 +482,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	public function current() {
 		$properties = array_values( static::properties() );
 		$property   = $properties[ $this->position ];
-		return $this->get( $property[ Property::ID ], $properties );
+		return $this->get( $property[ PropertyItem::ID ], $properties );
 	}
 
 	/**
