@@ -3,7 +3,7 @@
 use Peroks\Model\PropertyType;
 
 /**
- * The supplier properties.
+ * The extended tour properties.
  *
  * @property-read string $id The tour id.
  * @property string $name The tour name.
@@ -13,7 +13,8 @@ use Peroks\Model\PropertyType;
  * @property object $details The tour details.
  *
  * @author Per Egil Roksvaag
- * @copyright Silverscreen Tours GmbH
+ * @copyright Per Egil Roksvaag
+ * @license MIT
  */
 class ExtendedTour extends Tour {
 

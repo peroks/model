@@ -1,5 +1,11 @@
 <?php namespace Peroks\Model;
 
+use ArrayAccess;
+use Countable;
+use IteratorAggregate;
+use JsonSerializable;
+use Serializable;
+
 /**
  * The model interface.
  *
@@ -7,7 +13,7 @@
  * @copyright Per Egil Roksvaag
  * @license MIT
  */
-interface ModelInterface {
+interface ModelInterface extends IteratorAggregate, ArrayAccess, Serializable, Countable, JsonSerializable {
 
 	/**
 	 * Gets the model id.
@@ -17,16 +23,6 @@ interface ModelInterface {
 	public function id();
 
 	/**
-	 * Checks if the model has the given property.
-	 *
-	 * @param string $id The property id.
-	 * @param string $context Check if the property is 'readable' or 'writable'.
-	 *
-	 * @return bool True if the model has the given property, false otherwise.
-	 */
-	public function has( string $id, string $context = '' ): bool;
-
-	/**
 	 * Gets an array representing the model's property values.
 	 *
 	 * @param string $format Specifies the format of the returned data array.
@@ -34,22 +30,6 @@ interface ModelInterface {
 	 * @return Property[]|array An array of the model data.
 	 */
 	public function data( string $format = '' ): array;
-
-	/**
-	 * Gets a reference to the internal data array.
-	 *
-	 * @return array A reference to the internal data array.
-	 */
-	public function &getReference(): array;
-
-	/**
-	 * Sets the internal data array by reference.
-	 *
-	 * @param ModelInterface|array $data The new internal data.
-	 *
-	 * @return static
-	 */
-	public function setReference( &$data ): self;
 
 	/**
 	 * Patches a model with the given data array.

@@ -1,9 +1,17 @@
 <?php declare( strict_types = 1 );
 
+use Peroks\Model\Model;
 use Peroks\Model\ModelData;
-use Peroks\Model\XModel;
+use Peroks\Model\ModelException;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Model test case.
+ *
+ * @author Per Egil Roksvaag
+ * @copyright Per Egil Roksvaag
+ * @license MIT
+ */
 final class ModelTest extends TestCase {
 
 	protected function setUp(): void {
@@ -31,10 +39,10 @@ final class ModelTest extends TestCase {
 		];
 
 		return [
-			[ XModel::create( $data ), $data ],
+			[ Model::create( $data ), $data ],
 			[ Tour::create( $data ), $data ],
 			[ Tour::create( (object) $data ), $data ],
-			[ Tour::create( XModel::create( $data ) ), $data ],
+			[ Tour::create( Model::create( $data ) ), $data ],
 			[ ExtendedTour::create( Tour::create( $data ) ), $data ],
 		];
 	}
@@ -42,16 +50,16 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param XModel $model
+	 * @param Model $model
 	 * @param array $data
 	 */
-	public function testValidate( XModel $model, array $data ): void {
+	public function testValidate( Model $model, array $data ): void {
 		if ( $model instanceof ExtendedTour ) {
-			$this->expectException( Exception::class );
+			$this->expectException( ModelException::class );
 			$model->validate();
 			$this->assertNotEquals( $model->getArrayCopy(), $data );
 		} else {
-			$this->assertInstanceOf( XModel::class, $model->validate() );
+			$this->assertInstanceOf( Model::class, $model->validate() );
 			$this->assertEquals( $model->getArrayCopy(), $data );
 		}
 	}
@@ -59,10 +67,10 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param XModel $model
+	 * @param Model $model
 	 * @param array $data
 	 */
-	public function testString( XModel $model, array $data ): void {
+	public function testString( Model $model, array $data ): void {
 		$this->assertIsString( $model['name'] );
 		$this->assertIsString( $model->name );
 		$this->assertEquals( $model['name'], $data['name'] );
@@ -85,10 +93,10 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param XModel $model
+	 * @param Model $model
 	 * @param array $data
 	 */
-	public function testArray( XModel $model, array $data ): void {
+	public function testArray( Model $model, array $data ): void {
 		$count = count( $data['cities'] );
 
 		$this->assertIsArray( $model['cities'] );
@@ -114,10 +122,10 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param XModel $model
+	 * @param Model $model
 	 * @param array $data
 	 */
-	public function testObject( XModel $model, array $data ): void {
+	public function testObject( Model $model, array $data ): void {
 		$count = count( get_object_vars( $data['details'] ) );
 
 		$this->assertIsObject( $model['details'] );
@@ -156,10 +164,10 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param XModel $model
+	 * @param Model $model
 	 * @param array $data
 	 */
-	public function testProperty( XModel $model, array $data ): void {
+	public function testProperty( Model $model, array $data ): void {
 		$this->assertIsArray( $model::properties() );
 		$this->assertNotEmpty( $model->id() );
 
@@ -175,10 +183,10 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param XModel $model
+	 * @param Model $model
 	 * @param array $data
 	 */
-	public function testData( XModel $model, array $data ): void {
+	public function testData( Model $model, array $data ): void {
 		$count = count( $data );
 
 		if ( $model instanceof ExtendedTour ) {
@@ -200,10 +208,10 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param XModel $model
+	 * @param Model $model
 	 * @param array $data
 	 */
-	public function testJson( XModel $model, array $data ): void {
+	public function testJson( Model $model, array $data ): void {
 		$this->assertJson( (string) $model );
 		$this->assertJson( json_encode( $model ) );
 	}
@@ -211,12 +219,12 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param XModel $model
+	 * @param Model $model
 	 * @param array $data
 	 */
-	public function testSerialize( XModel $model, array $data ): void {
+	public function testSerialize( Model $model, array $data ): void {
 		$ser = serialize( $model );
 		$this->assertIsString( $ser );
-		$this->assertInstanceOf( XModel::class, unserialize( $ser ) );
+		$this->assertInstanceOf( Model::class, unserialize( $ser ) );
 	}
 }

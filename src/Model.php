@@ -1,226 +1,34 @@
 <?php namespace Peroks\Model;
 
-use ArrayAccess;
-use Exception;
-use Iterator;
-use JsonSerializable;
+use ArrayObject;
 
 /**
- * The abstract model base class.
+ * The model base class.
  *
  * @author Per Egil Roksvaag
  * @copyright Per Egil Roksvaag
  * @license MIT
  */
-abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSerializable {
-
-	/**
-	 * An assoc array of the model properties.
-	 */
-	protected array $data = [];
-
-	/**
-	 * The current position of the model's iterator.
-	 */
-	protected int $position = 0;
+class Model extends ArrayObject implements ModelInterface {
 
 	/**
 	 * @var array An array of custom properties.
 	 */
-	static protected array $properties = [];
-
-	/* -------------------------------------------------------------------------
-	 * Magic functions
-	 * ---------------------------------------------------------------------- */
+	protected static array $properties = [];
 
 	/**
 	 * Constructor.
 	 *
-	 * @param ModelInterface|array $data The model data.
+	 * @param ModelInterface|object|array $data The model data.
 	 */
 	public function __construct( $data = [] ) {
-		if ( $data instanceof static ) {
-			$data = $data->data();
-		} elseif ( $data instanceof ModelInterface ) {
-			$data = $data->data( ModelData::FULL );
-		}
-
-		$this->data = static::normalize( $data );
-	}
-
-	/**
-	 * Magic getter.
-	 *
-	 * @param string $id The property id.
-	 *
-	 * @return mixed The property value.
-	 */
-	public function __get( string $id ) {
-		return $this->get( $id );
-	}
-
-	/**
-	 * Magic setter.
-	 *
-	 * @param string $id The property id.
-	 * @param mixed The property value.
-	 */
-	public function __set( string $id, $value ): void {
-		$this->set( $id, $value );
-	}
-
-	/**
-	 * Emulates isset().
-	 *
-	 * @param string $id The property id.
-	 *
-	 * @return bool True if the property is set, false otherwise.
-	 */
-	public function __isset( string $id ): bool {
-		$value = $this->get( $id );
-		return isset( $value );
-	}
-
-	/**
-	 * Gets the model as a json encoded string.
-	 */
-	public function __toString(): string {
-		return json_encode( $this, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
-	}
-
-	/**
-	 * Prepares the model data for serialization.
-	 *
-	 * @return array The model's data and position.
-	 */
-	public function __serialize(): array {
-		return get_object_vars( $this );
-	}
-
-	/**
-	 * Restores the model from serialization.
-	 *
-	 * @param array $restored The previously serialized data.
-	 */
-	public function __unserialize( array $restored ) {
-		$this->data     = $restored['data'];
-		$this->position = $restored['position'];
+		$data  = static::normalize( $data );
+		$flags = ArrayObject::STD_PROP_LIST | ArrayObject::ARRAY_AS_PROPS;
+		parent::__construct( $data, $flags, 'ArrayIterator' );
 	}
 
 	/* -------------------------------------------------------------------------
-	 * Internal functions
-	 * ---------------------------------------------------------------------- */
-
-	/**
-	 * Gets a model property.
-	 *
-	 * @param string $id The property id.
-	 * @param array $property The property definition.
-	 *
-	 * @return mixed The property value.
-	 */
-	protected function get( string $id, array $property = [] ) {
-		$property = $property ?: static::properties( $id );
-		$value    = $this->data[ $id ] ?? $property[ PropertyItem::DEFAULT ] ?? null;
-
-		// Shortcut non-readable properties and null values.
-		if ( empty( $property[ PropertyItem::READABLE ] ?? true ) || is_null( $value ) ) {
-			return null;
-		}
-
-		// Maybe convert arrays to models or objects.
-		if ( is_array( $value ) ) {
-			$type  = $property[ PropertyItem::TYPE ] ?? null;
-			$model = $property[ PropertyItem::MODEL ] ?? null;
-
-			if ( $model ) {
-				if ( empty( array_key_exists( $id, $this->data ) ) ) {
-					$this->data[ $id ] = $value;
-				}
-
-				// Convert an array to an array of models.
-				if ( $value && PropertyType::ARRAY === $type ) {
-					foreach ( $this->data[ $id ] as &$entry ) {
-						$temp[] = $model::create()->setReference( $entry );
-					}
-					return $temp ?? [];
-				}
-
-				// Convert an array to a model.
-				if ( PropertyType::OBJECT === $type ) {
-					return $model::create()->setReference( $this->data[ $id ] );
-				}
-			}
-
-			// Convert an array to a standard object.
-			if ( PropertyType::OBJECT === $type ) {
-				return (object) $value;
-			}
-		}
-
-		return $value;
-	}
-
-	/**
-	 * Sets a model property.
-	 *
-	 * @param string $id The property id.
-	 * @param mixed $value The property value.
-	 *
-	 * @return bool True if the property was set, false otherwise.
-	 */
-	protected function set( string $id, $value ): bool {
-		if ( $this->has( $id, PropertyItem::WRITABLE ) ) {
-			if ( $value instanceof ModelInterface ) {
-				$value = $value->data();
-			}
-
-			$this->data[ $id ] = $value;
-			return true;
-		}
-		return false;
-	}
-
-	/**
-	 * Strips surplus properties from the given data.
-	 *
-	 * @param array $data The given model data.
-	 *
-	 * @return array The normalized model data.
-	 */
-	protected static function normalize( array $data ): array {
-		return array_intersect_key( $data, static::properties() );
-	}
-
-	/**
-	 * Gets the model's property definitions with values.
-	 *
-	 * The result of this method can be used to populate input forms for
-	 * user interfaces.
-	 *
-	 * @return Property[] An array of property definitions with values.
-	 */
-	protected function form(): array {
-		foreach ( static::properties() as $id => $property ) {
-			if ( $property[ PropertyItem::DISABLED ] ?? false ) {
-				continue;
-			}
-
-			if ( $property[ PropertyItem::READABLE ] ?? true ) {
-				$property[ PropertyItem::VALUE ] = $this->get( $id, $property );
-			}
-
-			if ( $property[ PropertyItem::VALUE ] instanceof ModelInterface ) {
-				$property[ PropertyItem::PROPERTIES ] = $property[ PropertyItem::VALUE ]->data( ModelData::PROPERTIES );
-			}
-
-			$result[] = Property::create( $property );
-		}
-		return $result ?? [];
-	}
-
-	/* -------------------------------------------------------------------------
-	 * ModelInterface implementation
+	 * Public methods
 	 * ---------------------------------------------------------------------- */
 
 	/**
@@ -229,30 +37,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 * @return int|string The model id.
 	 */
 	public function id() {
-		return $this->get( static::idProperty() );
-	}
-
-	/**
-	 * Checks if the model has the given property.
-	 *
-	 * @param string $id The property id.
-	 * @param string $context Check if the property is 'readable' or 'writable'.
-	 *
-	 * @return bool True if the model has the given property, false otherwise.
-	 */
-	public function has( string $id, string $context = '' ): bool {
-		$properties = static::properties();
-
-		if ( array_key_exists( $id, $properties ) ) {
-			if ( PropertyItem::READABLE === $context ) {
-				return $properties[ $id ][ $context ] ?? true;
-			}
-			if ( PropertyItem::WRITABLE === $context ) {
-				return $properties[ $id ][ $context ] ?? true;
-			}
-			return true;
-		}
-		return false;
+		return $this[ static::idProperty() ] ?? '';
 	}
 
 	/**
@@ -263,61 +48,27 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 * @return Property[]|array An array of the model data.
 	 */
 	public function data( string $format = '' ): array {
+		$data = $this->getArrayCopy();
 
 		// Get a compact data array stripped of all null and default values.
 		if ( ModelData::COMPACT === $format ) {
 			foreach ( static::properties() as $id => $property ) {
-				if ( array_key_exists( $id, $this->data ) ) {
-					if ( $this->data[ $id ] !== ( $property[ PropertyItem::DEFAULT ] ?? null ) ) {
-						$result[ $id ] = $this->data[ $id ];
+				if ( array_key_exists( $id, $data ) ) {
+					if ( $data[ $id ] !== ( $property[ PropertyItem::DEFAULT ] ?? null ) ) {
+						$result[ $id ] = $data[ $id ];
 					}
 				}
 			}
 			return $result ?? [];
 		}
 
-		// Get values for all properties by filling up with default or null values.
+		// Get values for all properties.
 		if ( ModelData::FULL === $format ) {
-			foreach ( static::properties() as $id => $property ) {
-				$result[ $id ] = $this->data[ $id ] ?? $property[ PropertyItem::DEFAULT ] ?? null;
-			}
-			return $result ?? [];
+			return array_intersect_key( $data, static::properties() );
 		}
 
-		// Gets an array of Property models for populating frontend forms.
-		if ( ModelData::PROPERTIES === $format ) {
-			return $this->form();
-		}
-
-		// Gets the internal raw data.
-		return $this->data;
-	}
-
-	/**
-	 * Gets a reference to the internal data array.
-	 *
-	 * @return array A reference to the internal data array.
-	 */
-	public function &getReference(): array {
-		return $this->data;
-	}
-
-	/**
-	 * Sets the internal data array by reference.
-	 *
-	 * @param ModelInterface|array $data The new internal data.
-	 *
-	 * @return static
-	 */
-	public function setReference( &$data ): self {
-		if ( $data instanceof ModelInterface ) {
-			$this->data = $data->getReference();
-		} else {
-			$data       = static::normalize( $data );
-			$this->data = &$data;
-		}
-
-		return $this;
+		// Gets the internal data.
+		return $data;
 	}
 
 	/**
@@ -329,7 +80,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 */
 	public function patch( array $data ): self {
 		foreach ( static::normalize( $data ) as $id => $value ) {
-			$this->data[ $id ] = $value;
+			$this[ $id ] = $value;
 		}
 		return $this;
 	}
@@ -341,7 +92,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 */
 	public function validate(): self {
 		foreach ( static::properties() as $id => $property ) {
-			$value = $this->get( $id, $property );
+			$value = $this[ $id ];
 			$name  = $property[ PropertyItem::NAME ];
 			$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::ANY;
 
@@ -349,7 +100,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 			if ( is_null( $value ) ) {
 				if ( $property[ PropertyItem::REQUIRED ] ?? false ) {
 					$error = sprintf( '%s is required', $name );
-					throw new Exception( $error, 400 );
+					throw new ModelException( $error, 400 );
 				}
 				continue;
 			}
@@ -357,7 +108,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 			// Check type constraint.
 			if ( $type && $type !== gettype( $value ) ) {
 				$error = sprintf( '%s must be a %s', $name, $type );
-				throw new Exception( $error, 400 );
+				throw new ModelException( $error, 400 );
 			}
 
 			// Validate models.
@@ -367,7 +118,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 				if ( PropertyType::OBJECT === $type ) {
 					if ( empty( is_a( $value, $model ) && $value instanceof ModelInterface ) ) {
 						$error = sprintf( '%s must be an instance of %s', $name, $model );
-						throw new Exception( $error, 400 );
+						throw new ModelException( $error, 400 );
 					}
 					$value->validate();
 					continue;
@@ -378,7 +129,7 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 					foreach ( $value as $instance ) {
 						if ( empty( is_a( $instance, $model ) && $instance instanceof ModelInterface ) ) {
 							$error = sprintf( '%s must be an array of %s instances', $name, $model );
-							throw new Exception( $error, 400 );
+							throw new ModelException( $error, 400 );
 						}
 						$instance->validate();
 					}
@@ -390,11 +141,11 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 			if ( $enum = $property[ PropertyItem::ENUM ] ?? [] ) {
 				if ( is_scalar( $value ) && empty( in_array( $value, $enum, true ) ) ) {
 					$error = sprintf( '%s must be one of %s', $name, join( ', ', $enum ) );
-					throw new Exception( $error, 400 );
+					throw new ModelException( $error, 400 );
 				}
 				if ( is_array( $value ) && empty( array_intersect( $value, $enum ) === $value ) ) {
 					$error = sprintf( '%s must be one of %s', $name, join( ', ', $enum ) );
-					throw new Exception( $error, 400 );
+					throw new ModelException( $error, 400 );
 				}
 			}
 
@@ -404,13 +155,17 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 
 				if ( empty( preg_match( $pattern, $value ) ) ) {
 					$error = sprintf( '%s must match the regex pattern %s', $name, $property['pattern'] );
-					throw new Exception( $error, 400 );
+					throw new ModelException( $error, 400 );
 				}
 			}
 		}
 
 		return $this;
 	}
+
+	/* -------------------------------------------------------------------------
+	 * Public static methods
+	 * ---------------------------------------------------------------------- */
 
 	/**
 	 * Creates a new model with data from the given model or array.
@@ -454,6 +209,59 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	}
 
 	/* -------------------------------------------------------------------------
+	 * Protected static methods
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Normalize data.
+	 *
+	 * @param ModelInterface|object|array $data The model data.
+	 */
+	protected static function normalize( $data = [] ): array {
+		if ( $data instanceof ModelInterface || $data instanceof ArrayObject ) {
+			$data = $data->getArrayCopy();
+		}
+
+		if ( is_object( $data ) ) {
+			$data = get_object_vars( $data );
+		}
+
+		if ( is_array( $data ) ) {
+			foreach ( static::properties() as $id => $property ) {
+				$type  = $property[ PropertyItem::TYPE ] ?? null;
+				$model = $property[ PropertyItem::MODEL ] ?? null;
+
+				if ( empty( array_key_exists( $id, $data ) ) ) {
+					$data[ $id ] = $property[ PropertyItem::DEFAULT ] ?? null;
+				}
+
+				if ( $model && is_array( $data[ $id ] ) ) {
+					if ( $type === PropertyType::OBJECT ) {
+						$data[ $id ] = new $model( $data[ $id ] );
+					} elseif ( $type === PropertyType::ARRAY ) {
+						foreach ( $data[ $id ] as &$value ) {
+							$value = new $model( $value );
+						}
+					}
+				}
+			}
+		}
+
+		return $data;
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Magic functions
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Gets the model as a json encoded string.
+	 */
+	public function __toString(): string {
+		return json_encode( $this, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+	}
+
+	/* -------------------------------------------------------------------------
 	 * JsonSerializable implementation
 	 * ---------------------------------------------------------------------- */
 
@@ -463,114 +271,6 @@ abstract class Model implements ModelInterface, Iterator, ArrayAccess, JsonSeria
 	 * @return array
 	 */
 	public function jsonSerialize(): array {
-		foreach ( static::properties() as $id => $property ) {
-			$result[ $id ] = $this->get( $id, $property );
-		}
-		return $result ?? [];
-	}
-
-	/* -------------------------------------------------------------------------
-	 * Iterator implementation
-	 * ---------------------------------------------------------------------- */
-
-	/**
-	 * Returns the current element.
-	 *
-	 * @return mixed
-	 */
-	#[\ReturnTypeWillChange]
-	public function current() {
-		$properties = array_values( static::properties() );
-		$property   = $properties[ $this->position ];
-		return $this->get( $property[ PropertyItem::ID ], $properties );
-	}
-
-	/**
-	 * Returns the key of the current element.
-	 *
-	 * @return int|string|null
-	 */
-	#[\ReturnTypeWillChange]
-	public function key() {
-		$properties = array_keys( static::properties() );
-		return $properties[ $this->position ] ?? null;
-	}
-
-	/**
-	 * Moves forward to next element
-	 */
-	public function next(): void {
-		$this->position++;
-	}
-
-	/**
-	 * Rewinds the Iterator to the first element.
-	 */
-	public function rewind(): void {
-		$this->position = 0;
-	}
-
-	/**
-	 * Checks if current position is valid.
-	 */
-	public function valid(): bool {
-		return is_string( $this->key() );
-	}
-
-	/* -------------------------------------------------------------------------
-	 * ArrayAccess implementation.
-	 * -------------------------------------------------------------------------
-	 * The support for this interface is limited, because a model's properties
-	 * are fixed. In contrast to a real array, adding or removing a
-	 * property (offset) from a model will fail silently.
-	 * ---------------------------------------------------------------------- */
-
-	/**
-	 * Checks if the given property id (offset) exists.
-	 *
-	 * @param mixed $offset The property id.
-	 *
-	 * @return bool True of the given property exists, false otherwise.
-	 */
-	public function offsetExists( $offset ): bool {
-		return array_key_exists( $offset, static::properties() );
-	}
-
-	/**
-	 * Gets a model property (offset).
-	 *
-	 * @param mixed $offset The property id.
-	 *
-	 * @return mixed The property value.
-	 */
-	#[\ReturnTypeWillChange]
-	public function offsetGet( $offset ) {
-		return $this->get( $offset );
-	}
-
-	/**
-	 * Sets a model property (offset).
-	 *
-	 * We can only set properties that are existing and writable. Adding new
-	 * properties will fail silently.
-	 *
-	 * @param mixed $offset The property id.
-	 * @param mixed $value The property value.
-	 */
-	public function offsetSet( $offset, $value ): void {
-		$this->set( $offset, $value );
-	}
-
-	/**
-	 * Unset the property is (offset).
-	 *
-	 * We can't completely remove the model property because a model's
-	 * properties are fixed, but we can set the value to null if it's
-	 * writable.
-	 *
-	 * @param mixed $offset The property id.
-	 */
-	public function offsetUnset( $offset ): void {
-		$this->set( $offset, null );
+		return $this->getArrayCopy();
 	}
 }

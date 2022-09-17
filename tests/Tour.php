@@ -1,10 +1,10 @@
 <?php
 
+use Peroks\Model\Model;
 use Peroks\Model\PropertyType;
-use Peroks\Model\XModel;
 
 /**
- * The supplier properties.
+ * The tour properties.
  *
  * @property-read string $id The tour id.
  * @property string $name The tour name.
@@ -13,9 +13,10 @@ use Peroks\Model\XModel;
  * @property object $details The tour details.
  *
  * @author Per Egil Roksvaag
- * @copyright Silverscreen Tours GmbH
+ * @copyright Per Egil Roksvaag
+ * @license MIT
  */
-class Tour extends XModel {
+class Tour extends Model {
 
 	/**
 	 * @var array An array of model properties.
