@@ -3,6 +3,7 @@
 use Peroks\Model\Model;
 use Peroks\Model\ModelData;
 use Peroks\Model\ModelException;
+use Peroks\Model\ModelInterface;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -50,16 +51,16 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param Model $model
+	 * @param ModelInterface $model
 	 * @param array $data
 	 */
-	public function testValidate( Model $model, array $data ): void {
+	public function testValidate( ModelInterface $model, array $data ): void {
 		if ( $model instanceof ExtendedTour ) {
 			$this->expectException( ModelException::class );
 			$model->validate();
 			$this->assertNotEquals( $model->getArrayCopy(), $data );
 		} else {
-			$this->assertInstanceOf( Model::class, $model->validate() );
+			$this->assertInstanceOf( ModelInterface::class, $model->validate() );
 			$this->assertEquals( $model->getArrayCopy(), $data );
 		}
 	}
@@ -67,10 +68,10 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param Model $model
+	 * @param ModelInterface $model
 	 * @param array $data
 	 */
-	public function testString( Model $model, array $data ): void {
+	public function testString( ModelInterface $model, array $data ): void {
 		$this->assertIsString( $model['name'] );
 		$this->assertIsString( $model->name );
 		$this->assertEquals( $model['name'], $data['name'] );
@@ -93,10 +94,10 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param Model $model
+	 * @param ModelInterface $model
 	 * @param array $data
 	 */
-	public function testArray( Model $model, array $data ): void {
+	public function testArray( ModelInterface $model, array $data ): void {
 		$count = count( $data['cities'] );
 
 		$this->assertIsArray( $model['cities'] );
@@ -122,10 +123,10 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param Model $model
+	 * @param ModelInterface $model
 	 * @param array $data
 	 */
-	public function testObject( Model $model, array $data ): void {
+	public function testObject( ModelInterface $model, array $data ): void {
 		$count = count( get_object_vars( $data['details'] ) );
 
 		$this->assertIsObject( $model['details'] );
@@ -164,10 +165,10 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param Model $model
+	 * @param ModelInterface $model
 	 * @param array $data
 	 */
-	public function testProperty( Model $model, array $data ): void {
+	public function testProperty( ModelInterface $model, array $data ): void {
 		$this->assertIsArray( $model::properties() );
 		$this->assertNotEmpty( $model->id() );
 
@@ -183,10 +184,10 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param Model $model
+	 * @param ModelInterface $model
 	 * @param array $data
 	 */
-	public function testData( Model $model, array $data ): void {
+	public function testData( ModelInterface $model, array $data ): void {
 		$count = count( $data );
 
 		if ( $model instanceof ExtendedTour ) {
@@ -208,10 +209,10 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param Model $model
+	 * @param ModelInterface $model
 	 * @param array $data
 	 */
-	public function testJson( Model $model, array $data ): void {
+	public function testJson( ModelInterface $model, array $data ): void {
 		$this->assertJson( (string) $model );
 		$this->assertJson( json_encode( $model ) );
 	}
@@ -219,12 +220,12 @@ final class ModelTest extends TestCase {
 	/**
 	 * @dataProvider getModels
 	 *
-	 * @param Model $model
+	 * @param ModelInterface $model
 	 * @param array $data
 	 */
-	public function testSerialize( Model $model, array $data ): void {
+	public function testSerialize( ModelInterface $model, array $data ): void {
 		$ser = serialize( $model );
 		$this->assertIsString( $ser );
-		$this->assertInstanceOf( Model::class, unserialize( $ser ) );
+		$this->assertInstanceOf( ModelInterface::class, unserialize( $ser ) );
 	}
 }
