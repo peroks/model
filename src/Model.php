@@ -54,8 +54,15 @@ class Model extends ArrayObject implements ModelInterface {
 		if ( ModelData::COMPACT === $format ) {
 			foreach ( static::properties() as $id => $property ) {
 				if ( array_key_exists( $id, $data ) ) {
-					if ( $data[ $id ] !== ( $property[ PropertyItem::DEFAULT ] ?? null ) ) {
-						$result[ $id ] = $data[ $id ];
+					$default = $property[ PropertyItem::DEFAULT ] ?? null;
+					$value   = $data[ $id ];
+
+					if ( $value instanceof ModelInterface ) {
+						$value = $value->data( ModelData::COMPACT );
+					}
+
+					if ( $value !== $default ) {
+						$result[ $id ] = $value;
 					}
 				}
 			}
