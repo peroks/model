@@ -79,13 +79,13 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/**
-	 * Patches a model with the given data array.
+	 * Patches a model with the given data.
 	 *
-	 * @param array $data The data to merge into the model.
+	 * @param ModelInterface|object|array $data The data to merge into the model.
 	 *
 	 * @return static The updated model instance.
 	 */
-	public function patch( array $data ): self {
+	public function patch( $data ): self {
 		foreach ( static::normalize( $data ) as $id => $value ) {
 			$this[ $id ] = $value;
 		}
@@ -224,7 +224,13 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @param ModelInterface|object|array $data The model data.
 	 */
-	protected static function normalize( $data = [] ): array {
+	protected static function normalize( $data ): array {
+
+		// If no properties are defined, accept all data;
+		if ( empty( $properties = static::properties() ) ) {
+			return $data;
+		}
+
 		if ( $data instanceof ModelInterface || $data instanceof ArrayObject ) {
 			$data = $data->getArrayCopy();
 		}
@@ -234,27 +240,26 @@ class Model extends ArrayObject implements ModelInterface {
 		}
 
 		if ( is_array( $data ) ) {
-			foreach ( static::properties() as $id => $property ) {
+			foreach ( $properties as $id => $property ) {
 				$type  = $property[ PropertyItem::TYPE ] ?? null;
 				$model = $property[ PropertyItem::MODEL ] ?? null;
+				$value = $data[ $id ] ?? $property[ PropertyItem::DEFAULT ] ?? null;
 
-				if ( empty( array_key_exists( $id, $data ) ) ) {
-					$data[ $id ] = $property[ PropertyItem::DEFAULT ] ?? null;
-				}
-
-				if ( $model && is_array( $data[ $id ] ) ) {
+				if ( $model && is_array( $value ) ) {
 					if ( $type === PropertyType::OBJECT ) {
-						$data[ $id ] = new $model( $data[ $id ] );
+						$value = new $model( $value );
 					} elseif ( $type === PropertyType::ARRAY ) {
-						foreach ( $data[ $id ] as &$value ) {
-							$value = new $model( $value );
+						foreach ( $value as &$item ) {
+							$item = new $model( $item );
 						}
 					}
 				}
+
+				$result[ $id ] = $value;
 			}
 		}
 
-		return $data;
+		return $result ?? [];
 	}
 
 	/* -------------------------------------------------------------------------

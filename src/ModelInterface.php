@@ -32,13 +32,13 @@ interface ModelInterface extends IteratorAggregate, ArrayAccess, Serializable, C
 	public function data( string $format = '' ): array;
 
 	/**
-	 * Patches a model with the given data array.
+	 * Patches a model with the given data.
 	 *
-	 * @param array $data The data to merge into the model.
+	 * @param ModelInterface|object|array $data The data to merge into the model.
 	 *
 	 * @return static The updated model instance.
 	 */
-	public function patch( array $data ): self;
+	public function patch( $data ): self;
 
 	/**
 	 * Validates the model values against its property definitions.
