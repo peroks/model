@@ -194,15 +194,15 @@ final class ModelTest extends TestCase {
 			$this->assertIsArray( $model->data() );
 			$this->assertEquals( $model->data( ModelData::COMPACT ), $data );
 			$this->assertCount( $count + 1, $model->data( ModelData::FULL ) );
-			$this->assertCount( $count + 1, $model->data( ModelData::FULL ) );
+			$this->assertCount( $count + 1, $model->data() );
 		} elseif ( $model instanceof Tour ) {
 			$this->assertEquals( $model->data( ModelData::COMPACT ), $data );
 			$this->assertEquals( $model->data( ModelData::FULL ), $data );
-			$this->assertEquals( $model->data( ModelData::RAW ), $data );
+			$this->assertEquals( $model->data(), $data );
 		} else {
 			$this->assertEmpty( $model->data( ModelData::COMPACT ) );
-			$this->assertEmpty( $model->data( ModelData::FULL ) );
-			$this->assertEquals( $model->data( ModelData::RAW ), $data );
+			$this->assertEquals( $model->data( ModelData::FULL ), $data );
+			$this->assertEquals( $model->data(), $data );
 		}
 	}
 

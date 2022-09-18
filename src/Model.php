@@ -47,12 +47,13 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return Property[]|array An array of the model data.
 	 */
-	public function data( string $format = '' ): array {
-		$data = $this->getArrayCopy();
+	public function data( string $format = ModelData::FULL ): array {
+		$properties = static::properties();
+		$data       = $this->getArrayCopy();
 
 		// Get a compact data array stripped of all null and default values.
 		if ( ModelData::COMPACT === $format ) {
-			foreach ( static::properties() as $id => $property ) {
+			foreach ( $properties as $id => $property ) {
 				if ( array_key_exists( $id, $data ) ) {
 					$default = $property[ PropertyItem::DEFAULT ] ?? null;
 					$value   = $data[ $id ];
@@ -69,12 +70,30 @@ class Model extends ArrayObject implements ModelInterface {
 			return $result ?? [];
 		}
 
-		// Get values for all properties.
-		if ( ModelData::FULL === $format ) {
+		// Get an array of model properties including the property value.
+		if ( ModelData::PROPERTIES == $format ) {
+			foreach ( $properties as $id => $property ) {
+				if ( $property[ PropertyItem::DISABLED ] ?? false ) {
+					continue;
+				}
+
+				if ( $property[ PropertyItem::READABLE ] ?? true ) {
+					$property[ PropertyItem::VALUE ] = $this[ $id ];
+
+					if ( $property[ PropertyItem::VALUE ] instanceof ModelInterface ) {
+						$property[ PropertyItem::PROPERTIES ] = $property[ PropertyItem::VALUE ]->data( ModelData::PROPERTIES );
+					}
+				}
+				$result[] = Property::create( $property );
+			}
+			return $result ?? [];
+		}
+
+		// Get an array of the model data values.
+		if ( $properties ) {
 			return array_intersect_key( $data, static::properties() );
 		}
 
-		// Gets the internal data.
 		return $data;
 	}
 
@@ -225,17 +244,18 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param ModelInterface|object|array $data The model data.
 	 */
 	protected static function normalize( $data ): array {
+		$properties = static::properties();
 
 		// If no properties are defined, accept all data;
-		if ( empty( $properties = static::properties() ) ) {
+		if ( empty( $properties ) ) {
 			return $data;
 		}
 
-		if ( $data instanceof ModelInterface || $data instanceof ArrayObject ) {
+		if ( $data instanceof ModelInterface ) {
+			$data = $data->data();
+		} elseif ( $data instanceof ArrayObject ) {
 			$data = $data->getArrayCopy();
-		}
-
-		if ( is_object( $data ) ) {
+		} elseif ( is_object( $data ) ) {
 			$data = get_object_vars( $data );
 		}
 

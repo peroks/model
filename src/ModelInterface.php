@@ -29,7 +29,7 @@ interface ModelInterface extends IteratorAggregate, ArrayAccess, Serializable, C
 	 *
 	 * @return Property[]|array An array of the model data.
 	 */
-	public function data( string $format = '' ): array;
+	public function data( string $format = ModelData::FULL ): array;
 
 	/**
 	 * Patches a model with the given data.

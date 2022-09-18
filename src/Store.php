@@ -134,7 +134,7 @@ class Store implements StoreInterface {
 		}
 
 		return array_filter( $all, function( ModelInterface $model ) use ( $filter ): bool {
-			return array_intersect_assoc( $filter, $model->data( ModelData::FULL ) ) === $filter;
+			return array_intersect_assoc( $filter, $model->data() ) === $filter;
 		} );
 	}
 
