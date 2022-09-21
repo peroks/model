@@ -25,16 +25,16 @@ interface ModelInterface extends IteratorAggregate, ArrayAccess, Serializable, C
 	/**
 	 * Gets an array representing the model's property values.
 	 *
-	 * @param string $format Specifies the format of the returned data array.
+	 * @param string $content Specifies the content of the returned data array.
 	 *
 	 * @return Property[]|array An array of the model data.
 	 */
-	public function data( string $format = ModelData::FULL ): array;
+	public function data( string $content = ModelData::FULL ): array;
 
 	/**
 	 * Patches a model with the given data.
 	 *
-	 * @param ModelInterface|object|array $data The data to merge into the model.
+	 * @param array|object $data The data to be merged into the model.
 	 *
 	 * @return static The updated model instance.
 	 */
@@ -48,9 +48,9 @@ interface ModelInterface extends IteratorAggregate, ArrayAccess, Serializable, C
 	public function validate(): self;
 
 	/**
-	 * Creates a new model with data from the given model or array.
+	 * Creates a new model with data from the given array or object.
 	 *
-	 * @param ModelInterface|array $data The model data.
+	 * @param array|object $data The model data.
 	 *
 	 * @return static A model instance.
 	 */

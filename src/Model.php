@@ -1,5 +1,6 @@
 <?php namespace Peroks\Model;
 
+use ArrayAccess;
 use ArrayObject;
 
 /**
@@ -19,12 +20,12 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Constructor.
 	 *
-	 * @param ModelInterface|object|array $data The model data.
+	 * @param array|object $data The model data.
 	 */
 	public function __construct( $data = [] ) {
 		$data  = static::normalize( $data );
 		$flags = ArrayObject::STD_PROP_LIST | ArrayObject::ARRAY_AS_PROPS;
-		parent::__construct( $data, $flags, 'ArrayIterator' );
+		parent::__construct( $data, $flags );
 	}
 
 	/* -------------------------------------------------------------------------
@@ -43,16 +44,16 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Gets an array representing the model's property values.
 	 *
-	 * @param string $format Specifies the format of the returned data array.
+	 * @param string $content Specifies the content of the returned data array.
 	 *
 	 * @return Property[]|array An array of the model data.
 	 */
-	public function data( string $format = ModelData::FULL ): array {
+	public function data( string $content = ModelData::FULL ): array {
 		$properties = static::properties();
 		$data       = $this->getArrayCopy();
 
 		// Get a compact data array stripped of all null and default values.
-		if ( ModelData::COMPACT === $format ) {
+		if ( ModelData::COMPACT === $content ) {
 			foreach ( $properties as $id => $property ) {
 				if ( array_key_exists( $id, $data ) ) {
 					$default = $property[ PropertyItem::DEFAULT ] ?? null;
@@ -71,7 +72,7 @@ class Model extends ArrayObject implements ModelInterface {
 		}
 
 		// Get an array of model properties including the property value.
-		if ( ModelData::PROPERTIES == $format ) {
+		if ( ModelData::PROPERTIES == $content ) {
 			foreach ( $properties as $id => $property ) {
 				if ( $property[ PropertyItem::DISABLED ] ?? false ) {
 					continue;
@@ -100,12 +101,12 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Patches a model with the given data.
 	 *
-	 * @param ModelInterface|object|array $data The data to merge into the model.
+	 * @param array|object $data The data to be merged into the model.
 	 *
 	 * @return static The updated model instance.
 	 */
 	public function patch( $data ): self {
-		foreach ( static::normalize( $data ) as $id => $value ) {
+		foreach ( static::normalize( $data, false ) as $id => $value ) {
 			$this[ $id ] = $value;
 		}
 		return $this;
@@ -241,9 +242,12 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Normalize data.
 	 *
-	 * @param ModelInterface|object|array $data The model data.
+	 * @param array|object $data The data to populate the model with.
+	 * @param bool $include Whether to include default values or not.
+	 *
+	 * @return array The normalized data.
 	 */
-	protected static function normalize( $data ): array {
+	protected static function normalize( $data, bool $include = true ): array {
 		$properties = static::properties();
 
 		// If no properties are defined, accept all data;
@@ -255,11 +259,11 @@ class Model extends ArrayObject implements ModelInterface {
 			$data = $data->data();
 		} elseif ( $data instanceof ArrayObject ) {
 			$data = $data->getArrayCopy();
-		} elseif ( is_object( $data ) ) {
+		} elseif ( is_object( $data ) && empty( $data instanceof ArrayAccess ) ) {
 			$data = get_object_vars( $data );
 		}
 
-		if ( is_array( $data ) ) {
+		if ( is_array( $data ) || $data instanceof ArrayAccess ) {
 			foreach ( $properties as $id => $property ) {
 				$type  = $property[ PropertyItem::TYPE ] ?? null;
 				$model = $property[ PropertyItem::MODEL ] ?? null;
@@ -275,11 +279,31 @@ class Model extends ArrayObject implements ModelInterface {
 					}
 				}
 
-				$result[ $id ] = $value;
+				if ( $include || static::keyExists( $id, $data ) ) {
+					$result[ $id ] = $value;
+				}
 			}
 		}
 
 		return $result ?? [];
+	}
+
+	/**
+	 * Checks if the given key or index exists in the data.
+	 *
+	 * @param int|string $key The key to check for.
+	 * @param array|ArrayAccess $data An array or object keys to check.
+	 *
+	 * @return bool True if the key exists in the data.
+	 */
+	protected static function keyExists( string $key, $data ): bool {
+		if ( is_array( $data ) ) {
+			return array_key_exists( $key, $data );
+		}
+		if ( $data instanceof ArrayAccess ) {
+			return $data->offsetExists( $key );
+		}
+		return false;
 	}
 
 	/* -------------------------------------------------------------------------
