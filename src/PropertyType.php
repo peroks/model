@@ -8,7 +8,7 @@
  * @license MIT
  */
 abstract class PropertyType {
-	const ANY     = '';
+	const MIXED   = '';
 	const BOOL    = 'boolean';
 	const INTEGER = 'integer';
 	const FLOAT   = 'double';

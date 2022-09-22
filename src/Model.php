@@ -120,7 +120,7 @@ class Model extends ArrayObject implements ModelInterface {
 		foreach ( static::properties() as $id => $property ) {
 			$value = $this[ $id ];
 			$name  = $property[ PropertyItem::NAME ];
-			$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::ANY;
+			$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
 
 			// Check that all required properties are set.
 			if ( is_null( $value ) ) {
@@ -133,38 +133,26 @@ class Model extends ArrayObject implements ModelInterface {
 
 			// Check type constraint.
 			if ( $type && $type !== gettype( $value ) ) {
-				$error = sprintf( '%s must be a %s', $name, $type );
+				$error = sprintf( '%s must be of type %s', $name, $type );
 				throw new ModelException( $error, 400 );
 			}
 
 			$model  = $property[ PropertyItem::MODEL ] ?? null;
 			$object = $property[ PropertyItem::OBJECT ] ?? $model;
 
-			// Validate objects and models.
+			// Validate objects or models.
 			if ( $object ) {
 
 				// Validate a single object or model.
 				if ( PropertyType::OBJECT === $type ) {
-					if ( empty( is_a( $value, $object ) || ( empty( $model ) && $value instanceof ModelInterface ) ) ) {
-						$error = sprintf( '%s must be an instance of %s', $name, $object );
-						throw new ModelException( $error, 400 );
-					}
-					if ( $model ) {
-						$value->validate();
-					}
+					static::validateObject( $value, $object, $model, $name );
 					continue;
 				}
 
-				// Validate an array of objects and models.
+				// Validate an array of objects or models.
 				if ( PropertyType::ARRAY === $type ) {
 					foreach ( $value as $item ) {
-						if ( empty( is_a( $item, $object ) || ( empty( $model ) && $item instanceof ModelInterface ) ) ) {
-							$error = sprintf( '%s must be an array of %s instances', $name, $object );
-							throw new ModelException( $error, 400 );
-						}
-						if ( $model ) {
-							$item->validate();
-						}
+						static::validateObject( $item, $object, $model, $name );
 					}
 					continue;
 				}
@@ -239,77 +227,6 @@ class Model extends ArrayObject implements ModelInterface {
 	public static function addProperty( Property $property ): void {
 		$property->validate();
 		static::$properties[ $property->id() ] = $property->data();
-	}
-
-	/* -------------------------------------------------------------------------
-	 * Protected static methods
-	 * ---------------------------------------------------------------------- */
-
-	/**
-	 * Normalize data.
-	 *
-	 * @param array|object $data The data to populate the model with.
-	 * @param bool $include Whether to include default values or not.
-	 *
-	 * @return array The normalized data.
-	 */
-	protected static function normalize( $data, bool $include = true ): array {
-		$properties = static::properties();
-
-		// If no properties are defined, accept all data;
-		if ( empty( $properties ) ) {
-			return $data;
-		}
-
-		if ( $data instanceof ModelInterface ) {
-			$data = $data->data();
-		} elseif ( $data instanceof ArrayObject ) {
-			$data = $data->getArrayCopy();
-		} elseif ( is_object( $data ) && empty( $data instanceof ArrayAccess ) ) {
-			$data = get_object_vars( $data );
-		}
-
-		if ( is_array( $data ) || $data instanceof ArrayAccess ) {
-			foreach ( $properties as $id => $property ) {
-				$type  = $property[ PropertyItem::TYPE ] ?? null;
-				$model = $property[ PropertyItem::MODEL ] ?? null;
-				$value = $data[ $id ] ?? $property[ PropertyItem::DEFAULT ] ?? null;
-
-				if ( $model && is_array( $value ) ) {
-					if ( $type === PropertyType::OBJECT ) {
-						$value = new $model( $value );
-					} elseif ( $type === PropertyType::ARRAY ) {
-						foreach ( $value as &$item ) {
-							$item = new $model( $item );
-						}
-					}
-				}
-
-				if ( $include || static::keyExists( $id, $data ) ) {
-					$result[ $id ] = $value;
-				}
-			}
-		}
-
-		return $result ?? [];
-	}
-
-	/**
-	 * Checks if the given key or index exists in the data.
-	 *
-	 * @param int|string $key The key to check for.
-	 * @param array|ArrayAccess $data An array or object keys to check.
-	 *
-	 * @return bool True if the key exists in the data.
-	 */
-	protected static function keyExists( string $key, $data ): bool {
-		if ( is_array( $data ) ) {
-			return array_key_exists( $key, $data );
-		}
-		if ( $data instanceof ArrayAccess ) {
-			return $data->offsetExists( $key );
-		}
-		return false;
 	}
 
 	/* -------------------------------------------------------------------------
@@ -397,5 +314,103 @@ class Model extends ArrayObject implements ModelInterface {
 	 */
 	public function exchangeArray( $array ): array {
 		return parent::exchangeArray( self::normalize( $array ) );
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Protected static utils
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Normalize data.
+	 *
+	 * @param array|object $data The data to populate the model with.
+	 * @param bool $include Whether to include default values in the result or not.
+	 *
+	 * @return array The normalized data.
+	 */
+	protected static function normalize( $data, bool $include = true ): array {
+		$properties = static::properties();
+
+		// If no properties are defined, accept all data;
+		if ( empty( $properties ) ) {
+			return $data;
+		}
+
+		if ( $data instanceof ModelInterface ) {
+			$data = $data->data();
+		} elseif ( $data instanceof ArrayObject ) {
+			$data = $data->getArrayCopy();
+		} elseif ( is_object( $data ) && empty( $data instanceof ArrayAccess ) ) {
+			$data = get_object_vars( $data );
+		}
+
+		if ( is_array( $data ) || $data instanceof ArrayAccess ) {
+			foreach ( $properties as $id => $property ) {
+				$type  = $property[ PropertyItem::TYPE ] ?? null;
+				$model = $property[ PropertyItem::MODEL ] ?? null;
+				$value = $data[ $id ] ?? $property[ PropertyItem::DEFAULT ] ?? null;
+
+				if ( $model && is_array( $value ) ) {
+					if ( $type === PropertyType::OBJECT ) {
+						$value = new $model( $value );
+					} elseif ( $type === PropertyType::ARRAY ) {
+						foreach ( $value as &$item ) {
+							$item = new $model( $item );
+						}
+					}
+				}
+
+				if ( $include || static::keyExists( $id, $data ) ) {
+					$result[ $id ] = $value;
+				}
+			}
+		}
+
+		return $result ?? [];
+	}
+
+	/**
+	 * Checks if the given key or index exists in the data.
+	 *
+	 * @param int|string $key The key to check for.
+	 * @param array|ArrayAccess $data An array or object keys to check.
+	 *
+	 * @return bool True if the key exists in the data.
+	 */
+	protected static function keyExists( string $key, $data ): bool {
+		if ( is_array( $data ) ) {
+			return array_key_exists( $key, $data );
+		}
+		if ( $data instanceof ArrayAccess ) {
+			return $data->offsetExists( $key );
+		}
+		return false;
+	}
+
+	/**
+	 * Validates an object or model.
+	 *
+	 * @param object $value The object to validate.
+	 * @param string $object The object class or interface name.
+	 * @param string|null $model The model class name.
+	 * @param string $name The property name.
+	 */
+	protected static function validateObject( object $value, string $object, ?string $model, string $name ): void {
+		if ( $model ) {
+			if ( empty( is_a( $value, $model ) ) ) {
+				$error = sprintf( '%s must be an instance of %s', $name, $model );
+				throw new ModelException( $error, 400 );
+			}
+			if ( empty( $value instanceof ModelInterface ) ) {
+				$error = sprintf( '%s must be an instance of %s', $name, ModelInterface::class );
+				throw new ModelException( $error, 400 );
+			}
+			$value->validate();
+		} else {
+			if ( empty( is_a( $value, $object ) ) ) {
+				$error = sprintf( '%s must be an instance of %s', $name, $object );
+				throw new ModelException( $error, 400 );
+			}
+		}
 	}
 }

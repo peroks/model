@@ -54,9 +54,9 @@ class Property extends Model {
 			PropertyItem::NAME    => 'Property type',
 			PropertyItem::DESC    => 'The property type: boolean, integer, double, string, array, object',
 			PropertyItem::TYPE    => PropertyType::STRING,
-			PropertyItem::DEFAULT => PropertyType::ANY,
+			PropertyItem::DEFAULT => PropertyType::MIXED,
 			PropertyItem::ENUM    => [
-				PropertyType::ANY,
+				PropertyType::MIXED,
 				PropertyType::BOOL,
 				PropertyType::INTEGER,
 				PropertyType::FLOAT,
@@ -127,13 +127,13 @@ class Property extends Model {
 			PropertyItem::ID   => 'default',
 			PropertyItem::NAME => 'Default value',
 			PropertyItem::DESC => 'The property default value',
-			PropertyItem::TYPE => PropertyType::ANY,
+			PropertyItem::TYPE => PropertyType::MIXED,
 		],
 		'value'      => [
 			PropertyItem::ID   => 'value',
 			PropertyItem::NAME => 'Property value',
 			PropertyItem::DESC => 'The property value',
-			PropertyItem::TYPE => PropertyType::ANY,
+			PropertyItem::TYPE => PropertyType::MIXED,
 		],
 	];
 }
