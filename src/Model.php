@@ -23,9 +23,8 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param array|object $data The model data.
 	 */
 	public function __construct( $data = [] ) {
-		$data  = static::normalize( $data );
-		$flags = ArrayObject::STD_PROP_LIST | ArrayObject::ARRAY_AS_PROPS;
-		parent::__construct( $data, $flags );
+		$data = static::normalize( $data );
+		parent::__construct( $data, ArrayObject::ARRAY_AS_PROPS );
 	}
 
 	/* -------------------------------------------------------------------------
@@ -314,17 +313,6 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/* -------------------------------------------------------------------------
-	 * Magic functions
-	 * ---------------------------------------------------------------------- */
-
-	/**
-	 * Gets the model as a json encoded string.
-	 */
-	public function __toString(): string {
-		return json_encode( $this, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
-	}
-
-	/* -------------------------------------------------------------------------
 	 * JsonSerializable implementation
 	 * ---------------------------------------------------------------------- */
 
@@ -335,5 +323,79 @@ class Model extends ArrayObject implements ModelInterface {
 	 */
 	public function jsonSerialize(): array {
 		return $this->getArrayCopy();
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Stringable implementation
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Gets the model as a json encoded string.
+	 */
+	public function __toString(): string {
+		return json_encode( $this, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+	}
+
+	/* -------------------------------------------------------------------------
+	 * ArrayObject overrides
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Assign a value to a model property.
+	 *
+	 * @param mixed $key The property id.
+	 * @param mixed $value The property value.
+	 */
+	public function offsetSet( $key, $value ): void {
+		$properties = static::properties();
+		$writable   = $properties[ PropertyItem::WRITABLE ] ?? true;
+
+		if ( $properties && empty( $writable && array_key_exists( $key, $properties ) ) ) {
+			$error = sprintf( 'Setting the %s property in %s is not allowed.', $key, static::class );
+			throw new ModelException( $error, 400 );
+		}
+
+		parent::offsetSet( $key, $value );
+	}
+
+	/**
+	 * Deletes a property from the model.
+	 *
+	 * @param mixed $key The property id.
+	 */
+	public function offsetUnset( $key ): void {
+		$properties = static::properties();
+
+		if ( $properties && array_key_exists( $key, $properties ) ) {
+			$error = sprintf( 'Deleting the %s property in %s is not allowed.', $key, static::class );
+			throw new ModelException( $error, 400 );
+		}
+
+		parent::offsetUnset( $key );
+	}
+
+	/**
+	 * Adds a value to the model.
+	 *
+	 * This method doesn't work when the model has properties.
+	 * Use Model::offsetSet() instead.
+	 *
+	 * @param mixed $value The value to append to the model.
+	 */
+	public function append( $value ): void {
+		if ( empty( static::properties() ) ) {
+			parent::append( $value );
+		}
+	}
+
+	/**
+	 * Replaces the model data.
+	 *
+	 * @param array|object $array The new model data.
+	 *
+	 * @return array The old model data.
+	 */
+	public function exchangeArray( $array ): array {
+		return parent::exchangeArray( self::normalize( $array ) );
 	}
 }

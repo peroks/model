@@ -78,6 +78,20 @@ final class ModelTest extends TestCase {
 		$this->assertEquals( $model->name, $data['name'] );
 		$this->assertEquals( $model->name, $model['name'] );
 
+		$name = 'Game of Thrones Tour';
+
+		$model->name = $name;
+		$this->assertEquals( $model['name'], $name );
+		$this->assertEquals( $model->name, $name );
+
+		$name = 'Harry Potter Tours';
+
+		$model['name'] = $name;
+		$this->assertEquals( $model['name'], $name );
+		$this->assertEquals( $model->name, $name );
+
+		$model->name = $data['name'];
+
 		$name = $model->name;
 		$name = '';
 		$this->assertNotEquals( $model->name, $name );
@@ -223,9 +237,36 @@ final class ModelTest extends TestCase {
 	 * @param ModelInterface $model
 	 * @param array $data
 	 */
-	public function testSerialize( ModelInterface $model, array $data ): void {
-		$ser = serialize( $model );
-		$this->assertIsString( $ser );
-		$this->assertInstanceOf( ModelInterface::class, unserialize( $ser ) );
+	public function testNonProperties( ModelInterface $model, array $data ): void {
+		if ( $model instanceof Tour ) {
+			$this->expectException( ModelException::class );
+			$model['something'] = 'Something';
+			$this->expectException( ModelException::class );
+			$model->something = 'Something';
+
+			$this->expectException( ModelException::class );
+			$model['something'] = 'Something';
+			$this->expectException( ModelException::class );
+			unset( $model->something );
+
+			$this->expectException( ModelException::class );
+			$model[] = 'Something';
+
+			$this->assertNull( $model->something );
+		} else {
+			$model->something = 'Something';
+			$this->assertEquals( $model->something, 'Something' );
+			$this->assertEquals( $model['something'], 'Something' );
+			$this->assertNotEquals( $data, $model->data() );
+			unset( $model->something );
+
+			$model['something'] = 'Something';
+			$this->assertEquals( $model->something, 'Something' );
+			$this->assertEquals( $model['something'], 'Something' );
+			$this->assertNotEquals( $data, $model->data() );
+			unset( $model['something'] );
+
+			$model[] = 'Something';
+		}
 	}
 }
