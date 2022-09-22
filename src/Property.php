@@ -7,7 +7,8 @@
  * @property string $name The property name.
  * @property string $desc The property description.
  * @property string $type The property type (defaults to ANY).
- * @property string $model The class name of another model.
+ * @property string $model The class name of a model.
+ * @property string $object The class or interface name to validate an object against.
  * @property array $properties A model, object or array property definition.
  * @property bool $required Whether the property is required or not, defaults to false.
  * @property bool $disabled Whether the property is disabled or not, defaults to false.
@@ -67,7 +68,13 @@ class Property extends Model {
 		'model'      => [
 			PropertyItem::ID   => 'model',
 			PropertyItem::NAME => 'Model class name',
-			PropertyItem::DESC => 'The class name of another model',
+			PropertyItem::DESC => 'The class name of a model',
+			PropertyItem::TYPE => PropertyType::STRING,
+		],
+		'object'     => [
+			PropertyItem::ID   => 'object',
+			PropertyItem::NAME => 'Object class name',
+			PropertyItem::DESC => 'The class or interface name to validate an object against',
 			PropertyItem::TYPE => PropertyType::STRING,
 		],
 		'properties' => [

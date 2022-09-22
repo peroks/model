@@ -138,27 +138,34 @@ class Model extends ArrayObject implements ModelInterface {
 				throw new ModelException( $error, 400 );
 			}
 
-			// Validate models.
-			if ( $model = $property[ PropertyItem::MODEL ] ?? null ) {
+			$model  = $property[ PropertyItem::MODEL ] ?? null;
+			$object = $property[ PropertyItem::OBJECT ] ?? $model;
 
-				// Validate a single model instance.
+			// Validate objects and models.
+			if ( $object ) {
+
+				// Validate a single object or model.
 				if ( PropertyType::OBJECT === $type ) {
-					if ( empty( is_a( $value, $model ) && $value instanceof ModelInterface ) ) {
-						$error = sprintf( '%s must be an instance of %s', $name, $model );
+					if ( empty( is_a( $value, $object ) || ( empty( $model ) && $value instanceof ModelInterface ) ) ) {
+						$error = sprintf( '%s must be an instance of %s', $name, $object );
 						throw new ModelException( $error, 400 );
 					}
-					$value->validate();
+					if ( $model ) {
+						$value->validate();
+					}
 					continue;
 				}
 
-				// Validate an array of model instances.
+				// Validate an array of objects and models.
 				if ( PropertyType::ARRAY === $type ) {
-					foreach ( $value as $instance ) {
-						if ( empty( is_a( $instance, $model ) && $instance instanceof ModelInterface ) ) {
-							$error = sprintf( '%s must be an array of %s instances', $name, $model );
+					foreach ( $value as $item ) {
+						if ( empty( is_a( $item, $object ) || ( empty( $model ) && $item instanceof ModelInterface ) ) ) {
+							$error = sprintf( '%s must be an array of %s instances', $name, $object );
 							throw new ModelException( $error, 400 );
 						}
-						$instance->validate();
+						if ( $model ) {
+							$item->validate();
+						}
 					}
 					continue;
 				}

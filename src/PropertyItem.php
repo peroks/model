@@ -13,6 +13,7 @@ abstract class PropertyItem {
 	const DESC       = 'desc';
 	const TYPE       = 'type';
 	const MODEL      = 'model';
+	const OBJECT     = 'object';
 	const PROPERTIES = 'properties';
 	const REQUIRED   = 'required';
 	const DISABLED   = 'disabled';
