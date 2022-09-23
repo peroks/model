@@ -81,7 +81,7 @@ class Property extends Model {
 			PropertyItem::ID   => 'foreign',
 			PropertyItem::NAME => 'Foreign model',
 			PropertyItem::DESC => 'A reference to another model',
-			PropertyItem::TYPE => PropertyType::MIXED,
+			PropertyItem::TYPE => PropertyType::STRING,
 		],
 		'properties' => [
 			PropertyItem::ID   => 'properties',
