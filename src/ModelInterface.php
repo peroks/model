@@ -13,10 +13,10 @@ use Serializable;
  * @copyright Per Egil Roksvaag
  * @license MIT
  */
-interface ModelInterface extends IteratorAggregate, ArrayAccess, Serializable, Countable, JsonSerializable {
+interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Serializable, JsonSerializable {
 
 	/**
-	 * Gets the model id.
+	 * Gets the model's id value.
 	 *
 	 * @return int|string The model id.
 	 */
@@ -57,13 +57,11 @@ interface ModelInterface extends IteratorAggregate, ArrayAccess, Serializable, C
 	public static function create( $data = [] ): self;
 
 	/**
-	 * Gets the model's property definitions.
+	 * Gets the model's properties.
 	 *
-	 * @param string $id The property id.
-	 *
-	 * @return array An array of property definitions or the given property definition.
+	 * @return array[] An array of property definitions.
 	 */
-	public static function properties( string $id = '' ): array;
+	public static function properties(): array;
 
 	/**
 	 * Gets the model's id property.
@@ -73,9 +71,18 @@ interface ModelInterface extends IteratorAggregate, ArrayAccess, Serializable, C
 	public static function idProperty(): string;
 
 	/**
-	 * Adds a custom property to a model.
+	 * Gets the model property matching the given id.
 	 *
-	 * @param Property $property The custom property.
+	 * @param string $id The property id.
+	 *
+	 * @return Property|null The property matching the id.
 	 */
-	public static function addProperty( Property $property ): void;
+	public static function getProperty( string $id ): ?Property;
+
+	/**
+	 * Adds a new or changes an existing model property.
+	 *
+	 * @param Property $property A custom property.
+	 */
+	public static function setProperty( Property $property ): void;
 }

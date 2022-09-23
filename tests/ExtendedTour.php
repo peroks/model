@@ -34,14 +34,11 @@ class ExtendedTour extends Tour {
 	/**
 	 * Gets the model's property definitions.
 	 *
-	 * @param string $id The property id.
-	 *
-	 * @return array An array of property definitions or the given property definition.
+	 * @return array[] An array of property definitions.
 	 */
-	public static function properties( string $id = '' ): array {
+	public static function properties(): array {
 		// parent::properties() doesn't work.
 		$properties = get_parent_class( static::class )::properties();
-		$properties = array_merge( $properties, static::$properties );
-		return $id ? $properties[ $id ] : $properties;
+		return array_merge( $properties, static::$properties );
 	}
 }

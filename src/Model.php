@@ -4,7 +4,7 @@ use ArrayAccess;
 use ArrayObject;
 
 /**
- * The model base class.
+ * The model class.
  *
  * @author Per Egil Roksvaag
  * @copyright Per Egil Roksvaag
@@ -32,7 +32,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * ---------------------------------------------------------------------- */
 
 	/**
-	 * Gets the model id.
+	 * Gets the model's id value.
 	 *
 	 * @return int|string The model id.
 	 */
@@ -189,9 +189,9 @@ class Model extends ArrayObject implements ModelInterface {
 	 * ---------------------------------------------------------------------- */
 
 	/**
-	 * Creates a new model with data from the given model or array.
+	 * Creates a new model with data from the given array or object.
 	 *
-	 * @param ModelInterface|array $data The model data.
+	 * @param array|object $data The model data.
 	 *
 	 * @return static A model instance.
 	 */
@@ -200,14 +200,12 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/**
-	 * Gets the model's property definitions.
+	 * Gets the model's properties.
 	 *
-	 * @param string $id The property id.
-	 *
-	 * @return array An array of property definitions or the given property definition.
+	 * @return array[] An array of property definitions.
 	 */
-	public static function properties( string $id = '' ): array {
-		return $id ? static::$properties[ $id ] : static::$properties;
+	public static function properties(): array {
+		return static::$properties;
 	}
 
 	/**
@@ -220,11 +218,23 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/**
-	 * Adds a custom property to a model.
+	 * Gets the model property matching the given id.
 	 *
-	 * @param Property $property The custom property.
+	 * @param string $id The property id.
+	 *
+	 * @return Property|null The property matching the id.
 	 */
-	public static function addProperty( Property $property ): void {
+	public static function getProperty( string $id ): ?Property {
+		$property = static::properties()[ $id ] ?? null;
+		return $property ? new Property( $property ) : null;
+	}
+
+	/**
+	 * Adds a new or changes an existing model property.
+	 *
+	 * @param Property $property A custom property.
+	 */
+	public static function setProperty( Property $property ): void {
 		$property->validate();
 		static::$properties[ $property->id() ] = $property->data();
 	}
