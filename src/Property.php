@@ -77,6 +77,12 @@ class Property extends Model {
 			PropertyItem::DESC => 'The class or interface name to validate an object against',
 			PropertyItem::TYPE => PropertyType::STRING,
 		],
+		'foreign'     => [
+			PropertyItem::ID   => 'foreign',
+			PropertyItem::NAME => 'Foreign id',
+			PropertyItem::DESC => 'The id of another class',
+			PropertyItem::TYPE => PropertyType::STRING,
+		],
 		'properties' => [
 			PropertyItem::ID   => 'properties',
 			PropertyItem::NAME => 'Properties',
@@ -110,6 +116,13 @@ class Property extends Model {
 			PropertyItem::DESC    => 'Whether the property is writable or not, defaults to true',
 			PropertyItem::TYPE    => PropertyType::BOOL,
 			PropertyItem::DEFAULT => true,
+		],
+		'unique'   => [
+			PropertyItem::ID      => 'unique',
+			PropertyItem::NAME    => 'Unique',
+			PropertyItem::DESC    => 'Whether the property value is unique or not, defaults to false',
+			PropertyItem::TYPE    => PropertyType::BOOL,
+			PropertyItem::DEFAULT => false,
 		],
 		'pattern'    => [
 			PropertyItem::ID   => 'pattern',
