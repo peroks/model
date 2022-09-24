@@ -63,9 +63,10 @@ class Model extends ArrayObject implements ModelInterface {
 
 		// Get an array of the model data values.
 		if ( $properties ) {
-			return array_intersect_key( $data, static::properties() );
+			return array_intersect_key( $data, $properties );
 		}
 
+		// Get the raw internal data.
 		return $data;
 	}
 
@@ -361,6 +362,7 @@ class Model extends ArrayObject implements ModelInterface {
 			}
 			$result[] = Property::create( $property );
 		}
+
 		return $result ?? [];
 	}
 
