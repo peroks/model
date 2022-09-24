@@ -3,21 +3,25 @@
 /**
  * The property properties.
  *
- * @property string $id The property id.
- * @property string $name The property name.
- * @property string $desc The property description.
- * @property string $type The property type (defaults to ANY).
- * @property string $model The class name of a model.
- * @property string $object The class or interface name to validate an object against.
- * @property array $properties A model, object or array property definition.
- * @property bool $required Whether the property is required or not, defaults to false.
- * @property bool $disabled Whether the property is disabled or not, defaults to false.
- * @property bool $readable Whether the property is readable or not, defaults to true.
- * @property bool $writeable Whether the property is writable or not, defaults to false.
- * @property string $pattern A regex pattern to validate the property value against.
- * @property array $enum An array containing all allowed values.
- * @property mixed $default The property default value.
- * @property mixed value The property value.
+ * @property string $id The property id (required).
+ * @property string $name The property name (required).
+ * @property string $desc The property description (default: null).
+ * @property string $type The property type (default: PropertyType::MIXED).
+ * @property string $model The class name of a model (default: null).
+ * @property string $object The class or interface name to validate an object against (default: null).
+ * @property string $foreign The property contains an id of the (foreign) model class name (default: null).
+ * @property mixed $default The property default value (default: null).
+ * @property bool $required Whether the property is required or not (default: false).
+ * @property bool $disabled Whether the property is disabled or not (default: false).
+ * @property bool $readable Whether the property is readable or not (default: true).
+ * @property bool $writeable Whether the property is writable or not (default: true).
+ * @property bool $unique Whether the property value is unique or not (default: false).
+ * @property string $pattern A regex pattern to validate the property value against (default: null).
+ * @property array $enum An enumeration of all valid property values (default: null).
+ * @property int|float $min The minimum numeric value or string length (default: null).
+ * @property int|float $max The maximum numeric value or string length (default: null).
+ * @property mixed value The property value (default: null).
+ * @property array $properties An array of model property definitions (default: null).
  *
  * @author Per Egil Roksvaag
  * @copyright Per Egil Roksvaag
@@ -52,7 +56,7 @@ class Property extends Model {
 		'type'       => [
 			PropertyItem::ID      => 'type',
 			PropertyItem::NAME    => 'Property type',
-			PropertyItem::DESC    => 'The property type: boolean, integer, double, string, array, object',
+			PropertyItem::DESC    => 'The property type',
 			PropertyItem::TYPE    => PropertyType::STRING,
 			PropertyItem::DEFAULT => PropertyType::MIXED,
 			PropertyItem::ENUM    => [
@@ -79,62 +83,9 @@ class Property extends Model {
 		],
 		'foreign'    => [
 			PropertyItem::ID   => 'foreign',
-			PropertyItem::NAME => 'Foreign model',
-			PropertyItem::DESC => 'A reference to another model',
+			PropertyItem::NAME => 'Foreign model class name',
+			PropertyItem::DESC => 'The property contains an id of the (foreign) model class name',
 			PropertyItem::TYPE => PropertyType::STRING,
-		],
-		'properties' => [
-			PropertyItem::ID   => 'properties',
-			PropertyItem::NAME => 'Properties',
-			PropertyItem::DESC => 'A model, object or array property definition',
-			PropertyItem::TYPE => PropertyType::ARRAY,
-		],
-		'required'   => [
-			PropertyItem::ID      => 'required',
-			PropertyItem::NAME    => 'Required',
-			PropertyItem::DESC    => 'Whether the property is required or not, defaults to false.',
-			PropertyItem::TYPE    => PropertyType::BOOL,
-			PropertyItem::DEFAULT => false,
-		],
-		'disabled'   => [
-			PropertyItem::ID      => 'disabled',
-			PropertyItem::NAME    => 'Disabled',
-			PropertyItem::DESC    => 'Whether the property is disabled or not, defaults to false',
-			PropertyItem::TYPE    => PropertyType::BOOL,
-			PropertyItem::DEFAULT => false,
-		],
-		'readable'   => [
-			PropertyItem::ID      => 'readable',
-			PropertyItem::NAME    => 'Readable',
-			PropertyItem::DESC    => 'Whether the property is readable or not, defaults to true',
-			PropertyItem::TYPE    => PropertyType::BOOL,
-			PropertyItem::DEFAULT => true,
-		],
-		'writable'   => [
-			PropertyItem::ID      => 'writable',
-			PropertyItem::NAME    => 'Writable',
-			PropertyItem::DESC    => 'Whether the property is writable or not, defaults to true',
-			PropertyItem::TYPE    => PropertyType::BOOL,
-			PropertyItem::DEFAULT => true,
-		],
-		'unique'     => [
-			PropertyItem::ID      => 'unique',
-			PropertyItem::NAME    => 'Unique',
-			PropertyItem::DESC    => 'Whether the property value is unique or not, defaults to false',
-			PropertyItem::TYPE    => PropertyType::BOOL,
-			PropertyItem::DEFAULT => false,
-		],
-		'pattern'    => [
-			PropertyItem::ID   => 'pattern',
-			PropertyItem::NAME => 'Regex validation',
-			PropertyItem::DESC => 'A regex pattern to validate the property value against',
-			PropertyItem::TYPE => PropertyType::STRING,
-		],
-		'enum'       => [
-			PropertyItem::ID   => 'enum',
-			PropertyItem::NAME => 'Enumeration',
-			PropertyItem::DESC => 'An array containing all allowed values',
-			PropertyItem::TYPE => PropertyType::ARRAY,
 		],
 		'default'    => [
 			PropertyItem::ID   => 'default',
@@ -142,11 +93,76 @@ class Property extends Model {
 			PropertyItem::DESC => 'The property default value',
 			PropertyItem::TYPE => PropertyType::MIXED,
 		],
+		'required'   => [
+			PropertyItem::ID      => 'required',
+			PropertyItem::NAME    => 'Required',
+			PropertyItem::DESC    => 'Whether the property is required or not',
+			PropertyItem::TYPE    => PropertyType::BOOL,
+			PropertyItem::DEFAULT => false,
+		],
+		'disabled'   => [
+			PropertyItem::ID      => 'disabled',
+			PropertyItem::NAME    => 'Disabled',
+			PropertyItem::DESC    => 'Whether the property is disabled or not',
+			PropertyItem::TYPE    => PropertyType::BOOL,
+			PropertyItem::DEFAULT => false,
+		],
+		'readable'   => [
+			PropertyItem::ID      => 'readable',
+			PropertyItem::NAME    => 'Readable',
+			PropertyItem::DESC    => 'Whether the property is readable or not',
+			PropertyItem::TYPE    => PropertyType::BOOL,
+			PropertyItem::DEFAULT => true,
+		],
+		'writable'   => [
+			PropertyItem::ID      => 'writable',
+			PropertyItem::NAME    => 'Writable',
+			PropertyItem::DESC    => 'Whether the property is writable or not',
+			PropertyItem::TYPE    => PropertyType::BOOL,
+			PropertyItem::DEFAULT => true,
+		],
+		'unique'     => [
+			PropertyItem::ID      => 'unique',
+			PropertyItem::NAME    => 'Unique',
+			PropertyItem::DESC    => 'Whether the property value is unique or not',
+			PropertyItem::TYPE    => PropertyType::BOOL,
+			PropertyItem::DEFAULT => false,
+		],
+		'pattern'    => [
+			PropertyItem::ID   => 'pattern',
+			PropertyItem::NAME => 'Regex validation pattern',
+			PropertyItem::DESC => 'A regex pattern to validate the property value against',
+			PropertyItem::TYPE => PropertyType::STRING,
+		],
+		'enum'       => [
+			PropertyItem::ID   => 'enum',
+			PropertyItem::NAME => 'Enumeration',
+			PropertyItem::DESC => 'An enumeration of all valid property values',
+			PropertyItem::TYPE => PropertyType::ARRAY,
+		],
+		'min'        => [
+			PropertyItem::ID   => 'min',
+			PropertyItem::NAME => 'Min value',
+			PropertyItem::DESC => 'The minimum value',
+			PropertyItem::TYPE => PropertyType::NUMBER,
+		],
+		'max'        => [
+			PropertyItem::ID   => 'max',
+			PropertyItem::NAME => 'Max value',
+			PropertyItem::DESC => 'The maximum value',
+			PropertyItem::TYPE => PropertyType::NUMBER,
+		],
 		'value'      => [
 			PropertyItem::ID   => 'value',
 			PropertyItem::NAME => 'Property value',
 			PropertyItem::DESC => 'The property value',
 			PropertyItem::TYPE => PropertyType::MIXED,
+		],
+		'properties' => [
+			PropertyItem::ID   => 'properties',
+			PropertyItem::NAME => 'Properties',
+			PropertyItem::DESC => 'An array of model property definitions',
+			PropertyItem::TYPE => PropertyType::ARRAY,
 		],
 	];
 }

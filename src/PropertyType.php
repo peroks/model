@@ -10,6 +10,7 @@
 abstract class PropertyType {
 	const MIXED   = '';
 	const BOOL    = 'boolean';
+	const NUMBER  = 'number';
 	const INTEGER = 'integer';
 	const FLOAT   = 'double';
 	const STRING  = 'string';

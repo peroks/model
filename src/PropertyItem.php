@@ -15,7 +15,7 @@ abstract class PropertyItem {
 	const MODEL      = 'model';
 	const OBJECT     = 'object';
 	const FOREIGN    = 'foreign';
-	const PROPERTIES = 'properties';
+	const DEFAULT    = 'default';
 	const REQUIRED   = 'required';
 	const DISABLED   = 'disabled';
 	const READABLE   = 'readable';
@@ -23,6 +23,8 @@ abstract class PropertyItem {
 	const UNIQUE     = 'unique';
 	const PATTERN    = 'pattern';
 	const ENUM       = 'enum';
-	const DEFAULT    = 'default';
+	const MIN        = 'min';
+	const MAX        = 'max';
 	const VALUE      = 'value';
+	const PROPERTIES = 'properties';
 }
