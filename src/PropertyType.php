@@ -14,6 +14,7 @@ abstract class PropertyType {
 	const INTEGER = 'integer';
 	const FLOAT   = 'double';
 	const STRING  = 'string';
+	const UUID    = 'uuid';
 	const ARRAY   = 'array';
 	const OBJECT  = 'object';
 }

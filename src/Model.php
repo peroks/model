@@ -118,8 +118,22 @@ class Model extends ArrayObject implements ModelInterface {
 	 */
 	public function validate(): self {
 		foreach ( static::properties() as $id => $property ) {
-			static::validateProperty( $this[ $id ], $property );
+			$value = $this[ $id ];
+
+			if ( is_null( $value ) ) {
+				Validate::required( $value, $property );
+				continue;
+			}
+
+			Validate::type( $value, $property );
+			Validate::model( $value, $property );
+			Validate::object( $value, $property );
+			Validate::pattern( $value, $property );
+			Validate::enumeration( $value, $property );
+			Validate::minimum( $value, $property );
+			Validate::maximum( $value, $property );
 		}
+
 		return $this;
 	}
 
@@ -266,7 +280,7 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/* -------------------------------------------------------------------------
-	 * Protected static utils
+	 * Protected static methods
 	 * ---------------------------------------------------------------------- */
 
 	/**
@@ -301,6 +315,10 @@ class Model extends ArrayObject implements ModelInterface {
 				$model = $property[ PropertyItem::MODEL ] ?? null;
 				$value = $data[ $id ] ?? $property[ PropertyItem::DEFAULT ] ?? null;
 
+				if ( $type === PropertyType::UUID && $value === true ) {
+					$value = Utils::uuid();
+				}
+
 				if ( $model && is_array( $value ) ) {
 					if ( $type === PropertyType::OBJECT ) {
 						$value = new $model( $value );
@@ -312,222 +330,12 @@ class Model extends ArrayObject implements ModelInterface {
 					}
 				}
 
-				if ( $include || static::keyExists( $id, $data ) ) {
+				if ( $include || Utils::keyExists( $id, $data ) ) {
 					$result[ $id ] = $value;
 				}
 			}
 		}
 
 		return $result ?? [];
-	}
-
-	/**
-	 * Checks if the given key or index exists in the data.
-	 *
-	 * @param int|string $key The key to check for.
-	 * @param array|ArrayAccess $data An array or object keys to check.
-	 *
-	 * @return bool True if the key exists in the data.
-	 */
-	protected static function keyExists( string $key, $data ): bool {
-		if ( is_array( $data ) ) {
-			return array_key_exists( $key, $data );
-		}
-		if ( $data instanceof ArrayAccess ) {
-			return $data->offsetExists( $key );
-		}
-		return false;
-	}
-
-	/**
-	 * Validates a property value against its definitions.
-	 *
-	 * @param mixed $value The property value to validate.
-	 * @param Property|array $property The property definition.
-	 */
-	protected static function validateProperty( $value, $property ): void {
-		$name = $property[ PropertyItem::NAME ];
-		$type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
-
-		// Check that all required properties are set.
-		if ( is_null( $value ) ) {
-			if ( $property[ PropertyItem::REQUIRED ] ?? false ) {
-				$error = sprintf( '%s is required.', $name );
-				throw new ModelException( $error, 400 );
-			}
-
-			return;
-		}
-
-		// Check number type constraint.
-		if ( PropertyType::NUMBER === $type ) {
-			if ( empty( is_integer( $value ) || is_float( $value ) ) ) {
-				$error = sprintf( '%s must be of type %s.', $name, $type );
-				throw new ModelException( $error, 400 );
-			}
-		}
-
-		// Check all other types.
-		elseif ( $type && $type !== gettype( $value ) ) {
-			$error = sprintf( '%s must be of type %s.', $name, $type );
-			throw new ModelException( $error, 400 );
-		}
-
-		// Check model constraint.
-		if ( isset( $property[ PropertyItem::MODEL ] ) ) {
-			$class = $property[ PropertyItem::MODEL ];
-
-			// Validate a single model.
-			if ( PropertyType::OBJECT === $type ) {
-				static::validateModel( $value, $class, $name );
-			}
-
-			// Validate an array of models.
-			elseif ( PropertyType::ARRAY === $type ) {
-				foreach ( $value as $item ) {
-					static::validateModel( $item, $class, $name );
-				}
-			}
-
-			return;
-		}
-
-		// Check object class name constraint.
-		if ( isset( $property[ PropertyItem::OBJECT ] ) ) {
-			$class = $property[ PropertyItem::OBJECT ];
-
-			// Validate a single object.
-			if ( PropertyType::OBJECT === $type ) {
-				static::validateObject( $value, $class, $name );
-			}
-
-			// Validate an array of objects.
-			elseif ( PropertyType::ARRAY === $type ) {
-				foreach ( $value as $item ) {
-					static::validateObject( $item, $class, $name );
-				}
-			}
-
-			return;
-		}
-
-		// Check regex pattern constraint.
-		if ( isset( $property[ PropertyItem::PATTERN ] ) ) {
-			if ( is_string( $value ) ) {
-				$pattern = $property[ PropertyItem::PATTERN ];
-				$regex   = '/' . str_replace( '/', '\\/', $pattern ) . '/';
-
-				if ( empty( preg_match( $regex, $value ) ) ) {
-					$error = sprintf( '%s must match the regex pattern %s', $name, $pattern );
-					throw new ModelException( $error, 400 );
-				}
-			}
-		}
-
-		// Check enumeration constraint.
-		if ( isset( $property[ PropertyItem::ENUM ] ) ) {
-			$enum = $property[ PropertyItem::ENUM ];
-
-			// Check enumeration constraint on scalar values.
-			if ( is_scalar( $value ) ) {
-				if ( empty( in_array( $value, $enum, true ) ) ) {
-					$error = sprintf( '%s must be one of %s', $name, join( ', ', $enum ) );
-					throw new ModelException( $error, 400 );
-				}
-			}
-
-			// Check enumeration constraint on arrays.
-			elseif ( is_array( $value ) ) {
-				if ( empty( array_intersect( $value, $enum ) === $value ) ) {
-					$error = sprintf( '%s must be one of %s', $name, join( ', ', $enum ) );
-					throw new ModelException( $error, 400 );
-				}
-			}
-		}
-
-		// Check minimum constraint.
-		if ( isset( $property[ PropertyItem::MIN ] ) ) {
-			$min = $property[ PropertyItem::MIN ];
-
-			// Check minimum constraint on numbers.
-			if ( is_int( $value ) || is_float( $value ) ) {
-				if ( $value < $min ) {
-					$error = sprintf( '%s must be at least %d.', $name, $min );
-					throw new ModelException( $error, 400 );
-				}
-			}
-
-			// Check minimum constraint on strings.
-			elseif ( is_string( $value ) ) {
-				if ( strlen( $value ) < $min ) {
-					$error = sprintf( '%s must contain at least %d characters.', $name, $min );
-					throw new ModelException( $error, 400 );
-				}
-			}
-
-			// Check minimum constraint on arrays.
-			elseif ( is_array( $value ) ) {
-				if ( count( $value ) < $min ) {
-					$error = sprintf( '%s must contain at least %d entries.', $name, $min );
-					throw new ModelException( $error, 400 );
-				}
-			}
-		}
-
-		// Check maximum constraint.
-		if ( isset( $property[ PropertyItem::MAX ] ) ) {
-			$max = $property[ PropertyItem::MAX ];
-
-			// Check maximum constraint on numbers.
-			if ( is_int( $value ) || is_float( $value ) ) {
-				if ( $value > $max ) {
-					$error = sprintf( '%s must be max %d.', $name, $max );
-					throw new ModelException( $error, 400 );
-				}
-			}
-
-			// Check maximum constraint on strings.
-			elseif ( is_string( $value ) ) {
-				if ( strlen( $value ) > $max ) {
-					$error = sprintf( '%s must contain max %d characters.', $name, $max );
-					throw new ModelException( $error, 400 );
-				}
-			}
-
-			// Check maximum constraint on arrays.
-			elseif ( is_array( $value ) ) {
-				if ( count( $value ) > $max ) {
-					$error = sprintf( '%s must contain max %d entries.', $name, $max );
-					throw new ModelException( $error, 400 );
-				}
-			}
-		}
-	}
-
-	/**
-	 * Validates a model.
-	 *
-	 * @param object $value The model to validate.
-	 * @param string $class The model class name.
-	 * @param string $property The property name.
-	 */
-	protected static function validateModel( object $value, string $class, string $property ): void {
-		static::validateObject( $value, $class, $property );
-		static::validateObject( $value, ModelInterface::class, $property );
-		$value->validate();
-	}
-
-	/**
-	 * Validates an object.
-	 *
-	 * @param object $value The object to validate.
-	 * @param string $class The object class or interface name.
-	 * @param string $property The property name.
-	 */
-	protected static function validateObject( object $value, string $class, string $property ): void {
-		if ( empty( is_a( $value, $class ) ) ) {
-			$error = sprintf( '%s must be an instance of %s', $property, $class );
-			throw new ModelException( $error, 400 );
-		}
 	}
 }
