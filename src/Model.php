@@ -53,40 +53,12 @@ class Model extends ArrayObject implements ModelInterface {
 
 		// Get a compact data array stripped of all null and default values.
 		if ( ModelData::COMPACT === $content ) {
-			foreach ( $properties as $id => $property ) {
-				if ( array_key_exists( $id, $data ) ) {
-					$default = $property[ PropertyItem::DEFAULT ] ?? null;
-					$value   = $data[ $id ];
-
-					if ( $value instanceof ModelInterface ) {
-						$value = $value->data( ModelData::COMPACT );
-					}
-
-					if ( $value !== $default ) {
-						$result[ $id ] = $value;
-					}
-				}
-			}
-			return $result ?? [];
+			return static::dataCompact( $data, $properties );
 		}
 
 		// Get an array of model properties including the property value.
 		if ( ModelData::PROPERTIES == $content ) {
-			foreach ( $properties as $id => $property ) {
-				if ( $property[ PropertyItem::DISABLED ] ?? false ) {
-					continue;
-				}
-
-				if ( $property[ PropertyItem::READABLE ] ?? true ) {
-					$property[ PropertyItem::VALUE ] = $this[ $id ];
-
-					if ( $property[ PropertyItem::VALUE ] instanceof ModelInterface ) {
-						$property[ PropertyItem::PROPERTIES ] = $property[ PropertyItem::VALUE ]->data( ModelData::PROPERTIES );
-					}
-				}
-				$result[] = Property::create( $property );
-			}
-			return $result ?? [];
+			return static::dataProperties( $data, $properties );
 		}
 
 		// Get an array of the model data values.
@@ -336,6 +308,59 @@ class Model extends ArrayObject implements ModelInterface {
 			}
 		}
 
+		return $result ?? [];
+	}
+
+	/**
+	 * Get a compact data array stripped of all null and default values.
+	 *
+	 * @param array $data The internal data array.
+	 * @param Property[]|array $properties The model properties.
+	 *
+	 * @return array The compact model data.
+	 */
+	protected static function dataCompact( array $data, array $properties ): array {
+		foreach ( $properties as $id => $property ) {
+			if ( array_key_exists( $id, $data ) ) {
+				$default = $property[ PropertyItem::DEFAULT ] ?? null;
+				$value   = $data[ $id ];
+
+				if ( $value instanceof ModelInterface ) {
+					$value = $value->data( ModelData::COMPACT );
+				}
+
+				if ( $value !== $default ) {
+					$result[ $id ] = $value;
+				}
+			}
+		}
+
+		return $result ?? [];
+	}
+
+	/**
+	 * Get an array of model properties including the property value.
+	 *
+	 * @param array $data The internal data array.
+	 * @param Property[]|array[] $properties The model properties.
+	 *
+	 * @return Property[] The model data as an array of properties.
+	 */
+	protected static function dataProperties( array $data, array $properties ): array {
+		foreach ( $properties as $id => $property ) {
+			if ( $property[ PropertyItem::DISABLED ] ?? false ) {
+				continue;
+			}
+
+			if ( $property[ PropertyItem::READABLE ] ?? true ) {
+				$property[ PropertyItem::VALUE ] = $data[ $id ];
+
+				if ( $property[ PropertyItem::VALUE ] instanceof ModelInterface ) {
+					$property[ PropertyItem::PROPERTIES ] = $property[ PropertyItem::VALUE ]->data( ModelData::PROPERTIES );
+				}
+			}
+			$result[] = Property::create( $property );
+		}
 		return $result ?? [];
 	}
 
