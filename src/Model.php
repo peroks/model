@@ -284,32 +284,44 @@ class Model extends ArrayObject implements ModelInterface {
 
 		if ( is_array( $data ) || $data instanceof ArrayAccess ) {
 			foreach ( $properties as $id => $property ) {
-				$type  = $property[ PropertyItem::TYPE ] ?? null;
-				$model = $property[ PropertyItem::MODEL ] ?? null;
-				$value = $data[ $id ] ?? $property[ PropertyItem::DEFAULT ] ?? null;
-
-				if ( $type === PropertyType::UUID && $value === true ) {
-					$value = Utils::uuid();
-				}
-
-				if ( $model && is_array( $value ) ) {
-					if ( $type === PropertyType::OBJECT ) {
-						$value = new $model( $value );
-					}
-					elseif ( $type === PropertyType::ARRAY ) {
-						foreach ( $value as &$item ) {
-							$item = new $model( $item );
-						}
-					}
-				}
-
 				if ( $include || Utils::keyExists( $id, $data ) ) {
-					$result[ $id ] = $value;
+					$value         = $data[ $id ] ?? $property[ PropertyItem::DEFAULT ] ?? null;
+					$result[ $id ] = static::normalizeProperty( $value, $property );
 				}
 			}
 		}
 
 		return $result ?? [];
+	}
+
+	/**
+	 * Normalize a property value.
+	 *
+	 * @param mixed $value The property value.
+	 * @param Property|array $property The property definition.
+	 *
+	 * @return mixed The modified property value.
+	 */
+	public static function normalizeProperty( $value, $property ) {
+		$type  = $property[ PropertyItem::TYPE ] ?? null;
+		$model = $property[ PropertyItem::MODEL ] ?? null;
+
+		if ( $type === PropertyType::UUID && $value === true ) {
+			return Utils::uuid();
+		}
+
+		if ( $model && is_array( $value ) ) {
+			if ( $type === PropertyType::OBJECT ) {
+				return new $model( $value );
+			}
+			if ( $type === PropertyType::ARRAY ) {
+				foreach ( $value as &$item ) {
+					$item = new $model( $item );
+				}
+			}
+		}
+
+		return $value;
 	}
 
 	/**
