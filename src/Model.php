@@ -23,7 +23,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param array|object $data The model data.
 	 */
 	public function __construct( $data = [] ) {
-		$data = static::normalize( $data );
+		$data = static::normalizeData( $data );
 		parent::__construct( $data, ArrayObject::ARRAY_AS_PROPS );
 	}
 
@@ -78,7 +78,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return static The updated model instance.
 	 */
 	public function patch( $data ): self {
-		foreach ( static::normalize( $data, false ) as $id => $value ) {
+		foreach ( static::normalizeData( $data, false ) as $id => $value ) {
 			$this[ $id ] = $value;
 		}
 		return $this;
@@ -94,7 +94,7 @@ class Model extends ArrayObject implements ModelInterface {
 			$value = $this[ $id ];
 
 			if ( is_null( $value ) ) {
-				static::validateRequired( $value, $property );
+				static::validateRequired( $property );
 				continue;
 			}
 
@@ -249,7 +249,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return array The old model data.
 	 */
 	public function exchangeArray( $array ): array {
-		return parent::exchangeArray( self::normalize( $array ) );
+		return parent::exchangeArray( self::normalizeData( $array ) );
 	}
 
 	/* -------------------------------------------------------------------------
@@ -264,8 +264,9 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return array The normalized data.
 	 */
-	protected static function normalize( $data, bool $include = true ): array {
+	protected static function normalizeData( $data, bool $include = true ): array {
 		$properties = static::properties();
+		$result     = [];
 
 		// If no properties are defined, accept all data;
 		if ( empty( $properties ) ) {
@@ -291,7 +292,7 @@ class Model extends ArrayObject implements ModelInterface {
 			}
 		}
 
-		return $result ?? [];
+		return $result;
 	}
 
 	/**
@@ -379,18 +380,15 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/**
-	 * Checks that required properties are set.
+	 * Checks if a property is required.
 	 *
-	 * @param mixed $value The property value to validate.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateRequired( $value, $property ): void {
+	protected static function validateRequired( $property ): void {
 		if ( $property[ PropertyItem::REQUIRED ] ?? false ) {
-			if ( is_null( $value ) ) {
-				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s is required.', $name );
-				throw new ModelException( $error, 400 );
-			}
+			$name  = $property[ PropertyItem::NAME ];
+			$error = sprintf( '%s is required.', $name );
+			throw new ModelException( $error, 400 );
 		}
 	}
 
