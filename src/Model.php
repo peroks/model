@@ -97,14 +97,29 @@ class Model extends ArrayObject implements ModelInterface {
 				static::validateRequired( $property );
 				continue;
 			}
-
-			static::validateType( $value, $property );
-			static::validateModel( $value, $property );
-			static::validateObject( $value, $property );
-			static::validatePattern( $value, $property );
-			static::validateEnumeration( $value, $property );
-			static::validateMinimum( $value, $property );
-			static::validateMaximum( $value, $property );
+			if ( $type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED ) {
+				static::validateType( $value, $type, $property );
+			}
+			if ( $class = $property[ PropertyItem::MODEL ] ?? null ) {
+				static::validateModel( $value, $class, $property );
+				continue;
+			}
+			if ( $class = $property[ PropertyItem::OBJECT ] ?? null ) {
+				static::validateObject( $value, $class, $property );
+				continue;
+			}
+			if ( $pattern = $property[ PropertyItem::PATTERN ] ?? null ) {
+				static::validatePattern( $value, $pattern, $property );
+			}
+			if ( $enum = $property[ PropertyItem::ENUM ] ?? null ) {
+				static::validateEnumeration( $value, $enum, $property );
+			}
+			if ( isset( $property[ PropertyItem::MIN ] ) ) {
+				static::validateMinimum( $value, $property );
+			}
+			if ( isset( $property[ PropertyItem::MAX ] ) ) {
+				static::validateMaximum( $value, $property );
+			}
 		}
 
 		return $this;
@@ -396,35 +411,34 @@ class Model extends ArrayObject implements ModelInterface {
 	 * Checks that the value is of the correct type.
 	 *
 	 * @param mixed $value The property value to validate.
+	 * @param string $type The property type.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateType( $value, $property ): void {
-		if ( $type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED ) {
+	protected static function validateType( $value, string $type, $property ): void {
 
-			// Check number type.
-			if ( $type === PropertyType::NUMBER ) {
-				if ( empty( is_integer( $value ) || is_float( $value ) ) ) {
-					$name  = $property[ PropertyItem::NAME ];
-					$error = sprintf( '%s must be of type %s.', $name, $type );
-					throw new ModelException( $error, 400 );
-				}
-			}
-
-			// Check uuid type.
-			elseif ( $type === PropertyType::UUID ) {
-				if ( empty( is_string( $value ) && strlen( $value ) === 36 ) ) {
-					$name  = $property[ PropertyItem::NAME ];
-					$error = sprintf( '%s must be of type %s.', $name, $type );
-					throw new ModelException( $error, 400 );
-				}
-			}
-
-			// Check all other types.
-			elseif ( $type !== gettype( $value ) ) {
+		// Check number type.
+		if ( $type === PropertyType::NUMBER ) {
+			if ( empty( is_integer( $value ) || is_float( $value ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
 				$error = sprintf( '%s must be of type %s.', $name, $type );
 				throw new ModelException( $error, 400 );
 			}
+		}
+
+		// Check uuid type.
+		elseif ( $type === PropertyType::UUID ) {
+			if ( empty( is_string( $value ) && strlen( $value ) === 36 ) ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must be of type %s.', $name, $type );
+				throw new ModelException( $error, 400 );
+			}
+		}
+
+		// Check all other types.
+		elseif ( $type !== gettype( $value ) ) {
+			$name  = $property[ PropertyItem::NAME ];
+			$error = sprintf( '%s must be of type %s.', $name, $type );
+			throw new ModelException( $error, 400 );
 		}
 	}
 
@@ -432,25 +446,26 @@ class Model extends ArrayObject implements ModelInterface {
 	 * Validates a model.
 	 *
 	 * @param mixed $value The property value to validate.
+	 * @param string $class The model class.
 	 * @param Property|array $property The property definition.
+	 *
+	 * @throws ModelException
 	 */
-	protected static function validateModel( $value, $property ): void {
-		if ( $class = $property[ PropertyItem::MODEL ] ?? null ) {
+	protected static function validateModel( $value, string $class, $property ): void {
 
-			// Validate a single model.
-			if ( is_object( $value ) ) {
-				static::validateClass( $value, $class, $property );
-				static::validateClass( $value, ModelInterface::class, $property );
-				$value->validate();
-			}
+		// Validate a single model.
+		if ( is_object( $value ) ) {
+			static::validateClass( $value, $class, $property );
+			static::validateClass( $value, ModelInterface::class, $property );
+			$value->validate();
+		}
 
-			// Validate an array of models.
-			elseif ( is_array( $value ) ) {
-				foreach ( $value as $item ) {
-					static::validateClass( $item, $class, $property );
-					static::validateClass( $item, ModelInterface::class, $property );
-					$item->validate();
-				}
+		// Validate an array of models.
+		elseif ( is_array( $value ) ) {
+			foreach ( $value as $item ) {
+				static::validateClass( $item, $class, $property );
+				static::validateClass( $item, ModelInterface::class, $property );
+				$item->validate();
 			}
 		}
 	}
@@ -459,21 +474,20 @@ class Model extends ArrayObject implements ModelInterface {
 	 * Validates an object.
 	 *
 	 * @param mixed $value The property value to validate.
+	 * @param string $class The model class.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateObject( $value, $property ): void {
-		if ( $class = $property[ PropertyItem::OBJECT ] ?? null ) {
+	protected static function validateObject( $value, string $class, $property ): void {
 
-			// Validate a single object.
-			if ( is_object( $value ) ) {
-				static::validateClass( $value, $class, $property );
-			}
+		// Validate a single object.
+		if ( is_object( $value ) ) {
+			static::validateClass( $value, $class, $property );
+		}
 
-			// Validate an array of object.
-			elseif ( is_array( $value ) ) {
-				foreach ( $value as $item ) {
-					static::validateClass( $item, $class, $property );
-				}
+		// Validate an array of object.
+		elseif ( is_array( $value ) ) {
+			foreach ( $value as $item ) {
+				static::validateClass( $item, $class, $property );
 			}
 		}
 	}
@@ -482,19 +496,18 @@ class Model extends ArrayObject implements ModelInterface {
 	 * Validates a string against a regex pattern.
 	 *
 	 * @param mixed $value The property value to validate.
+	 * @param string $pattern The property validation pattern.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validatePattern( $value, $property ): void {
-		if ( $pattern = $property[ PropertyItem::PATTERN ] ?? null ) {
-			$regex = '/' . str_replace( '/', '\\/', $pattern ) . '/';
+	protected static function validatePattern( $value, string $pattern, $property ): void {
+		$regex = '/' . str_replace( '/', '\\/', $pattern ) . '/';
 
-			// Only strings are validated.
-			if ( is_string( $value ) ) {
-				if ( empty( preg_match( $regex, $value ) ) ) {
-					$name  = $property[ PropertyItem::NAME ];
-					$error = sprintf( '%s must match the regex pattern %s', $name, $pattern );
-					throw new ModelException( $error, 400 );
-				}
+		// Only strings are validated.
+		if ( is_string( $value ) ) {
+			if ( empty( preg_match( $regex, $value ) ) ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must match the regex pattern %s', $name, $pattern );
+				throw new ModelException( $error, 400 );
 			}
 		}
 	}
@@ -503,27 +516,26 @@ class Model extends ArrayObject implements ModelInterface {
 	 * Validates a property value against an enumeration constraint.
 	 *
 	 * @param mixed $value The property value to validate.
+	 * @param array $enum An array of valid values.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateEnumeration( $value, $property ): void {
-		if ( $enum = $property[ PropertyItem::ENUM ] ?? null ) {
+	protected static function validateEnumeration( $value, array $enum, $property ): void {
 
-			// Check enumeration constraint on scalar values.
-			if ( is_scalar( $value ) ) {
-				if ( empty( in_array( $value, $enum, true ) ) ) {
-					$name  = $property[ PropertyItem::NAME ];
-					$error = sprintf( '%s must be one of %s', $name, join( ', ', $enum ) );
-					throw new ModelException( $error, 400 );
-				}
+		// Check enumeration constraint on scalar values.
+		if ( is_scalar( $value ) ) {
+			if ( empty( in_array( $value, $enum, true ) ) ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must be one of %s', $name, join( ', ', $enum ) );
+				throw new ModelException( $error, 400 );
 			}
+		}
 
-			// Check enumeration constraint on arrays.
-			elseif ( is_array( $value ) ) {
-				if ( empty( array_intersect( $value, $enum ) === $value ) ) {
-					$name  = $property[ PropertyItem::NAME ];
-					$error = sprintf( '%s must be one of %s', $name, join( ', ', $enum ) );
-					throw new ModelException( $error, 400 );
-				}
+		// Check enumeration constraint on arrays.
+		elseif ( is_array( $value ) ) {
+			if ( empty( array_intersect( $value, $enum ) === $value ) ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must be one of %s', $name, join( ', ', $enum ) );
+				throw new ModelException( $error, 400 );
 			}
 		}
 	}
@@ -535,34 +547,32 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param Property|array $property The property definition.
 	 */
 	protected static function validateMinimum( $value, $property ): void {
-		if ( isset( $property[ PropertyItem::MIN ] ) ) {
-			$min = $property[ PropertyItem::MIN ];
+		$min = $property[ PropertyItem::MIN ];
 
-			// Check minimum constraint on numbers.
-			if ( is_int( $value ) || is_float( $value ) ) {
-				if ( $value < $min ) {
-					$name  = $property[ PropertyItem::NAME ];
-					$error = sprintf( '%s must be at least %d.', $name, $min );
-					throw new ModelException( $error, 400 );
-				}
+		// Check minimum constraint on numbers.
+		if ( is_int( $value ) || is_float( $value ) ) {
+			if ( $value < $min ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must be at least %d.', $name, $min );
+				throw new ModelException( $error, 400 );
 			}
+		}
 
-			// Check minimum constraint on strings.
-			elseif ( is_string( $value ) ) {
-				if ( strlen( $value ) < $min ) {
-					$name  = $property[ PropertyItem::NAME ];
-					$error = sprintf( '%s must contain at least %d characters.', $name, $min );
-					throw new ModelException( $error, 400 );
-				}
+		// Check minimum constraint on strings.
+		elseif ( is_string( $value ) ) {
+			if ( strlen( $value ) < $min ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must contain at least %d characters.', $name, $min );
+				throw new ModelException( $error, 400 );
 			}
+		}
 
-			// Check minimum constraint on arrays.
-			elseif ( is_array( $value ) ) {
-				if ( count( $value ) < $min ) {
-					$name  = $property[ PropertyItem::NAME ];
-					$error = sprintf( '%s must contain at least %d entries.', $name, $min );
-					throw new ModelException( $error, 400 );
-				}
+		// Check minimum constraint on arrays.
+		elseif ( is_array( $value ) ) {
+			if ( count( $value ) < $min ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must contain at least %d entries.', $name, $min );
+				throw new ModelException( $error, 400 );
 			}
 		}
 	}
@@ -574,34 +584,32 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param Property|array $property The property definition.
 	 */
 	protected static function validateMaximum( $value, $property ): void {
-		if ( isset( $property[ PropertyItem::MAX ] ) ) {
-			$max = $property[ PropertyItem::MAX ];
+		$max = $property[ PropertyItem::MAX ];
 
-			// Check maximum constraint on numbers.
-			if ( is_int( $value ) || is_float( $value ) ) {
-				if ( $value > $max ) {
-					$name  = $property[ PropertyItem::NAME ];
-					$error = sprintf( '%s must be max %d.', $name, $max );
-					throw new ModelException( $error, 400 );
-				}
+		// Check maximum constraint on numbers.
+		if ( is_int( $value ) || is_float( $value ) ) {
+			if ( $value > $max ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must be max %d.', $name, $max );
+				throw new ModelException( $error, 400 );
 			}
+		}
 
-			// Check maximum constraint on strings.
-			elseif ( is_string( $value ) ) {
-				if ( strlen( $value ) > $max ) {
-					$name  = $property[ PropertyItem::NAME ];
-					$error = sprintf( '%s must contain max %d characters.', $name, $max );
-					throw new ModelException( $error, 400 );
-				}
+		// Check maximum constraint on strings.
+		elseif ( is_string( $value ) ) {
+			if ( strlen( $value ) > $max ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must contain max %d characters.', $name, $max );
+				throw new ModelException( $error, 400 );
 			}
+		}
 
-			// Check maximum constraint on arrays.
-			elseif ( is_array( $value ) ) {
-				if ( count( $value ) > $max ) {
-					$name  = $property[ PropertyItem::NAME ];
-					$error = sprintf( '%s must contain max %d entries.', $name, $max );
-					throw new ModelException( $error, 400 );
-				}
+		// Check maximum constraint on arrays.
+		elseif ( is_array( $value ) ) {
+			if ( count( $value ) > $max ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must contain max %d entries.', $name, $max );
+				throw new ModelException( $error, 400 );
 			}
 		}
 	}
