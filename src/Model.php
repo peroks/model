@@ -2,6 +2,7 @@
 
 use ArrayAccess;
 use ArrayObject;
+use Traversable;
 
 /**
  * The model class.
@@ -102,11 +103,9 @@ class Model extends ArrayObject implements ModelInterface {
 			}
 			if ( $class = $property[ PropertyItem::MODEL ] ?? null ) {
 				static::validateModel( $value, $class, $property );
-				continue;
 			}
 			if ( $class = $property[ PropertyItem::OBJECT ] ?? null ) {
 				static::validateObject( $value, $class, $property );
-				continue;
 			}
 			if ( $pattern = $property[ PropertyItem::PATTERN ] ?? null ) {
 				static::validatePattern( $value, $pattern, $property );
@@ -318,21 +317,24 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return mixed The modified property value.
 	 */
-	public static function normalizeProperty( $value, $property ) {
-		$type  = $property[ PropertyItem::TYPE ] ?? null;
-		$model = $property[ PropertyItem::MODEL ] ?? null;
+	protected static function normalizeProperty( $value, $property ) {
+		$type = $property[ PropertyItem::TYPE ] ?? null;
 
 		if ( $type === PropertyType::UUID && $value === true ) {
 			return Utils::uuid();
 		}
 
-		if ( $model && is_array( $value ) ) {
+		if ( $model = $property[ PropertyItem::MODEL ] ?? null ) {
 			if ( $type === PropertyType::OBJECT ) {
-				return new $model( $value );
+				if ( is_array( $value ) ) {
+					return new $model( $value );
+				}
 			}
-			if ( $type === PropertyType::ARRAY ) {
-				foreach ( $value as &$item ) {
-					$item = new $model( $item );
+			elseif ( $type === PropertyType::ARRAY ) {
+				if ( is_array( $value ) || $value instanceof Traversable ) {
+					foreach ( $value as &$item ) {
+						$item = new $model( $item );
+					}
 				}
 			}
 		}
