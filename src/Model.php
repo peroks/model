@@ -170,7 +170,7 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/**
-	 * Adds a new or changes an existing model property.
+	 * Adds a new or overrides an existing model property.
 	 *
 	 * @param Property $property A custom property.
 	 */
