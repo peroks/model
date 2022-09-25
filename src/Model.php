@@ -110,7 +110,7 @@ class Model extends ArrayObject implements ModelInterface {
 			if ( $pattern = $property[ PropertyItem::PATTERN ] ?? null ) {
 				static::validatePattern( $value, $pattern, $property );
 			}
-			if ( $enum = $property[ PropertyItem::ENUM ] ?? null ) {
+			if ( $enum = $property[ PropertyItem::ENUMERATION ] ?? null ) {
 				static::validateEnumeration( $value, $enum, $property );
 			}
 			if ( isset( $property[ PropertyItem::MIN ] ) ) {

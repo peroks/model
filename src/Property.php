@@ -54,12 +54,12 @@ class Property extends Model {
 			PropertyItem::TYPE => PropertyType::STRING,
 		],
 		'type'       => [
-			PropertyItem::ID      => 'type',
-			PropertyItem::NAME    => 'Property type',
-			PropertyItem::DESC    => 'The property type',
-			PropertyItem::TYPE    => PropertyType::STRING,
-			PropertyItem::DEFAULT => PropertyType::MIXED,
-			PropertyItem::ENUM    => [
+			PropertyItem::ID          => 'type',
+			PropertyItem::NAME        => 'Property type',
+			PropertyItem::DESC        => 'The property type',
+			PropertyItem::TYPE        => PropertyType::STRING,
+			PropertyItem::DEFAULT     => PropertyType::MIXED,
+			PropertyItem::ENUMERATION => [
 				PropertyType::MIXED,
 				PropertyType::BOOL,
 				PropertyType::INTEGER,
