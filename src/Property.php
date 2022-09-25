@@ -17,7 +17,7 @@
  * @property bool $writeable Whether the property is writable or not (default: true).
  * @property bool $unique Whether the property value is unique or not (default: false).
  * @property string $pattern A regex pattern to validate the property value against (default: null).
- * @property array $enum An enumeration of all valid property values (default: null).
+ * @property array $enumeration An enumeration of all valid property values (default: null).
  * @property int|float $min The minimum numeric value or string length (default: null).
  * @property int|float $max The maximum numeric value or string length (default: null).
  * @property mixed value The property value (default: null).
@@ -33,27 +33,27 @@ class Property extends Model {
 	 * @var array An array of model properties.
 	 */
 	protected static array $properties = [
-		'id'         => [
+		'id'          => [
 			PropertyItem::ID       => 'id',
 			PropertyItem::NAME     => 'Property id',
 			PropertyItem::DESC     => 'The property id',
 			PropertyItem::TYPE     => PropertyType::STRING,
 			PropertyItem::REQUIRED => true,
 		],
-		'name'       => [
+		'name'        => [
 			PropertyItem::ID       => 'name',
 			PropertyItem::NAME     => 'Property name',
 			PropertyItem::DESC     => 'The property name',
 			PropertyItem::TYPE     => PropertyType::STRING,
 			PropertyItem::REQUIRED => true,
 		],
-		'desc'       => [
+		'desc'        => [
 			PropertyItem::ID   => 'desc',
 			PropertyItem::NAME => 'Property description',
 			PropertyItem::DESC => 'The property description',
 			PropertyItem::TYPE => PropertyType::STRING,
 		],
-		'type'       => [
+		'type'        => [
 			PropertyItem::ID          => 'type',
 			PropertyItem::NAME        => 'Property type',
 			PropertyItem::DESC        => 'The property type',
@@ -69,96 +69,96 @@ class Property extends Model {
 				PropertyType::OBJECT,
 			],
 		],
-		'model'      => [
+		'model'       => [
 			PropertyItem::ID   => 'model',
 			PropertyItem::NAME => 'Model class name',
 			PropertyItem::DESC => 'The class name of a model',
 			PropertyItem::TYPE => PropertyType::STRING,
 		],
-		'object'     => [
+		'object'      => [
 			PropertyItem::ID   => 'object',
 			PropertyItem::NAME => 'Object class name',
 			PropertyItem::DESC => 'The class or interface name to validate an object against',
 			PropertyItem::TYPE => PropertyType::STRING,
 		],
-		'foreign'    => [
+		'foreign'     => [
 			PropertyItem::ID   => 'foreign',
 			PropertyItem::NAME => 'Foreign model class name',
 			PropertyItem::DESC => 'The property contains an id of the (foreign) model class name',
 			PropertyItem::TYPE => PropertyType::STRING,
 		],
-		'default'    => [
+		'default'     => [
 			PropertyItem::ID   => 'default',
 			PropertyItem::NAME => 'Default value',
 			PropertyItem::DESC => 'The property default value',
 			PropertyItem::TYPE => PropertyType::MIXED,
 		],
-		'required'   => [
+		'required'    => [
 			PropertyItem::ID      => 'required',
 			PropertyItem::NAME    => 'Required',
 			PropertyItem::DESC    => 'Whether the property is required or not',
 			PropertyItem::TYPE    => PropertyType::BOOL,
 			PropertyItem::DEFAULT => false,
 		],
-		'disabled'   => [
+		'disabled'    => [
 			PropertyItem::ID      => 'disabled',
 			PropertyItem::NAME    => 'Disabled',
 			PropertyItem::DESC    => 'Whether the property is disabled or not',
 			PropertyItem::TYPE    => PropertyType::BOOL,
 			PropertyItem::DEFAULT => false,
 		],
-		'readable'   => [
+		'readable'    => [
 			PropertyItem::ID      => 'readable',
 			PropertyItem::NAME    => 'Readable',
 			PropertyItem::DESC    => 'Whether the property is readable or not',
 			PropertyItem::TYPE    => PropertyType::BOOL,
 			PropertyItem::DEFAULT => true,
 		],
-		'writable'   => [
+		'writable'    => [
 			PropertyItem::ID      => 'writable',
 			PropertyItem::NAME    => 'Writable',
 			PropertyItem::DESC    => 'Whether the property is writable or not',
 			PropertyItem::TYPE    => PropertyType::BOOL,
 			PropertyItem::DEFAULT => true,
 		],
-		'unique'     => [
+		'unique'      => [
 			PropertyItem::ID      => 'unique',
 			PropertyItem::NAME    => 'Unique',
 			PropertyItem::DESC    => 'Whether the property value is unique or not',
 			PropertyItem::TYPE    => PropertyType::BOOL,
 			PropertyItem::DEFAULT => false,
 		],
-		'pattern'    => [
+		'pattern'     => [
 			PropertyItem::ID   => 'pattern',
 			PropertyItem::NAME => 'Regex validation pattern',
 			PropertyItem::DESC => 'A regex pattern to validate the property value against',
 			PropertyItem::TYPE => PropertyType::STRING,
 		],
-		'enum'       => [
-			PropertyItem::ID   => 'enum',
+		'enumeration' => [
+			PropertyItem::ID   => 'enumeration',
 			PropertyItem::NAME => 'Enumeration',
 			PropertyItem::DESC => 'An enumeration of all valid property values',
 			PropertyItem::TYPE => PropertyType::ARRAY,
 		],
-		'min'        => [
+		'min'         => [
 			PropertyItem::ID   => 'min',
 			PropertyItem::NAME => 'Min value',
 			PropertyItem::DESC => 'The minimum value',
 			PropertyItem::TYPE => PropertyType::NUMBER,
 		],
-		'max'        => [
+		'max'         => [
 			PropertyItem::ID   => 'max',
 			PropertyItem::NAME => 'Max value',
 			PropertyItem::DESC => 'The maximum value',
 			PropertyItem::TYPE => PropertyType::NUMBER,
 		],
-		'value'      => [
+		'value'       => [
 			PropertyItem::ID   => 'value',
 			PropertyItem::NAME => 'Property value',
 			PropertyItem::DESC => 'The property value',
 			PropertyItem::TYPE => PropertyType::MIXED,
 		],
-		'properties' => [
+		'properties'  => [
 			PropertyItem::ID   => 'properties',
 			PropertyItem::NAME => 'Properties',
 			PropertyItem::DESC => 'An array of model property definitions',
