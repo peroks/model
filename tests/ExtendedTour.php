@@ -30,15 +30,4 @@ class ExtendedTour extends Tour {
 			'required' => true,
 		],
 	];
-
-	/**
-	 * Gets the model's property definitions.
-	 *
-	 * @return array[] An array of property definitions.
-	 */
-	public static function properties(): array {
-		// parent::properties() doesn't work.
-		$properties = get_parent_class( static::class )::properties();
-		return array_merge( $properties, static::$properties );
-	}
 }

@@ -14,7 +14,7 @@ use Traversable;
 class Model extends ArrayObject implements ModelInterface {
 
 	/**
-	 * @var array An array of custom properties.
+	 * @var array An array of model properties.
 	 */
 	protected static array $properties = [];
 
@@ -145,7 +145,13 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return array[] An array of property definitions.
 	 */
 	public static function properties(): array {
-		return static::$properties;
+		if ( static::class === self::class ) {
+			return static::$properties;
+		}
+
+		// Inherit parent properties.
+		$parent = get_parent_class( static::class );
+		return array_replace( $parent::properties(), static::$properties );
 	}
 
 	/**
