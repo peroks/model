@@ -145,14 +145,13 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return array[] An array of property definitions.
 	 */
 	public static function properties(): array {
-		if ( static::class === self::class ) {
-			return self::$properties;
-		}
 
 		// Inherit parent properties.
 		if ( $parent = get_parent_class( static::class ) ) {
-			if ( $parent !== self::class || self::$properties ) {
-				return array_replace( $parent::properties(), static::$properties );
+			if ( is_a( $parent, ModelInterface::class, true ) ) {
+				if ( $properties = $parent::properties() ) {
+					return array_replace( $properties, static::$properties );
+				}
 			}
 		}
 
