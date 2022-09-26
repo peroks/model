@@ -437,6 +437,14 @@ class Model extends ArrayObject implements ModelInterface {
 			}
 		}
 
+		elseif ( in_array( $type, [ PropertyType::DATETIME, PropertyType::DATE, PropertyType::TIME ] ) ) {
+			if ( empty( is_string( $value ) && static::validateDateTime( $value, $type ) ) ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must be a valid %s.', $name, $type );
+				throw new ModelException( $error, 400 );
+			}
+		}
+
 		// Check uuid type.
 		elseif ( $type === PropertyType::UUID ) {
 			if ( empty( is_string( $value ) && strlen( $value ) === 36 ) ) {
@@ -639,5 +647,25 @@ class Model extends ArrayObject implements ModelInterface {
 			$error = sprintf( '%s must be an instance of %s', $name, $class );
 			throw new ModelException( $error, 400 );
 		}
+	}
+
+	/**
+	 * Checks if the value is a valid date/time.
+	 *
+	 * @param string $value The value to validate.
+	 * @param string $type The property type.
+	 *
+	 * @return bool
+	 */
+	protected static function validateDateTime( string $value, string $type ): bool {
+		switch ( $type ) {
+			case PropertyType::DATETIME:
+				return Utils::validateDate( $value );
+			case PropertyType::DATE:
+				return Utils::validateDate( $value, 'yyyy-mm-dd' );
+			case PropertyType::TIME:
+				return Utils::validateTime( $value );
+		}
+		return false;
 	}
 }
