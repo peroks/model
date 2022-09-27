@@ -43,9 +43,11 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	/**
 	 * Validates the model values against its property definitions.
 	 *
-	 * @return static The validated model instance.
+	 * @param bool $throwException Whether to throw an exception on validation errors or not.
+	 *
+	 * @return static|null The validated model instance or null if the validation fails.
 	 */
-	public function validate(): self;
+	public function validate( bool $throwException = true ): ?self;
 
 	/**
 	 * Creates a new model with data from the given array or object.

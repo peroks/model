@@ -88,36 +88,45 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Validates the model values against its property definitions.
 	 *
-	 * @return static The validated model instance.
+	 * @param bool $throwException Whether to throw an exception on validation errors or not.
+	 *
+	 * @return static|null The validated model instance or null if the validation fails.
 	 */
-	public function validate(): self {
+	public function validate( bool $throwException = true ): ?self {
 		foreach ( static::properties() as $id => $property ) {
 			$value = $this[ $id ];
 
-			if ( is_null( $value ) ) {
-				static::validateRequired( $property );
-				continue;
-			}
-			if ( $type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED ) {
-				static::validateType( $value, $type, $property );
-			}
-			if ( $class = $property[ PropertyItem::MODEL ] ?? null ) {
-				static::validateModel( $value, $class, $property );
-			}
-			if ( $class = $property[ PropertyItem::OBJECT ] ?? null ) {
-				static::validateObject( $value, $class, $property );
-			}
-			if ( $pattern = $property[ PropertyItem::PATTERN ] ?? null ) {
-				static::validatePattern( $value, $pattern, $property );
-			}
-			if ( $enum = $property[ PropertyItem::ENUMERATION ] ?? null ) {
-				static::validateEnumeration( $value, $enum, $property );
-			}
-			if ( isset( $property[ PropertyItem::MIN ] ) ) {
-				static::validateMinimum( $value, $property );
-			}
-			if ( isset( $property[ PropertyItem::MAX ] ) ) {
-				static::validateMaximum( $value, $property );
+			try {
+				if ( is_null( $value ) ) {
+					static::validateRequired( $property );
+					continue;
+				}
+				if ( $type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED ) {
+					static::validateType( $value, $type, $property );
+				}
+				if ( $class = $property[ PropertyItem::MODEL ] ?? null ) {
+					static::validateModel( $value, $class, $property );
+				}
+				if ( $class = $property[ PropertyItem::OBJECT ] ?? null ) {
+					static::validateObject( $value, $class, $property );
+				}
+				if ( $pattern = $property[ PropertyItem::PATTERN ] ?? null ) {
+					static::validatePattern( $value, $pattern, $property );
+				}
+				if ( $enum = $property[ PropertyItem::ENUMERATION ] ?? null ) {
+					static::validateEnumeration( $value, $enum, $property );
+				}
+				if ( isset( $property[ PropertyItem::MIN ] ) ) {
+					static::validateMinimum( $value, $property );
+				}
+				if ( isset( $property[ PropertyItem::MAX ] ) ) {
+					static::validateMaximum( $value, $property );
+				}
+			} catch ( ModelException $e ) {
+				if ( $throwException ) {
+					throw $e;
+				}
+				return null;
 			}
 		}
 
