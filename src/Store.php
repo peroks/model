@@ -159,13 +159,13 @@ class Store implements StoreInterface {
 
 		if ( self::SET_PATCH ) {
 			$stored = $this->get( $id, $class )->patch( $model->data() );
-			$data   = $stored->validate()->data( ModelData::COMPACT );
+			$data   = $stored->validate( true )->data( ModelData::COMPACT );
 		} elseif ( self::SET_MERGE ) {
 			$stored = $this->get( $id, $class );
 			$data   = array_merge_recursive( $stored->data(), $model->data() );
-			$data   = $stored::create( $data )->validate()->data( ModelData::COMPACT );
+			$data   = $stored::create( $data )->validate( true )->data( ModelData::COMPACT );
 		} else {
-			$data = $model->validate()->data( ModelData::COMPACT );
+			$data = $model->validate( true )->data( ModelData::COMPACT );
 		}
 
 		$this->changes[ $class ][ $id ] = $data;

@@ -57,10 +57,10 @@ final class ModelTest extends TestCase {
 	public function testValidate( ModelInterface $model, array $data ): void {
 		if ( $model instanceof ExtendedTour ) {
 			$this->expectException( ModelException::class );
-			$model->validate();
+			$model->validate( true );
 			$this->assertNotEquals( $model->getArrayCopy(), $data );
 		} else {
-			$this->assertInstanceOf( ModelInterface::class, $model->validate() );
+			$this->assertInstanceOf( ModelInterface::class, $model->validate( true ) );
 			$this->assertEquals( $model->getArrayCopy(), $data );
 		}
 	}

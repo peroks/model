@@ -92,7 +92,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return static|null The validated model instance or null if the validation fails.
 	 */
-	public function validate( bool $throwException = true ): ?self {
+	public function validate( bool $throwException = false ): ?self {
 		foreach ( static::properties() as $id => $property ) {
 			$value = $this[ $id ];
 
@@ -194,7 +194,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param Property $property A custom property.
 	 */
 	public static function setProperty( Property $property ): void {
-		$property->validate();
+		$property->validate( true );
 		static::$properties[ $property->id() ] = $property->data();
 	}
 
@@ -477,8 +477,6 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param mixed $value The property value to validate.
 	 * @param string $class The model class.
 	 * @param Property|array $property The property definition.
-	 *
-	 * @throws ModelException
 	 */
 	protected static function validateModel( $value, string $class, $property ): void {
 
@@ -486,7 +484,7 @@ class Model extends ArrayObject implements ModelInterface {
 		if ( is_object( $value ) ) {
 			static::validateClass( $value, $class, $property );
 			static::validateClass( $value, ModelInterface::class, $property );
-			$value->validate();
+			$value->validate( true );
 		}
 
 		// Validate an array of models.
@@ -494,7 +492,7 @@ class Model extends ArrayObject implements ModelInterface {
 			foreach ( $value as $item ) {
 				static::validateClass( $item, $class, $property );
 				static::validateClass( $item, ModelInterface::class, $property );
-				$item->validate();
+				$item->validate( true );
 			}
 		}
 	}
