@@ -86,6 +86,18 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/**
+	 * Replaces the model date with given data.
+	 *
+	 * @param array|object $data The data to be inserted into the model.
+	 *
+	 * @return static The updated model instance.
+	 */
+	public function replace( $data ): self {
+		$this->exchangeArray( $data );
+		return $this;
+	}
+
+	/**
 	 * Validates the model values against its property definitions.
 	 *
 	 * @param bool $throwException Whether to throw an exception on validation errors or not.

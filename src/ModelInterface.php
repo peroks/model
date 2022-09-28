@@ -41,6 +41,15 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	public function patch( $data ): self;
 
 	/**
+	 * Replaces the model date with given data.
+	 *
+	 * @param array|object $data The data to be inserted into the model.
+	 *
+	 * @return static The updated model instance.
+	 */
+	public function replace( $data ): self;
+
+	/**
 	 * Validates the model values against its property definitions.
 	 *
 	 * @param bool $throwException Whether to throw an exception on validation errors or not.
