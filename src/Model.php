@@ -369,6 +369,11 @@ class Model extends ArrayObject implements ModelInterface {
 				}
 			}
 		}
+		elseif ( $type === PropertyType::OBJECT ) {
+			if ( is_array( $value ) ) {
+				return (object) $value;
+			}
+		}
 
 		return $value;
 	}
