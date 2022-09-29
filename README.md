@@ -1,7 +1,7 @@
-# peroks/model - Data definition and validation
+# Models: objects with internal data validation
 
-The **peroks/model** package extends the built-in PHP `ArrayObject` class
-with internal data validation.
+The `Model` base class included in this package extends the built-in
+PHP `ArrayObject` class with internal data validation.
 
 ## Reason why
 
