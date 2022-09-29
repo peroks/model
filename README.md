@@ -1,7 +1,7 @@
 # Models: Classes with built-in data validation
 
 The `Model` base class included in this package extends the built-in
-PHP `ArrayObject` class with built-in data validation.
+PHP `ArrayObject` class with internal data validation.
 
 ## Reason why
 
@@ -11,8 +11,9 @@ time-consuming, inconsistent, error-prone and hard to read/maintain.
 
 Instead of writing code to validate data, you can let **models validate
 themselves** based on their property definition. You just define the properties
-and constraints of each model in one single place, and then validate data
-throughout your application in a consistent, efficient and clear way.
+and constraints of each model in one single place, and then validate model
+instances throughout your application in a consistent, efficient and clear
+manner.
 
 ## How to use
 
