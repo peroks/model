@@ -28,10 +28,10 @@ use Peroks\Model\Model;
 use Peroks\Model\PropertyType;
 
 /**
- * A GeoPoint model.
+ * The GeoPoint model class.
  *
- * @property float latitude The latitude.
- * @property float longitude The longitude.
+ * @property float $latitude The geo point latitude.
+ * @property float $longitude The geo point longitude.
  */
 class GeoPoint extends Model {
 
@@ -66,9 +66,9 @@ from the parent classes.
 
 ```
 /**
- * A GeoPoint model with altitue.
+ * The GeoPoint model with altitue.
  *
- * @property float altitude The altitude.
+ * @property float $altitude The geo point altitude.
  */
 class GeoPointAlt extends GeoPoint {
 
@@ -76,12 +76,11 @@ class GeoPointAlt extends GeoPoint {
 	 * @var array An array of model properties.
 	 */
 	protected static array $properties = [
-		'altitude'  => [
-			'id'       => 'altitude',
-			'name'     => 'Altitude',
-			'desc'     => 'The altitude',
-			'type'     => PropertyType::FLOAT,
-			'required' => false,
+		'altitude' => [
+			'id'   => 'altitude',
+			'name' => 'Altitude',
+			'desc' => 'The geo point altitude',
+			'type' => PropertyType::FLOAT,
 		],
 	];
 }
@@ -89,8 +88,8 @@ class GeoPointAlt extends GeoPoint {
 
 ### Instantiate a model
 
-There are several ways to create a model instance. The model takes an assoc
-array or an object (including another model instance).
+There are several ways to create a model instance. The model constructor takes
+an assoc array or an object (including a model instance).
 
 ```
 $data = [ latitude => 70.6646625, longitude => 23.6807195 ];
@@ -101,7 +100,7 @@ c) $geo = GeoPoint:create()->patch( $data );
 d) $geo = GeoPoint:create()->replace( $data );
 ```
 
-Or you just create an empty model and add the property values later.
+Or you just create an empty model and add the property values later on.
 
 ```
 $geo = new GeoPoint();
