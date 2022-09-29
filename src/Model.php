@@ -21,7 +21,7 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Constructor.
 	 *
-	 * @param array|object $data The model data.
+	 * @param array|object|string $data The model data.
 	 */
 	public function __construct( $data = [] ) {
 		$data = static::normalizeData( $data );
@@ -74,7 +74,7 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Patches a model with the given data.
 	 *
-	 * @param array|object $data The data to be merged into the model.
+	 * @param array|object|string $data The data to be merged into the model.
 	 *
 	 * @return static The updated model instance.
 	 */
@@ -88,7 +88,7 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Replaces the model date with given data.
 	 *
-	 * @param array|object $data The data to be inserted into the model.
+	 * @param array|object|string $data The data to be inserted into the model.
 	 *
 	 * @return static The updated model instance.
 	 */
@@ -152,7 +152,7 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Creates a new model with data from the given array or object.
 	 *
-	 * @param array|object $data The model data.
+	 * @param array|object|string $data The model data.
 	 *
 	 * @return static A model instance.
 	 */
@@ -289,7 +289,7 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Replaces the model data.
 	 *
-	 * @param array|object $array The new model data.
+	 * @param array|object|string $array The new model data.
 	 *
 	 * @return array The old model data.
 	 */
@@ -304,7 +304,7 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Normalize data.
 	 *
-	 * @param array|object $data The data to populate the model with.
+	 * @param array|object|string $data The data to populate the model with.
 	 * @param bool $include Whether to include default values in the result or not.
 	 *
 	 * @return array The normalized data.
@@ -312,6 +312,10 @@ class Model extends ArrayObject implements ModelInterface {
 	protected static function normalizeData( $data, bool $include = true ): array {
 		$properties = static::properties();
 		$result     = [];
+
+		if ( is_string( $data ) ) {
+			$data = json_decode( $data );
+		}
 
 		// If no properties are defined, accept all data;
 		if ( empty( $properties ) ) {
