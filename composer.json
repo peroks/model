@@ -1,7 +1,7 @@
 {
 	"name": "peroks/model",
 	"type": "library",
-	"description": "Models: Classes with internal data validation",
+	"description": "Models: Classes with built-in data validation",
 	"minimum-stability": "stable",
 	"license": "MIT",
 	"authors": [

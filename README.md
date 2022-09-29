@@ -1,7 +1,7 @@
-# Models: objects with internal data validation
+# Models: Classes with built-in data validation
 
 The `Model` base class included in this package extends the built-in
-PHP `ArrayObject` class with internal data validation.
+PHP `ArrayObject` class with built-in data validation.
 
 ## Reason why
 
