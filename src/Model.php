@@ -24,7 +24,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param array|object|string $data The model data.
 	 */
 	public function __construct( $data = [] ) {
-		$data = static::normalizeData( $data );
+		$data = static::prepareData( $data );
 		parent::__construct( $data, ArrayObject::ARRAY_AS_PROPS );
 	}
 
@@ -79,7 +79,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return static The updated model instance.
 	 */
 	public function patch( $data ): self {
-		foreach ( static::normalizeData( $data, false ) as $id => $value ) {
+		foreach ( static::prepareData( $data, false ) as $id => $value ) {
 			$this[ $id ] = $value;
 		}
 		return $this;
@@ -294,7 +294,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return array The old model data.
 	 */
 	public function exchangeArray( $array ): array {
-		return parent::exchangeArray( self::normalizeData( $array ) );
+		return parent::exchangeArray( static::prepareData( $array ) );
 	}
 
 	/* -------------------------------------------------------------------------
@@ -302,14 +302,14 @@ class Model extends ArrayObject implements ModelInterface {
 	 * ---------------------------------------------------------------------- */
 
 	/**
-	 * Normalize data.
+	 * Prepare data before inserting it into the model.
 	 *
 	 * @param array|object|string $data The data to populate the model with.
 	 * @param bool $include Whether to include default values in the result or not.
 	 *
-	 * @return array The normalized data.
+	 * @return array The data prepared for the model.
 	 */
-	protected static function normalizeData( $data, bool $include = true ): array {
+	protected static function prepareData( $data, bool $include = true ): array {
 		$properties = static::properties();
 		$result     = [];
 
@@ -332,7 +332,7 @@ class Model extends ArrayObject implements ModelInterface {
 			foreach ( $properties as $id => $property ) {
 				if ( $include || Utils::keyExists( $id, $data ) ) {
 					$value         = $data[ $id ] ?? $property[ PropertyItem::DEFAULT ] ?? null;
-					$result[ $id ] = static::normalizeProperty( $value, $property );
+					$result[ $id ] = static::prepareProperty( $value, $property );
 				}
 			}
 		}
@@ -341,14 +341,14 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/**
-	 * Normalize a property value.
+	 * Prepare a property value before inserting it into the model.
 	 *
 	 * @param mixed $value The property value.
 	 * @param Property|array $property The property definition.
 	 *
-	 * @return mixed The modified property value.
+	 * @return mixed The prepared property value.
 	 */
-	protected static function normalizeProperty( $value, $property ) {
+	protected static function prepareProperty( $value, $property ) {
 		$type = $property[ PropertyItem::TYPE ] ?? null;
 
 		if ( $type === PropertyType::UUID && $value === true ) {
