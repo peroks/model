@@ -313,23 +313,19 @@ class Model extends ArrayObject implements ModelInterface {
 		$properties = static::properties();
 		$result     = [];
 
+		// Decode a json string.
 		if ( is_string( $data ) ) {
-			$data = json_decode( $data );
+			$data = json_decode( $data, true ) ?: [];
+		}
+
+		// Convert objects to array unless they support array access.
+		if ( is_object( $data ) && empty( $data instanceof ArrayAccess ) ) {
+			$data = get_object_vars( $data );
 		}
 
 		// If no properties are defined, accept all data;
 		if ( empty( $properties ) ) {
 			return $data;
-		}
-
-		if ( $data instanceof ModelInterface ) {
-			$data = $data->data();
-		}
-		elseif ( $data instanceof ArrayObject ) {
-			$data = $data->getArrayCopy();
-		}
-		elseif ( is_object( $data ) && empty( $data instanceof ArrayAccess ) ) {
-			$data = get_object_vars( $data );
 		}
 
 		if ( is_array( $data ) || $data instanceof ArrayAccess ) {
