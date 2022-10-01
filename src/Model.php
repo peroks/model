@@ -21,7 +21,7 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Constructor.
 	 *
-	 * @param array|object|string $data The model data.
+	 * @param array|object|string|null $data The model data.
 	 */
 	public function __construct( $data = [] ) {
 		$data = static::prepareData( $data );
@@ -74,7 +74,7 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Patches a model with the given data.
 	 *
-	 * @param array|object|string $data The data to be merged into the model.
+	 * @param array|object|string|null $data The data to be merged into the model.
 	 *
 	 * @return static The updated model instance.
 	 */
@@ -289,7 +289,7 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Replaces the model data.
 	 *
-	 * @param array|object|string $array The new model data.
+	 * @param array|object|string|null $array The new model data.
 	 *
 	 * @return array The old model data.
 	 */
@@ -304,7 +304,7 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Prepare data before inserting it into the model.
 	 *
-	 * @param array|object|string $data The data to populate the model with.
+	 * @param array|object|string|null $data The data to populate the model with.
 	 * @param bool $include Whether to include default values in the result or not.
 	 *
 	 * @return array The data prepared for the model.
@@ -312,6 +312,11 @@ class Model extends ArrayObject implements ModelInterface {
 	protected static function prepareData( $data, bool $include = true ): array {
 		$properties = static::properties();
 		$result     = [];
+
+		// Convert null values.
+		if ( is_null( $data ) ) {
+			$data = [];
+		}
 
 		// Decode a json string.
 		if ( is_string( $data ) ) {

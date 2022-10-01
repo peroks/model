@@ -34,7 +34,7 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	/**
 	 * Patches a model with the given data.
 	 *
-	 * @param array|object|string $data The data to be merged into the model.
+	 * @param array|object|string|null $data The data to be merged into the model.
 	 *
 	 * @return static The updated model instance.
 	 */
@@ -43,7 +43,7 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	/**
 	 * Replaces the model date with given data.
 	 *
-	 * @param array|object|string $data The data to be inserted into the model.
+	 * @param array|object|string|null $data The data to be inserted into the model.
 	 *
 	 * @return static The updated model instance.
 	 */
@@ -61,7 +61,7 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	/**
 	 * Creates a new model with data from the given array or object.
 	 *
-	 * @param array|object|string $data The model data.
+	 * @param array|object|string|null $data The model data.
 	 *
 	 * @return static A model instance.
 	 */
