@@ -79,15 +79,11 @@ interface StoreInterface {
 	/**
 	 * Saves and validates a model in the data store.
 	 *
-	 * Depending on the $mode, the existing model wil be replaced, updated or
-	 * merged into. The resulting model is validated before saving.
-	 *
 	 * @param ModelInterface $model The model to store.
-	 * @param string $mode How to update existing data: 'replace', 'patch' or 'merge'.
 	 *
-	 * @return string The stored model id.
+	 * @return ModelInterface The stored model.
 	 */
-	public function set( ModelInterface $model, string $mode = self::SET_PATCH ): string;
+	public function set( ModelInterface $model ): ModelInterface;
 
 	/**
 	 * Deletes a model from the data store.

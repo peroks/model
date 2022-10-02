@@ -145,31 +145,17 @@ class Store implements StoreInterface {
 	/**
 	 * Saves and validates a model in the data store.
 	 *
-	 * Depending on the $mode, the existing model wil be replaced, patched or
-	 * merged into. The resulting model is validated before saving.
-	 *
 	 * @param ModelInterface $model The model to store.
-	 * @param string $mode How to update existing data: 'replace', 'patch' or 'merge'.
 	 *
-	 * @return string The stored model id.
+	 * @return ModelInterface The stored model.
 	 */
-	public function set( ModelInterface $model, string $mode = self::SET_PATCH ): string {
+	public function set( ModelInterface $model ): ModelInterface {
 		$id    = $model->id();
 		$class = get_class( $model );
-
-		if ( self::SET_PATCH ) {
-			$stored = $this->get( $id, $class )->patch( $model->data() );
-			$data   = $stored->validate( true )->data( ModelData::COMPACT );
-		} elseif ( self::SET_MERGE ) {
-			$stored = $this->get( $id, $class );
-			$data   = array_merge_recursive( $stored->data(), $model->data() );
-			$data   = $stored::create( $data )->validate( true )->data( ModelData::COMPACT );
-		} else {
-			$data = $model->validate( true )->data( ModelData::COMPACT );
-		}
+		$data  = $model->validate( true )->data( ModelData::COMPACT );
 
 		$this->changes[ $class ][ $id ] = $data;
-		return $id;
+		return $model;
 	}
 
 	/**
@@ -229,16 +215,18 @@ class Store implements StoreInterface {
 	 * Imports data from a source
 	 *
 	 * @param Store|array|string $source The source containing the data to import.
-	 * @param string $mode How to import the data: merge or replace
 	 */
-	public function import( $source, string $mode = 'merge' ): void {
+	public function import( $source ): void {
 		if ( is_array( $source ) ) {
 			$data = $source;
-		} elseif ( $source instanceof self ) {
+		}
+		elseif ( $source instanceof self ) {
 			$data = $source->export();
-		} elseif ( is_readable( $source ) ) {
+		}
+		elseif ( is_readable( $source ) ) {
 			$data = $this->read( $source );
-		} elseif ( is_string( $source ) ) {
+		}
+		elseif ( is_string( $source ) ) {
 			if ( $result = json_decode( $source, true ) && JSON_ERROR_NONE == json_last_error() ) {
 				$data = $result;
 			}
