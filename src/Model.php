@@ -459,28 +459,38 @@ class Model extends ArrayObject implements ModelInterface {
 	 */
 	protected static function validateType( $value, string $type, $property ): void {
 
-		// Check number type.
+		// Check for float or integer values.
 		if ( $type === PropertyType::NUMBER ) {
 			if ( empty( is_integer( $value ) || is_float( $value ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must be of type %s in %s', $name, $type, static::class );
+				$error = sprintf( '%s must be a %s in %s', $name, $type, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
 
-		elseif ( in_array( $type, [ PropertyType::DATETIME, PropertyType::DATE, PropertyType::TIME ] ) ) {
-			if ( empty( is_string( $value ) && static::validateDateTime( $value, $type ) ) ) {
+		// Check callable functions.
+		elseif ( $type === PropertyType::CALLABLE ) {
+			if ( empty( is_callable( $value ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must be a valid %s in %s', $name, $type, static::class );
+				$error = sprintf( '%s must be a %s function in %s', $name, $type, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
 
-		// Check uuid type.
+		// Check uuid string.
 		elseif ( $type === PropertyType::UUID ) {
 			if ( empty( is_string( $value ) && strlen( $value ) === 36 ) ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must be of type %s in %s', $name, $type, static::class );
+				$error = sprintf( '%s must be a valid %s string in %s', $name, $type, static::class );
+				throw new ModelException( $error, 400 );
+			}
+		}
+
+		// Check date/time strings.
+		elseif ( in_array( $type, [ PropertyType::DATETIME, PropertyType::DATE, PropertyType::TIME ] ) ) {
+			if ( is_string( $value ) && empty( static::validateDateTime( $value, $type ) ) ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must be a valid %s string in %s', $name, $type, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}

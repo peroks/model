@@ -20,4 +20,5 @@ abstract class PropertyType {
 	const TIME     = 'time';
 	const ARRAY    = 'array';
 	const OBJECT   = 'object';
+	const CALLABLE = 'callable';
 }
