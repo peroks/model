@@ -469,10 +469,10 @@ class Model extends ArrayObject implements ModelInterface {
 		}
 
 		// Check callable functions.
-		elseif ( $type === PropertyType::CALLABLE ) {
+		elseif ( $type === PropertyType::FUNCTION ) {
 			if ( empty( is_callable( $value ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must be a %s function in %s', $name, $type, static::class );
+				$error = sprintf( '%s must be a callable %s in %s', $name, $type, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
