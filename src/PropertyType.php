@@ -8,17 +8,17 @@
  * @license MIT
  */
 abstract class PropertyType {
-	const MIXED    = '';
+	const MIXED    = '';            // Any type, no validation.
 	const BOOL     = 'boolean';
-	const NUMBER   = 'number';
+	const NUMBER   = 'number';      // Integer or float.
 	const INTEGER  = 'integer';
 	const FLOAT    = 'double';
 	const STRING   = 'string';
-	const UUID     = 'uuid';
-	const DATETIME = 'datetime';
-	const DATE     = 'date';
-	const TIME     = 'time';
+	const UUID     = 'uuid';        // A uuid string.
+	const DATETIME = 'datetime';    // A ISO 8601 datetime string.
+	const DATE     = 'date';        // A date string (Y-m-d).
+	const TIME     = 'time';        // A time string (h:n or h:n:s).
 	const ARRAY    = 'array';
 	const OBJECT   = 'object';
-	const FUNCTION = 'function';
+	const FUNCTION = 'function';    // A callable function.
 }
