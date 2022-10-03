@@ -10,9 +10,9 @@ applications, where validating incoming and outgoing data is often
 time-consuming, inconsistent, error-prone and hard to read/maintain.
 
 Instead of writing code to validate data, you can let **models validate
-themselves** based on their property definition. You just define the properties
-and constraints of each model in one single place, and then validate model
-instances throughout your application in a consistent, efficient and clear
+themselves** based on their **property definition**. You just define the
+properties and constraints of each model in one single place, and then validate
+model instances throughout your application in a consistent, efficient and clear
 manner.
 
 ## How to use
@@ -20,7 +20,8 @@ manner.
 ### Create a model class
 
 You define the model properties and constraints in a separate class for each
-model, in this example a geo point model.
+model, in this example a geo point model. All models must extend the `Model`
+base class or a sub-class.
 
     <?php
     
@@ -164,8 +165,7 @@ You can easily convert a model to JSON.
 ### Nested models
 
 Models can contain other models. You just add a `model` with a class name to an
-`object` or `array` property. You can also add default values to create the
-sub-models with.
+`object` or `array` property.
 
     <?php
     
@@ -206,12 +206,12 @@ If you add default values for sub-models, they are also created when the main
 model is created. On validation, sub-models are validated recursively too.
 
     // Validates the travel model and all sub-models. 
-    $travel = Tarvel::create()->validate(); // Returns a validate Travel model.
+    $travel = Tarvel::create()->validate(); // Returns a validated Travel model.
     $from   = $travel->from; // Returns a GeoPont model, already validated.
 
 Nested models are especially useful for importing **complex data structures**
-from an external source. Decoding, converting and validating external data is
-a **one-liner**.
+from an **external source**. Decoding, converting and validating external data
+is a **one-liner**.
 
     // Decode, convert and validate external data structures.
     $json   = $client->import(); // Json encoded string from an api call.
