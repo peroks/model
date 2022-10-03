@@ -22,7 +22,7 @@ manner.
 You define the model properties and constraints in a separate class for each
 model, in this example a geo point model.
 
-    <?php namespace Your\Namespace;
+    <?php
     
     use Peroks\Model\Model;
     use Peroks\Model\PropertyType;
@@ -63,12 +63,17 @@ model, in this example a geo point model.
 You can also extend models like any other class. The properties are inherited
 from the parent classes.
 
+    <?php
+    
+    use Peroks\Model\Model;
+    use Peroks\Model\PropertyType;
+    
     /**
-     * The GeoPoint model with altitue.
+     * The GeoPoint model with altitue. The altitude is optional.
      * 
      * @property float $altitude The geo point altitude.
      */
-    class GeoPointAlt extends GeoPoint {
+    class GeoPointWithAltitude extends GeoPoint {
         
         /**
          * @var array An array of model properties.
@@ -78,7 +83,7 @@ from the parent classes.
                 'id'   => 'altitude',
                 'name' => 'Altitude',
                 'desc' => 'The geo point altitude',
-                'type' => PropertyType::FLOAT,
+                'type' => PropertyType::NUMBER, // int or float.
             ],
         ];
     }
@@ -87,13 +92,17 @@ from the parent classes.
 
 There are several ways to create a model instance. The model constructor takes
 an assoc array, an object (including a model instance) or a json string.
+All the options below create the same geo model instance.
 
     $data = [ latitude => 70.6646625, longitude => 23.6807195 ];
+    $json = '{"latitude": 70.6646625, "longitude": 23.6807195}';
     
     a) $geo = new GeoPoint( $data );
     b) $geo = GeoPoint:create( $data );
-    c) $geo = GeoPoint:create()->patch( $data );
-    d) $geo = GeoPoint:create()->replace( $data );
+    c) $geo = GeoPoint:create( (object) $data );
+    d) $geo = GeoPoint:create( $json );
+    e) $geo = GeoPoint:create()->patch( $data );
+    f) $geo = GeoPoint:create()->replace( $data );
 
 Or you just create an empty model and add the property values later on.
 
@@ -151,6 +160,63 @@ You can easily convert a model to JSON.
     $geo = GeoPoint:create( [ latitude => 70.6646625, longitude => 23.6807195 ] );
     a) $json = json_encode( $geo );
     b) $json = (string) $geo;
+
+### Nested models
+
+Models can contain other models. You just add a `model` with a class name to an
+`object` or `array` property. You can also add default values to create the
+sub-models with.
+
+    <?php
+    
+    use Peroks\Model\Model;
+    use Peroks\Model\PropertyType;
+    
+    /**
+     * The GeoPoint model with altitue. The altitude is optional.
+     * 
+     * @property float $altitude The geo point altitude.
+     */
+    class Travel extends Model {
+        
+        /**
+         * @var array An array of model properties.
+         */
+        protected static array $properties = [
+            'from' => [
+                'id'      => 'from',
+                'name'    => 'From geo point',
+                'type'    => PropertyType::OBJECT,
+                'model'   => GeoPoint::class,
+                'default' => [ latitude => 70.6646625, longitude => 23.6807195 ],
+                'require' => true,
+            ],
+            'to' => [
+                'id'      => 'to',
+                'name'    => 'To geo point',
+                'type'    => PropertyType::OBJECT,
+                'model'   => GeoPoint::class,
+                'default' => [ latitude => 59.8521293, longitude => 10.6590668 ],
+                'require' => true,
+            ],
+        ];
+    }
+
+If you add default values for sub-models, they are also created when the main
+model is created. On validation, sub-models are validated recursively too.
+
+    // Validates the travel model and all sub-models. 
+    $travel = Tarvel::create()->validate(); // Returns a validate Travel model.
+    $from   = $travel->from; // Returns a GeoPont model, already validated.
+
+Nested models are especially useful for importing **complex data structures**
+from an external source. Decoding, converting and validating external data is
+a **one-liner**.
+
+    // Decode, convert and validate external data structures.
+    $json   = $client->import(); // Json encoded string from an api call.
+    $travel = Tarvel::create( $json )->validate( true );
+
 
 ## Built-in items for property definitions and constraints (extendable)
 
