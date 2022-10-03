@@ -113,8 +113,8 @@ properties like an array.
 Since each model knows its property definitions and constraints, validating
 a model is a breeze.
 
-$data = [ latitude => 70.6646625, longitude => 23.6807195 ];
-
+    $data = [ latitude => 70.6646625, longitude => 23.6807195 ];
+    
     // Returns the model instance on success or null on failure.
     $geo = GeoPoint:create( $data )->validate(); // Returns the model instance.
     $geo = GeoPoint:create()->validate(); // Returns null.
