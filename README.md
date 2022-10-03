@@ -195,5 +195,5 @@ You can easily convert a model to JSON.
 
 ## Installing
 
-You need **composer** to download and add peroks/model to your project.
+You need **composer** to download and install peroks/model.
 Just run `composer require peroks/model` in your project.
