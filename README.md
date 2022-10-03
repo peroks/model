@@ -15,13 +15,19 @@ properties and constraints of each model in one single place, and then validate
 model instances throughout your application in a consistent, efficient and clear
 manner.
 
+A model is similar to a database table, where each model property corresponds to
+a table column. This project aims to automatically create database tables based
+on models in future versions.
+
 ## How to use
 
 ### Create a model class
 
-You define the model properties and constraints in a separate class for each
-model, in this example a geo point model. All models must extend the `Model`
-base class or a sub-class.
+You define the model properties and constraints in a **separate class** for each
+model. Each model class must contain the static `$properties` property and
+extend the `Model` class or subclass.
+
+In the examples below, we work with a geo point model.
 
     <?php
     
@@ -217,28 +223,34 @@ is a **one-liner**.
     $json   = $client->import(); // Json encoded string from an api call.
     $travel = Tarvel::create( $json )->validate( true );
 
+## Built-in items for property definitions and constraints
 
-## Built-in items for property definitions and constraints (extendable)
+    abstract class PropertyItem {
+        const ID          = 'id';           // string, The property id (required).
+        const NAME        = 'name';         // string, The property name (required).
+        const DESC        = 'desc';         // string, The property description (default: null).
+        const TYPE        = 'type';         // string, The property type (default: PropertyType::MIXED).
+        const MODEL       = 'model';        // string, The class name of a model (default: null).
+        const OBJECT      = 'object';       // string, The class or interface name to validate an object against (default: null).
+        const FOREIGN     = 'foreign';      // string, The property contains an id of the (foreign) model class name (default: null).
+        const DEFAULT     = 'default';      // mixed, The property default value (default: null).
+        const REQUIRED    = 'required';     // bool, Whether the property is required or not (default: false).
+        const DISABLED    = 'disabled';     // bool, Whether the property is disabled or not (default: false).
+        const READABLE    = 'readable';     // bool, Whether the property is readable or not (default: true).
+        const WRITABLE    = 'writable';     // bool, Whether the property is writable or not (default: true).
+        const UNIQUE      = 'unique';       // bool, Whether the property value is unique or not (default: false).
+        const INDEX       = 'index';        // bool, Whether the property is a db index or not (default: false).
+        const PATTERN     = 'pattern';      // string, A regex pattern to validate a string value against (default: null).
+        const ENUMERATION = 'enumeration';  // array, An enumeration of all valid property values (default: null).
+        const MIN         = 'min';          // int|float, The minimum numeric value or string/array length (default: null).
+        const MAX         = 'max';          // int|float, The maximum numeric value or string/array length (default: null).
+        const VALUE       = 'value';        // mixed, The property value (default: null).
+        const PROPERTIES  = 'properties';   // array, An array of model property definitions (default: null).
+    }
 
-    string    id          The property id (required).
-    string    name        The property name (required).
-    string    desc        The property description (default: null).
-    string    type        The property type (default: PropertyType::MIXED).
-    string    model       The class name of a model (default: null).
-    string    object      The class or interface name to validate an object against (default: null).
-    string    foreign     The property contains an id of the (foreign) model class name (default: null).
-    mixed     default     The property default value (default: null).
-    bool      required    Whether the property is required or not (default: false).
-    bool      disabled    Whether the property is disabled or not (default: false).
-    bool      readable    Whether the property is readable or not (default: true).
-    bool      writeable   Whether the property is writable or not (default: true).
-    bool      unique      Whether the property value is unique or not (default: false).
-    string    pattern     A regex pattern to validate the property value against (default: null).
-    array     enumeration An enumeration of all valid property values (default: null).
-    int|float min         The minimum numeric value or string/array length (default: null).
-    int|float max         The maximum numeric value or string/array length (default: null).
-    mixed     value       The property value (default: null).
-    array     properties  An array of model property definitions (default: null).
+Currently, the `foreign`, `unique` and `index` property items are not in use.
+There is no validation based on these items. They are intended for creating
+database tables in later versions.
 
 ## Supported property types
 
@@ -250,7 +262,7 @@ is a **one-liner**.
         const FLOAT    = 'double';
         const STRING   = 'string';
         const UUID     = 'uuid';        // A uuid string.
-        const DATETIME = 'datetime';    // A ISO 8601 datetime string.
+        const DATETIME = 'datetime';    // An ISO 8601 datetime string.
         const DATE     = 'date';        // A date string (Y-m-d).
         const TIME     = 'time';        // A time string (h:n or h:n:s).
         const ARRAY    = 'array';

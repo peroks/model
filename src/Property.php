@@ -16,7 +16,7 @@
  * @property bool $readable Whether the property is readable or not (default: true).
  * @property bool $writeable Whether the property is writable or not (default: true).
  * @property bool $unique Whether the property value is unique or not (default: false).
- * @property string $pattern A regex pattern to validate the property value against (default: null).
+ * @property string $pattern A regex pattern to validate a string value against (default: null).
  * @property array $enumeration An enumeration of all valid property values (default: null).
  * @property int|float $min The minimum numeric value or string/array length (default: null).
  * @property int|float $max The maximum numeric value or string/array length (default: null).
