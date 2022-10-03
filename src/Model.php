@@ -110,7 +110,9 @@ class Model extends ArrayObject implements ModelInterface {
 
 			try {
 				if ( is_null( $value ) ) {
-					static::validateRequired( $property );
+					if ( $property[ PropertyItem::REQUIRED ] ?? false ) {
+						static::validateRequired( $property );
+					}
 					continue;
 				}
 				if ( $type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED ) {
@@ -443,11 +445,9 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param Property|array $property The property definition.
 	 */
 	protected static function validateRequired( $property ): void {
-		if ( $property[ PropertyItem::REQUIRED ] ?? false ) {
-			$name  = $property[ PropertyItem::NAME ];
-			$error = sprintf( '%s is required in %s', $name, static::class );
-			throw new ModelException( $error, 400 );
-		}
+		$name  = $property[ PropertyItem::NAME ];
+		$error = sprintf( '%s is required in %s', $name, static::class );
+		throw new ModelException( $error, 400 );
 	}
 
 	/**
