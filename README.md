@@ -86,7 +86,7 @@ from the parent classes.
 ### Instantiate a model
 
 There are several ways to create a model instance. The model constructor takes
-an assoc array or an object (including a model instance).
+an assoc array, an object (including a model instance) or a json string.
 
     $data = [ latitude => 70.6646625, longitude => 23.6807195 ];
     
