@@ -75,7 +75,6 @@ from the parent classes.
 
     <?php
     
-    use Peroks\Model\Model;
     use Peroks\Model\PropertyType;
     
     /**
@@ -117,14 +116,14 @@ All the options below create the same geo model instance.
 Or you just create an empty model and add the property values later on.
 
     $geo = new GeoPoint();
-    $geo->latitude = 70.6646625;
+    $geo->latitude  = 70.6646625;
     $geo->longitude = 23.6807195;
 
 Just like the `ArrayObject` parent class, you can also set (and get) model
 properties like an array.
 
     $geo = new GeoPoint();
-    $geo['latitude'] = 70.6646625;
+    $geo['latitude']  = 70.6646625;
     $geo['longitude'] = 23.6807195;
 
 ### Model validation
@@ -155,7 +154,7 @@ Models are not validated on creation, only when the `validate()` method is calle
 You can access the model data as an object or array
 
     $geo = GeoPoint:create( [ latitude => 70.6646625, longitude => 23.6807195 ] );
-    $latitude = $geo->latitude;
+    $latitude  = $geo->latitude;
     $longitude = $geo['longitude'];
 
 or get the model data as an assoc array.
@@ -182,9 +181,10 @@ Models can contain other models. You just add a `model` with a class name to an
     use Peroks\Model\PropertyType;
     
     /**
-     * The GeoPoint model with altitue. The altitude is optional.
+     * The Travel model.
      * 
-     * @property float $altitude The geo point altitude.
+     * @property GeoPoint $from Where the travel starts.
+     * @property GeoPoint $to Where the travel ends.
      */
     class Travel extends Model {
         
@@ -215,18 +215,18 @@ If you add default values for sub-models, they are also created when the main
 model is created. On validation, sub-models are validated recursively too.
 
     // Validates the travel model and all sub-models. 
-    $travel = Tarvel::create()->validate(); // Returns a validated Travel model.
+    $travel = Tarvel::create()->validate( true ); // Returns a valid Travel model.
     $from   = $travel->from; // Returns a GeoPont model, already validated.
 
 Nested models are especially useful for importing **complex data structures**
-from an **external source**. Decoding, converting and validating external data
+from **external sources**. Decoding, converting and validating external data
 is a **one-liner**.
 
     // Decode, convert and validate external data structures.
     $json   = $client->import(); // Json encoded string from an api call.
     $travel = Tarvel::create( $json )->validate( true );
 
-## Built-in items for property definitions and constraints
+## Supported property items
 
     abstract class PropertyItem {
         const ID          = 'id';           // string, The property id (required).
@@ -271,7 +271,7 @@ exporting model data with `Model::data( ModelData::PROPERTIES )`.
         const TIME     = 'time';        // A time string (h:n or h:n:s).
         const ARRAY    = 'array';
         const OBJECT   = 'object';
-        const FUNCTION = 'function';    // A callable function, array or string.
+        const FUNCTION = 'function';    // A callable function.
     }
 
 ## Storing models (experimental)
