@@ -1,7 +1,7 @@
 # Models: Classes with built-in data validation
 
-The `Model` base class included in this package extends the built-in
-PHP `ArrayObject` class with internal data validation.
+The `Model` base class extends the built-in PHP `ArrayObject` class with
+internal data validation.
 
 ## Reason why
 
@@ -11,13 +11,13 @@ time-consuming, inconsistent, error-prone and hard to read/maintain.
 
 Instead of writing code to validate data, you can let **models validate
 themselves** based on their **property definition**. You just define the
-properties and constraints of each model in one single place, and then validate
-model instances throughout your application in a consistent, efficient and clear
-manner.
+properties and constraints of each model in **one single place**, and then
+validate model instances throughout your application in a consistent, efficient
+and clear manner.
 
-A model is similar to a database table, where each model property corresponds to
-a table column. This project aims to automatically create database tables based
-on models in future versions.
+Models are similar to **database tables**, where each **model property**
+corresponds to a **table column**. This project aims to automatically create
+database tables based on models in future versions.
 
 ## How to use
 
@@ -25,9 +25,12 @@ on models in future versions.
 
 You define the model properties and constraints in a **separate class** for each
 model. Each model class must contain the static `$properties` property and
-extend the `Model` class or subclass.
+extend the `Model` class or a subclass.
 
-In the examples below, we work with a geo point model.
+In the example below, we create a geo point model with two properties:
+**latitude** and **longitude**. Both properties are **required**, and they must
+be **floating** numbers in the range of **-90 to 90** (latitude)
+and **-180 to 180** (longitude). 
 
     <?php
     
@@ -250,7 +253,8 @@ is a **one-liner**.
 
 Currently, the `foreign`, `unique` and `index` property items are not in use.
 There is no validation based on these items. They are intended for creating
-database tables in later versions.
+database tables in future versions. `value` and `properties` are ony used for 
+exporting model data with `Model::data( ModelData::PROPERTIES )`.
 
 ## Supported property types
 
@@ -270,7 +274,14 @@ database tables in later versions.
         const FUNCTION = 'function';    // A callable function, array or string.
     }
 
+## Storing models (experimental)
+
+This package includes a class for storing models on the local file system as
+json files. The `Store` class and interface are both experimental and only 
+intended for rapid prototyping during development. They are **not** production
+ready and will change in future versions without further notice.
+
 ## Installing
 
-You need **composer** to download and install peroks/model.
+You need **composer** to download and install this package.
 Just run `composer require peroks/model` in your project.
