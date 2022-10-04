@@ -70,7 +70,7 @@ and **-180 to 180** (longitude).
         ];
     }
 
-You can also extend models like any other class. The properties are inherited
+You can extend models like any other class. The properties are inherited
 from the parent classes.
 
     <?php
@@ -97,11 +97,11 @@ from the parent classes.
         ];
     }
 
-### Instantiate a model
+### Create a model instance
 
 There are several ways to create a model instance. The model constructor takes
 an assoc array, an object (including a model instance) or a json string.
-All the options below create the same geo model instance.
+All the options below produce the same result.
 
     $data = [ latitude => 70.6646625, longitude => 23.6807195 ];
     $json = '{"latitude": 70.6646625, "longitude": 23.6807195}';
@@ -259,7 +259,7 @@ exporting model data with `Model::data( ModelData::PROPERTIES )`.
 ## Supported property types
 
     abstract class PropertyType {
-        const MIXED    = '';            // Any type, no validation.
+        const MIXED    = '';            // Any type, no type validation.
         const BOOL     = 'boolean';
         const NUMBER   = 'number';      // Integer or float.
         const INTEGER  = 'integer';
