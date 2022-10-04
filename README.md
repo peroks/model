@@ -1,7 +1,7 @@
 # Models: Classes with built-in data validation
 
-The `Model` base class extends the built-in PHP `ArrayObject` class with
-internal data validation.
+The `Model` class extends the built-in PHP `ArrayObject` class with internal
+data validation.
 
 ## Reason why
 
@@ -9,11 +9,11 @@ Models can be used in any context, but they are especially useful in REST API
 applications, where validating incoming and outgoing data is often
 time-consuming, inconsistent, error-prone and hard to read/maintain.
 
-Instead of writing code to validate data, you can let **models validate
-themselves** based on their **property definition**. You just define the
-properties and constraints of each model in **one single place**, and then
-validate model instances throughout your application in a consistent, efficient
-and clear manner.
+Instead of bloating your project with code for validating data, you can
+let **models validate themselves** based on their **property definition**.
+You just define the properties and constraints of each model in **one single
+place**, and then validate model instances throughout your application in a
+consistent, efficient and clear manner.
 
 Models are similar to **database tables**, where each **model property**
 corresponds to a **table column**. This project aims to automatically create
@@ -147,7 +147,7 @@ Alternatively, you can let the validation throw a `ModelException` on failure.
     $geo = GeoPoint:create()->validate( true ); // Throws ModelExeption.
     $geo = GeoPoint:create( [ latitude => 70.6646625 ] )->validate( true ); // Throws ModelExeption.
 
-Models are not validated on creation, only when the `validate()` method is called.
+Models are not validated on creation, only when `Model::validate()` is called.
 
 ### Getting the model data
 
@@ -172,7 +172,7 @@ You can easily convert a model to JSON.
 
 ### Nested models
 
-Models can contain other models. You just add a `model` with a class name to an
+Models can contain other models. You just add `model` with a class name to an
 `object` or `array` property.
 
     <?php
@@ -219,8 +219,8 @@ model is created. On validation, sub-models are validated recursively too.
     $from   = $travel->from; // Returns a GeoPont model, already validated.
 
 Nested models are especially useful for importing **complex data structures**
-from **external sources**. Decoding, converting and validating external data
-is a **one-liner**.
+from **external sources**. With models, decoding, converting and validating
+external data is a **one-liner**.
 
     // Decode, convert and validate external data structures.
     $json   = $client->import(); // Json encoded string from an api call.
