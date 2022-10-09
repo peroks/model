@@ -136,6 +136,10 @@ class Model extends ArrayObject implements ModelInterface {
 				if ( isset( $property[ PropertyItem::MAX ] ) ) {
 					static::validateMaximum( $value, $property );
 				}
+
+				// Allow for custom validation in subclasses.
+				static::validateCustom( $value, $id, $property );
+
 			} catch ( ModelException $e ) {
 				if ( $throwException ) {
 					throw $e;
@@ -707,4 +711,13 @@ class Model extends ArrayObject implements ModelInterface {
 		}
 		return false;
 	}
+
+	/**
+	 * Allows for custom validation in subclasses.
+	 *
+	 * @param mixed $value The value to validate.
+	 * @param string $id The property id.
+	 * @param Property|array $property The property definition.
+	 */
+	protected static function validateCustom( $value, string $id, array $property ): void {}
 }
