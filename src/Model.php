@@ -2,6 +2,7 @@
 
 use ArrayAccess;
 use ArrayObject;
+use JsonException;
 use Traversable;
 
 /**
@@ -164,6 +165,31 @@ class Model extends ArrayObject implements ModelInterface {
 	 */
 	public static function create( $data = [] ): self {
 		return new static( $data );
+	}
+
+	/**
+	 * Loads a model from a json file.
+	 *
+	 * @param string $file The full path to a json file.
+	 * @param bool $throwException Whether to throw an exception on error or not.
+	 *
+	 * @return static|null A model instance.
+	 * @throws ModelException
+	 */
+	public static function load( string $file, bool $throwException = false ): ?self {
+		if ( $file && is_readable( $file ) ) {
+			$flags   = $throwException ? JSON_THROW_ON_ERROR : 0;
+			$content = file_get_contents( $file );
+			$content = json_decode( $content, true, 512, $flags );
+			return new static( $content );
+		}
+
+		if ( $throwException ) {
+			$error = sprintf( 'The file %s is not found or is not readable in %s', $file, static::class );
+			throw new ModelException( $error, 500 );
+		}
+
+		return null;
 	}
 
 	/**

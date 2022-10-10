@@ -68,6 +68,17 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	public static function create( $data = [] ): self;
 
 	/**
+	 * Loads a model from a json file.
+	 *
+	 * @param string $file The full path to a json file.
+	 * @param bool $throwException Whether to throw an exception on error or not.
+	 *
+	 * @return static|null A model instance.
+	 * @throws ModelException
+	 */
+	public static function load( string $file, bool $throwException = false ): ?self;
+
+	/**
 	 * Gets the model's properties.
 	 *
 	 * @return array[] An array of property definitions.
