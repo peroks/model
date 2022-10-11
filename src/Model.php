@@ -73,6 +73,21 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/**
+	 * Saves the model to a file as json.
+	 *
+	 * @param string $file The file to save the model to.
+	 * @param int $flags Save flags, see file_put_contents() for details.
+	 *
+	 * @return static|null The saved model instance on success or null on failure.
+	 */
+	public function save( string $file, int $flags = 0 ): ?self {
+		if ( file_put_contents( $file, $this, $flags ) ) {
+			return $this;
+		}
+		return null;
+	}
+
+	/**
 	 * Patches a model with the given data.
 	 *
 	 * @param array|object|string|null $data The data to be merged into the model.

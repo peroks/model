@@ -32,6 +32,16 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	public function data( string $content = ModelData::FULL ): array;
 
 	/**
+	 * Saves the model to a file as json.
+	 *
+	 * @param string $file The file to save the model to.
+	 * @param int $flags Save flags, see file_put_contents() for details.
+	 *
+	 * @return static|null The saved model instance on success or null on failure.
+	 */
+	public function save( string $file, int $flags = 0 ): ?self;
+
+	/**
 	 * Patches a model with the given data.
 	 *
 	 * @param array|object|string|null $data The data to be merged into the model.
