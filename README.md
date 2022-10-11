@@ -1,7 +1,7 @@
 # Models: Classes with built-in data validation
 
 The `Model` class extends the built-in PHP `ArrayObject` class with internal
-data validation.
+data validation and json support.
 
 ## Reason why
 
@@ -112,6 +112,7 @@ All the options below produce the same result.
     d) $geo = GeoPoint:create( $json );
     e) $geo = GeoPoint:create()->patch( $data );
     f) $geo = GeoPoint:create()->replace( $data );
+    g) $geo = GeoPoint:load( 'geopoint.json' );
 
 Or you just create an empty model and add the property values later on.
 
