@@ -17,7 +17,6 @@ abstract class PropertyItem {
 	const FOREIGN     = 'foreign';      // string, The property contains an id of the (foreign) model class name (default: null).
 	const DEFAULT     = 'default';      // mixed, The property default value (default: null).
 	const REQUIRED    = 'required';     // bool, Whether the property is required or not (default: false).
-	const DISABLED    = 'disabled';     // bool, Whether the property is disabled or not (default: false).
 	const READABLE    = 'readable';     // bool, Whether the property is readable or not (default: true).
 	const WRITABLE    = 'writable';     // bool, Whether the property is writable or not (default: true).
 	const UNIQUE      = 'unique';       // bool, Whether the property value is unique or not (default: false).

@@ -214,7 +214,7 @@ final class ModelTest extends TestCase {
 			$this->assertEquals( $model->data( ModelData::FULL ), $data );
 			$this->assertEquals( $model->data(), $data );
 		} else {
-			$this->assertEmpty( $model->data( ModelData::COMPACT ) );
+			$this->assertEquals( $model->data( ModelData::COMPACT ), $data );
 			$this->assertEquals( $model->data( ModelData::FULL ), $data );
 			$this->assertEquals( $model->data(), $data );
 		}

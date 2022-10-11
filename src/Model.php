@@ -454,6 +454,16 @@ class Model extends ArrayObject implements ModelInterface {
 			}
 		}
 
+		// Fallback if the model has no properties.
+		if ( empty( $properties ) ) {
+			foreach ( $data as $id => $value ) {
+				if ( $value instanceof ModelInterface ) {
+					$value = $value->data( ModelData::COMPACT );
+				}
+				$result[ $id ] = $value;
+			}
+		}
+
 		return $result ?? [];
 	}
 
@@ -467,10 +477,6 @@ class Model extends ArrayObject implements ModelInterface {
 	 */
 	protected static function dataProperties( array $data, array $properties ): array {
 		foreach ( $properties as $id => $property ) {
-			if ( $property[ PropertyItem::DISABLED ] ?? false ) {
-				continue;
-			}
-
 			if ( $property[ PropertyItem::READABLE ] ?? true ) {
 				$property[ PropertyItem::VALUE ] = $data[ $id ];
 
@@ -479,6 +485,16 @@ class Model extends ArrayObject implements ModelInterface {
 				}
 			}
 			$result[] = Property::create( $property );
+		}
+
+		// Fallback if the model has no properties.
+		if ( empty( $properties ) ) {
+			foreach ( $data as $id => $value ) {
+				if ( $value instanceof ModelInterface ) {
+					$value = $value->data( ModelData::PROPERTIES );
+				}
+				$result[] = Property::create( [ 'id' => $id, 'name' => $id, 'value' => $value ] );
+			}
 		}
 
 		return $result ?? [];

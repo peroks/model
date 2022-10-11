@@ -94,4 +94,11 @@ interface StoreInterface {
 	 * @return bool True if the model existed, false otherwise.
 	 */
 	public function delete( string $id, string $class ): bool;
+
+	/**
+	 * Saves the updated data to a JSON file.
+	 *
+	 * @return bool True if data changes exists and were saved, false otherwise.
+	 */
+	public function save(): bool;
 }
