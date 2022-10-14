@@ -241,6 +241,7 @@ external data is a **one-liner**.
         const REQUIRED    = 'required';     // bool, Whether the property is required or not (default: false).
         const READABLE    = 'readable';     // bool, Whether the property is readable or not (default: true).
         const WRITABLE    = 'writable';     // bool, Whether the property is writable or not (default: true).
+	    const MUTABLE     = 'mutable';      // bool, Whether the property is mutable (changeable) or not (default: true).
         const UNIQUE      = 'unique';       // bool, Whether the property value is unique or not (default: false).
         const INDEX       = 'index';        // bool, Whether the property is a db index or not (default: false).
         const PATTERN     = 'pattern';      // string, A regex pattern to validate a string value against (default: null).

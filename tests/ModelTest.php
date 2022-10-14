@@ -58,7 +58,6 @@ final class ModelTest extends TestCase {
 		if ( $model instanceof ExtendedTour ) {
 			$this->expectException( ModelException::class );
 			$model->validate( true );
-			$this->assertNotEquals( $model->getArrayCopy(), $data );
 		} else {
 			$this->assertInstanceOf( ModelInterface::class, $model->validate( true ) );
 			$this->assertEquals( $model->getArrayCopy(), $data );
@@ -238,21 +237,9 @@ final class ModelTest extends TestCase {
 	 * @param array $data
 	 */
 	public function testNonProperties( ModelInterface $model, array $data ): void {
-		if ( $model instanceof Tour ) {
+		if ( $model instanceof Tour || $model instanceof ExtendedTour ) {
 			$this->expectException( ModelException::class );
 			$model['something'] = 'Something';
-			$this->expectException( ModelException::class );
-			$model->something = 'Something';
-
-			$this->expectException( ModelException::class );
-			$model['something'] = 'Something';
-			$this->expectException( ModelException::class );
-			unset( $model->something );
-
-			$this->expectException( ModelException::class );
-			$model[] = 'Something';
-
-			$this->assertNull( $model->something );
 		} else {
 			$model->something = 'Something';
 			$this->assertEquals( $model->something, 'Something' );

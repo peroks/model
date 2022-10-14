@@ -28,7 +28,7 @@ class Tour extends Model {
 			'desc'     => 'The tour id',
 			'type'     => PropertyType::STRING,
 			'required' => true,
-			'writable' => false,
+			'mutable'  => false,
 		],
 		'name'    => [
 			'id'       => 'name',

@@ -2,7 +2,6 @@
 
 use ArrayAccess;
 use ArrayObject;
-use JsonException;
 use Traversable;
 
 /**
@@ -293,11 +292,32 @@ class Model extends ArrayObject implements ModelInterface {
 	 */
 	public function offsetSet( $key, $value ): void {
 		$properties = static::properties();
-		$writable   = $properties[ PropertyItem::WRITABLE ] ?? true;
 
-		if ( $properties && empty( $writable && array_key_exists( $key, $properties ) ) ) {
-			$error = sprintf( 'Setting the %s property in %s is not allowed.', $key, static::class );
-			throw new ModelException( $error, 400 );
+		if ( $properties ) {
+			$writable = $properties[ $key ][ PropertyItem::WRITABLE ] ?? true;
+			$mutable  = $properties[ $key ][ PropertyItem::MUTABLE ] ?? true;
+
+			if ( empty( $key ) ) {
+				$error = sprintf( 'Setting a value without a property id is not allowed in %s.', static::class );
+				throw new ModelException( $error, 400 );
+			}
+
+			if ( empty( array_key_exists( $key, $properties ) ) ) {
+				$error = sprintf( 'Property %s not found in %s.', $key, static::class );
+				throw new ModelException( $error, 400 );
+			}
+
+			if ( empty( $writable ) ) {
+				$name  = $properties[ $key ][ PropertyItem::NAME ];
+				$error = sprintf( 'Setting "%s" (%s) in %s is not allowed.', $key, $name, static::class );
+				throw new ModelException( $error, 400 );
+			}
+
+			if ( empty( $mutable ) && isset( $this[ $key ] ) ) {
+				$name  = $properties[ $key ][ PropertyItem::NAME ];
+				$error = sprintf( 'Changing "%s" (%s) in %s is not allowed.', $key, $name, static::class );
+				throw new ModelException( $error, 400 );
+			}
 		}
 
 		parent::offsetSet( $key, $value );

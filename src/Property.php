@@ -12,9 +12,9 @@
  * @property string $foreign The property contains an id of the (foreign) model class name (default: null).
  * @property mixed $default The property default value (default: null).
  * @property bool $required Whether the property is required or not (default: false).
- * @property bool $disabled Whether the property is disabled or not (default: false).
  * @property bool $readable Whether the property is readable or not (default: true).
  * @property bool $writeable Whether the property is writable or not (default: true).
+ * @property bool $mutable Whether the property is mutable (changeable) or not (default: true).
  * @property bool $unique Whether the property value is unique or not (default: false).
  * @property string $pattern A regex pattern to validate a string value against (default: null).
  * @property array $enumeration An enumeration of all valid property values (default: null).
@@ -100,13 +100,6 @@ class Property extends Model {
 			PropertyItem::TYPE    => PropertyType::BOOL,
 			PropertyItem::DEFAULT => false,
 		],
-		'disabled'    => [
-			PropertyItem::ID      => 'disabled',
-			PropertyItem::NAME    => 'Disabled',
-			PropertyItem::DESC    => 'Whether the property is disabled or not',
-			PropertyItem::TYPE    => PropertyType::BOOL,
-			PropertyItem::DEFAULT => false,
-		],
 		'readable'    => [
 			PropertyItem::ID      => 'readable',
 			PropertyItem::NAME    => 'Readable',
@@ -118,6 +111,13 @@ class Property extends Model {
 			PropertyItem::ID      => 'writable',
 			PropertyItem::NAME    => 'Writable',
 			PropertyItem::DESC    => 'Whether the property is writable or not',
+			PropertyItem::TYPE    => PropertyType::BOOL,
+			PropertyItem::DEFAULT => true,
+		],
+		'mutable'     => [
+			PropertyItem::ID      => 'mutable',
+			PropertyItem::NAME    => 'Mutable',
+			PropertyItem::DESC    => 'Whether the property is mutable (changeable) or not',
 			PropertyItem::TYPE    => PropertyType::BOOL,
 			PropertyItem::DEFAULT => true,
 		],
