@@ -15,6 +15,8 @@ abstract class PropertyType {
 	const FLOAT    = 'double';
 	const STRING   = 'string';
 	const UUID     = 'uuid';        // A uuid string.
+	const URL      = 'url';         // A url.
+	const EMAIL    = 'email';       // An email address.
 	const DATETIME = 'datetime';    // An ISO 8601 datetime string.
 	const DATE     = 'date';        // A date string (Y-m-d).
 	const TIME     = 'time';        // A time string (h:n or h:n:s).

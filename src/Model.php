@@ -567,6 +567,24 @@ class Model extends ArrayObject implements ModelInterface {
 			}
 		}
 
+		// Check url.
+		elseif ( $type === PropertyType::URL ) {
+			if ( empty( is_string( $value ) && filter_var( $value, FILTER_VALIDATE_URL ) ) ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must be a valid %s in %s', $name, $type, static::class );
+				throw new ModelException( $error, 400 );
+			}
+		}
+
+		// Check email address.
+		elseif ( $type === PropertyType::EMAIL ) {
+			if ( empty( is_string( $value ) && filter_var( $value, FILTER_VALIDATE_EMAIL ) ) ) {
+				$name  = $property[ PropertyItem::NAME ];
+				$error = sprintf( '%s must be a valid %s address in %s', $name, $type, static::class );
+				throw new ModelException( $error, 400 );
+			}
+		}
+
 		// Check date/time strings.
 		elseif ( in_array( $type, [ PropertyType::DATETIME, PropertyType::DATE, PropertyType::TIME ] ) ) {
 			if ( is_string( $value ) && empty( static::validateDateTime( $value, $type ) ) ) {
