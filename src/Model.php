@@ -126,7 +126,7 @@ class Model extends ArrayObject implements ModelInterface {
 			try {
 				if ( is_null( $value ) ) {
 					if ( $property[ PropertyItem::REQUIRED ] ?? false ) {
-						static::validateRequired( $property );
+						static::validateRequired( $id, $property );
 					}
 					continue;
 				}
@@ -523,11 +523,12 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Checks if a property is required.
 	 *
+	 * @param string $id The property id.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateRequired( $property ): void {
+	protected static function validateRequired( string $id, $property ): void {
 		$name  = $property[ PropertyItem::NAME ];
-		$error = sprintf( '%s is required in %s', $name, static::class );
+		$error = sprintf( 'The property %s (%s) is required in %s', $id, $name, static::class );
 		throw new ModelException( $error, 400 );
 	}
 
@@ -544,7 +545,7 @@ class Model extends ArrayObject implements ModelInterface {
 		if ( $type === PropertyType::NUMBER ) {
 			if ( empty( is_integer( $value ) || is_float( $value ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must be a %s in %s', $name, $type, static::class );
+				$error = sprintf( '%s must be a %s, found %s in %s', $name, $value, $type, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
@@ -553,7 +554,7 @@ class Model extends ArrayObject implements ModelInterface {
 		elseif ( $type === PropertyType::FUNCTION ) {
 			if ( empty( is_callable( $value ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must be a callable %s in %s', $name, $type, static::class );
+				$error = sprintf( '%s must be a callable %s, found %s in %s', $name, $type, $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
@@ -562,7 +563,7 @@ class Model extends ArrayObject implements ModelInterface {
 		elseif ( $type === PropertyType::UUID ) {
 			if ( empty( is_string( $value ) && strlen( $value ) === 36 ) ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must be a valid %s string in %s', $name, $type, static::class );
+				$error = sprintf( '%s must be a valid %s string, found %s in %s', $name, $type, $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
@@ -571,7 +572,7 @@ class Model extends ArrayObject implements ModelInterface {
 		elseif ( $type === PropertyType::URL ) {
 			if ( empty( is_string( $value ) && filter_var( $value, FILTER_VALIDATE_URL ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must be a valid %s in %s', $name, $type, static::class );
+				$error = sprintf( '%s must be a valid %s, found %s in %s', $name, $type, $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
@@ -580,7 +581,7 @@ class Model extends ArrayObject implements ModelInterface {
 		elseif ( $type === PropertyType::EMAIL ) {
 			if ( empty( is_string( $value ) && filter_var( $value, FILTER_VALIDATE_EMAIL ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must be a valid %s address in %s', $name, $type, static::class );
+				$error = sprintf( '%s must be a valid %s address, found %s in %s', $name, $type, $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
@@ -589,7 +590,7 @@ class Model extends ArrayObject implements ModelInterface {
 		elseif ( in_array( $type, [ PropertyType::DATETIME, PropertyType::DATE, PropertyType::TIME ] ) ) {
 			if ( is_string( $value ) && empty( static::validateDateTime( $value, $type ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must be a valid %s string in %s', $name, $type, static::class );
+				$error = sprintf( '%s must be a valid %s string, found %s in %s', $name, $type, $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
@@ -597,7 +598,7 @@ class Model extends ArrayObject implements ModelInterface {
 		// Check all other types.
 		elseif ( $type !== gettype( $value ) ) {
 			$name  = $property[ PropertyItem::NAME ];
-			$error = sprintf( '%s must be of type %s in %s', $name, $type, static::class );
+			$error = sprintf( '%s must be of type %s, found %s in %s', $name, $type, $value, static::class );
 			throw new ModelException( $error, 400 );
 		}
 	}
@@ -664,7 +665,7 @@ class Model extends ArrayObject implements ModelInterface {
 		if ( is_string( $value ) ) {
 			if ( empty( preg_match( $regex, $value ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must match the regex pattern %s in %s', $name, $pattern, static::class );
+				$error = sprintf( '%s must match the regex pattern %s, found %s in %s', $name, $pattern, $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
@@ -683,7 +684,7 @@ class Model extends ArrayObject implements ModelInterface {
 		if ( is_scalar( $value ) ) {
 			if ( empty( in_array( $value, $enum, true ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must be one of %s in %s', $name, join( ', ', $enum ), static::class );
+				$error = sprintf( '%s must be one of %s, found %s in %s', $name, join( ', ', $enum ), $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
@@ -711,7 +712,7 @@ class Model extends ArrayObject implements ModelInterface {
 		if ( is_int( $value ) || is_float( $value ) ) {
 			if ( $value < $min ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must be at least %d in %s', $name, $min, static::class );
+				$error = sprintf( '%s must be at least %d, found %s in %s', $name, $min, $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
@@ -720,7 +721,7 @@ class Model extends ArrayObject implements ModelInterface {
 		elseif ( is_string( $value ) ) {
 			if ( strlen( $value ) < $min ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must contain at least %d characters in %s', $name, $min, static::class );
+				$error = sprintf( '%s must contain at least %d characters, found %s in %s', $name, $min, $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
@@ -748,7 +749,7 @@ class Model extends ArrayObject implements ModelInterface {
 		if ( is_int( $value ) || is_float( $value ) ) {
 			if ( $value > $max ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must be max %d in %s', $name, $max, static::class );
+				$error = sprintf( '%s must be max %d, found %s in %s', $name, $max, $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
@@ -757,7 +758,7 @@ class Model extends ArrayObject implements ModelInterface {
 		elseif ( is_string( $value ) ) {
 			if ( strlen( $value ) > $max ) {
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( '%s must contain max %d characters in %s', $name, $max, static::class );
+				$error = sprintf( '%s must contain max %d characters, found %s in %s', $name, $max, $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
@@ -782,7 +783,7 @@ class Model extends ArrayObject implements ModelInterface {
 	protected static function validateClass( object $value, string $class, array $property ): void {
 		if ( empty( is_a( $value, $class ) ) ) {
 			$name  = $property[ PropertyItem::NAME ];
-			$error = sprintf( '%s must be an instance of %s in %s', $name, $class, static::class );
+			$error = sprintf( '%s must be an instance of %s, found %s in %s', $name, $class, get_class( $value ), static::class );
 			throw new ModelException( $error, 400 );
 		}
 	}
