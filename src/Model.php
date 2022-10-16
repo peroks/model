@@ -94,10 +94,13 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return static The updated model instance.
 	 */
 	public function patch( $data ): self {
+		$existing = $this->getArrayCopy();
+
 		foreach ( static::prepareData( $data, false ) as $id => $value ) {
-			$this[ $id ] = $value;
+			$existing[ $id ] = $value;
 		}
-		return $this;
+
+		return $this->replace( $existing );
 	}
 
 	/**
