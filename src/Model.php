@@ -802,9 +802,10 @@ class Model extends ArrayObject implements ModelInterface {
 	protected static function validateDateTime( string $value, string $type ): bool {
 		switch ( $type ) {
 			case PropertyType::DATETIME:
-				return Utils::validateDate( $value );
+				return Utils::validateDate( $value )
+					|| Utils::validateDate( $value, 'Y-m-d\TH:i:s\Z' );
 			case PropertyType::DATE:
-				return Utils::validateDate( $value, 'yyyy-mm-dd' );
+				return Utils::validateDate( $value, 'Y-m-d' );
 			case PropertyType::TIME:
 				return Utils::validateTime( $value );
 		}
