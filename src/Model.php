@@ -52,7 +52,7 @@ class Model extends ArrayObject implements ModelInterface {
 		$properties = static::properties();
 		$data       = $this->getArrayCopy();
 
-		// Get a compact data array stripped of all null and default values.
+		// Get a compact data array stripped of all default values.
 		if ( ModelData::COMPACT === $content ) {
 			return static::dataCompact( $data, $properties );
 		}
@@ -104,7 +104,7 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/**
-	 * Replaces the model date with given data.
+	 * Replaces the model data with given data.
 	 *
 	 * @param array|object|string $data The data to be inserted into the model.
 	 *
@@ -454,7 +454,7 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/**
-	 * Get a compact data array stripped of all null and default values.
+	 * Get a compact data array stripped of all default values.
 	 *
 	 * @param array $data The internal data array.
 	 * @param Property[]|array $properties The model properties.

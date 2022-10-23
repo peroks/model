@@ -271,7 +271,7 @@ exporting model data with `Model::data( ModelData::PROPERTIES )`.
         const EMAIL    = 'email';       // An email address.
         const DATETIME = 'datetime';    // An ISO 8601 datetime string.
         const DATE     = 'date';        // A date string (Y-m-d).
-        const TIME     = 'time';        // A time string (h:n or h:n:s).
+        const TIME     = 'time';        // A time string (H:i or H:i:s).
         const ARRAY    = 'array';
         const OBJECT   = 'object';
         const FUNCTION = 'function';    // A callable function.
