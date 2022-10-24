@@ -54,7 +54,10 @@ class Utils {
 	 * @return bool True, if the value is a valid time string, false otherwise.
 	 */
 	public static function validateTime( string $value ): bool {
-		if ( preg_match( '/^(\d\d):(\d\d)(?:(\d\d))?$/', $value, $matches ) ) {
+		if ( preg_match( '/^(\d\d):(\d\d)(?::(\d\d))?$/', $value, $matches ) ) {
+			array_shift( $matches );
+
+			$matches = array_replace( [ 0, 0, 0 ], $matches );
 			$matches = array_map( 'intval', $matches );
 
 			return static::inRange( $matches[0], 0, 23 )
