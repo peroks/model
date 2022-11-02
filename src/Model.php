@@ -467,8 +467,15 @@ class Model extends ArrayObject implements ModelInterface {
 				$default = $property[ PropertyItem::DEFAULT ] ?? null;
 				$value   = $data[ $id ];
 
-				if ( $value instanceof ModelInterface ) {
-					$value = $value->data( ModelData::COMPACT );
+				if ( isset( $property[ PropertyItem::MODEL ] ) ) {
+					if ( $value instanceof ModelInterface ) {
+						$value = $value->data( ModelData::COMPACT );
+					}
+					elseif ( is_array( $value ) ) {
+						foreach ( $value as &$item ) {
+							$item = $item->data( ModelData::COMPACT );
+						}
+					}
 				}
 
 				if ( $value !== $default ) {
@@ -503,10 +510,18 @@ class Model extends ArrayObject implements ModelInterface {
 			if ( $property[ PropertyItem::READABLE ] ?? true ) {
 				$property[ PropertyItem::VALUE ] = $data[ $id ];
 
-				if ( $property[ PropertyItem::VALUE ] instanceof ModelInterface ) {
-					$property[ PropertyItem::PROPERTIES ] = $property[ PropertyItem::VALUE ]->data( ModelData::PROPERTIES );
+				if ( isset( $property[ PropertyItem::MODEL ] ) ) {
+					if ( $property[ PropertyItem::VALUE ] instanceof ModelInterface ) {
+						$property[ PropertyItem::PROPERTIES ] = $property[ PropertyItem::VALUE ]->data( ModelData::PROPERTIES );
+					}
+					elseif ( is_array( $property[ PropertyItem::VALUE ] ) ) {
+						foreach ( $property[ PropertyItem::VALUE ] as &$item ) {
+							$item = $item->data( ModelData::PROPERTIES );
+						}
+					}
 				}
 			}
+
 			$result[] = Property::create( $property );
 		}
 
