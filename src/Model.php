@@ -156,7 +156,7 @@ class Model extends ArrayObject implements ModelInterface {
 				}
 
 				// Allow for custom validation in subclasses.
-				static::validateCustom( $value, $id, $property );
+				static::validateProperty( $value, $id, $property );
 
 			} catch ( ModelException $e ) {
 				if ( $throwException ) {
@@ -426,17 +426,17 @@ class Model extends ArrayObject implements ModelInterface {
 	protected static function prepareProperty( $value, $property ) {
 		$type = $property[ PropertyItem::TYPE ] ?? null;
 
-		if ( $type === PropertyType::UUID && $value === true ) {
+		if ( PropertyType::UUID === $type && true === $value ) {
 			return Utils::uuid();
 		}
 
 		if ( $model = $property[ PropertyItem::MODEL ] ?? null ) {
-			if ( $type === PropertyType::OBJECT ) {
-				if ( is_array( $value ) ) {
+			if ( PropertyType::OBJECT === $type ) {
+				if ( isset( $value ) && empty( $value instanceof $model ) ) {
 					return new $model( $value );
 				}
 			}
-			elseif ( $type === PropertyType::ARRAY ) {
+			elseif ( PropertyType::ARRAY === $type ) {
 				if ( is_array( $value ) || $value instanceof Traversable ) {
 					foreach ( $value as &$item ) {
 						$item = new $model( $item );
@@ -560,7 +560,7 @@ class Model extends ArrayObject implements ModelInterface {
 	protected static function validateType( $value, string $type, $property ): void {
 
 		// Check for float or integer values.
-		if ( $type === PropertyType::NUMBER ) {
+		if ( PropertyType::NUMBER === $type ) {
 			if ( empty( is_integer( $value ) || is_float( $value ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
 				$error = sprintf( '%s must be a %s, found %s in %s', $name, $value, $type, static::class );
@@ -569,7 +569,7 @@ class Model extends ArrayObject implements ModelInterface {
 		}
 
 		// Check callable functions.
-		elseif ( $type === PropertyType::FUNCTION ) {
+		elseif ( PropertyType::FUNCTION === $type ) {
 			if ( empty( is_callable( $value ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
 				$error = sprintf( '%s must be a callable %s, found %s in %s', $name, $type, $value, static::class );
@@ -578,7 +578,7 @@ class Model extends ArrayObject implements ModelInterface {
 		}
 
 		// Check uuid string.
-		elseif ( $type === PropertyType::UUID ) {
+		elseif ( PropertyType::UUID === $type ) {
 			if ( empty( is_string( $value ) && strlen( $value ) === 36 ) ) {
 				$name  = $property[ PropertyItem::NAME ];
 				$error = sprintf( '%s must be a valid %s string, found %s in %s', $name, $type, $value, static::class );
@@ -587,7 +587,7 @@ class Model extends ArrayObject implements ModelInterface {
 		}
 
 		// Check url.
-		elseif ( $type === PropertyType::URL ) {
+		elseif ( PropertyType::URL === $type ) {
 			if ( empty( is_string( $value ) && filter_var( $value, FILTER_VALIDATE_URL ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
 				$error = sprintf( '%s must be a valid %s, found %s in %s', $name, $type, $value, static::class );
@@ -596,7 +596,7 @@ class Model extends ArrayObject implements ModelInterface {
 		}
 
 		// Check email address.
-		elseif ( $type === PropertyType::EMAIL ) {
+		elseif ( PropertyType::EMAIL === $type ) {
 			if ( empty( is_string( $value ) && filter_var( $value, FILTER_VALIDATE_EMAIL ) ) ) {
 				$name  = $property[ PropertyItem::NAME ];
 				$error = sprintf( '%s must be a valid %s address, found %s in %s', $name, $type, $value, static::class );
@@ -817,8 +817,7 @@ class Model extends ArrayObject implements ModelInterface {
 	protected static function validateDateTime( string $value, string $type ): bool {
 		switch ( $type ) {
 			case PropertyType::DATETIME:
-				return Utils::validateDate( $value )
-					|| Utils::validateDate( $value, 'Y-m-d\TH:i:s\Z' );
+				return Utils::validateDate( $value ) || Utils::validateDate( $value, 'Y-m-d\TH:i:s\Z' );
 			case PropertyType::DATE:
 				return Utils::validateDate( $value, 'Y-m-d' );
 			case PropertyType::TIME:
@@ -828,11 +827,11 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/**
-	 * Allows for custom validation in subclasses.
+	 * Support for custom validation of properties in subclasses.
 	 *
 	 * @param mixed $value The value to validate.
 	 * @param string $id The property id.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateCustom( $value, string $id, array $property ): void {}
+	protected static function validateProperty( $value, string $id, array $property ): void {}
 }
