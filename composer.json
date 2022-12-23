@@ -3,7 +3,7 @@
 	"type": "library",
 	"description": "Models: Classes with built-in data validation",
 	"minimum-stability": "stable",
-	"version": "0.8.8",
+	"version": "0.8.9",
 	"license": "MIT",
 	"authors": [
 		{

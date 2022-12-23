@@ -26,7 +26,7 @@ interface StoreInterface {
 	 *
 	 * @return ModelInterface|null A new or existing model of the given class.
 	 */
-	public function get( string $id, string $class, bool $create = true ): ?ModelInterface;
+	public function get( string $id, string $class, bool $create = false ): ?ModelInterface;
 
 	/**
 	 * Retrieves a collection of model from the data store.

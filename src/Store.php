@@ -60,7 +60,7 @@ class Store implements StoreInterface {
 	 *
 	 * @return ModelInterface|null A new or existing model of the given class.
 	 */
-	public function get( string $id, string $class, bool $create = true ): ?ModelInterface {
+	public function get( string $id, string $class, bool $create = false ): ?ModelInterface {
 		if ( $create || $this->exists( $id, $class ) ) {
 			$data = array_replace( $this->data[ $class ][ $id ] ?? [], $this->changes[ $class ][ $id ] ?? [] );
 			return new $class( $data );
