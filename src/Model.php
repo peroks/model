@@ -300,26 +300,28 @@ class Model extends ArrayObject implements ModelInterface {
 			$writable = $properties[ $key ][ PropertyItem::WRITABLE ] ?? true;
 			$mutable  = $properties[ $key ][ PropertyItem::MUTABLE ] ?? true;
 
+			// Throw an exception if no property id is given.
 			if ( empty( $key ) ) {
 				$error = sprintf( 'Setting a value without a property id is not allowed in %s.', static::class );
 				throw new ModelException( $error, 400 );
 			}
 
+			// Throw an exception if the property doesn't exist in this model.
 			if ( empty( array_key_exists( $key, $properties ) ) ) {
 				$error = sprintf( 'Property %s not found in %s.', $key, static::class );
 				throw new ModelException( $error, 400 );
 			}
 
+			// Throw an exception for read-only properties.
 			if ( empty( $writable ) ) {
 				$name  = $properties[ $key ][ PropertyItem::NAME ];
 				$error = sprintf( 'Setting "%s" (%s) in %s is not allowed.', $key, $name, static::class );
 				throw new ModelException( $error, 400 );
 			}
 
+			// Don't update immutable properties if they are already set (not null).
 			if ( empty( $mutable ) && isset( $this[ $key ] ) ) {
-				$name  = $properties[ $key ][ PropertyItem::NAME ];
-				$error = sprintf( 'Changing "%s" (%s) in %s is not allowed.', $key, $name, static::class );
-				throw new ModelException( $error, 400 );
+				return;
 			}
 		}
 
