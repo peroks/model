@@ -9,10 +9,6 @@
  */
 interface StoreInterface {
 
-	const SET_REPLACE = 'replace';  // Replace the existing model with the new one.
-	const SET_PATCH   = 'patch';    // Patch (update) the existing model with the new one.
-	const SET_MERGE   = 'merge';    // Recursively merge data from the new model into the existing one.
-
 	/* -------------------------------------------------------------------------
 	 * Retrieving models.
 	 * ---------------------------------------------------------------------- */
