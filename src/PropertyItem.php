@@ -20,8 +20,8 @@ abstract class PropertyItem {
 	const READABLE    = 'readable';     // bool, Whether the property is readable or not (default: true).
 	const WRITABLE    = 'writable';     // bool, Whether the property is writable or not (default: true).
 	const MUTABLE     = 'mutable';      // bool, Whether the property is mutable (changeable) or not (default: true).
-	const UNIQUE      = 'unique';       // bool, Whether the property value is unique or not (default: false).
-	const INDEX       = 'index';        // bool, Whether the property is a db index or not (default: false).
+	const INDEX       = 'index';        // string, The index name, properties with the same name are combined (default: null).
+	const UNIQUE      = 'unique';       // string, The unique index name, properties with the same name are combined (default: null).
 	const PATTERN     = 'pattern';      // string, A regex pattern to validate a string value against (default: null).
 	const ENUMERATION = 'enumeration';  // array, An enumeration of all valid property values (default: null).
 	const MIN         = 'min';          // int|float, The minimum numeric value or string/array length (default: null).

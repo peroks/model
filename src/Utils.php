@@ -82,6 +82,25 @@ class Utils {
 	}
 
 	/**
+	 * Checks if the given object or class name is a model.
+	 *
+	 * @param mixed $model The object or class name to check.
+	 *
+	 * @return bool
+	 */
+	public static function isModel( $model ): bool {
+		if ( $model ) {
+			if ( is_object( $model ) ) {
+				return $model instanceof ModelInterface;
+			}
+			if ( is_string( $model ) ) {
+				return is_a( $model, ModelInterface::class, true );
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Checks if the given key or index exists in the data.
 	 *
 	 * @param int|string $key The key to check for.
