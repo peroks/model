@@ -265,6 +265,8 @@ class StoreSql implements StoreInterface {
 	protected function createTableQuery( string $model ): string {
 		$properties = $model::properties();
 		$primary    = $model::idProperty();
+		$index      = $this->getTableIndices( $properties, PropertyItem::INDEX );
+		$unique     = $this->getTableIndices( $properties, PropertyItem::UNIQUE );
 
 		// Get column definitions from model properties.
 		$columns = array_map( [ $this, 'getColumn' ], $properties );
@@ -274,6 +276,29 @@ class StoreSql implements StoreInterface {
 		if ( $primary && array_key_exists( $primary, $properties ) ) {
 			$columns[] = sprintf( 'PRIMARY KEY (%s)', $this->quote( $primary ) );
 		}
+
+		// Set table indexes.
+		foreach ( $index as $name => $fields ) {
+			$fields    = array_map( [ $this, 'quote' ], $fields );
+			$columns[] = sprintf( 'INDEX KEY %s (%s)', $this->quote( $name ), join( ', ', $fields ) );
+		}
+
+		// Set table unique indexes.
+		foreach ( $unique as $name => $fields ) {
+			$fields    = array_map( [ $this, 'quote' ], $fields );
+			$columns[] = sprintf( 'UNIQUE KEY %s (%s)', $this->quote( $name ), join( ', ', $fields ) );
+		}
+
+		$sql   = "\n\t" . join( ",\n\t", $columns ) . "\n";
+		$table = $this->getTableName( $model );
+
+		return sprintf( 'CREATE TABLE IF NOT EXISTS %s (%s);', $table, $sql );
+	}
+
+	protected function createIndexQuery( string $model ): string {
+		$properties = $model::properties();
+		$index      = $this->getTableIndex( $properties, PropertyItem::INDEX );
+		$unique     = $this->getTableIndex( $properties, PropertyItem::UNIQUE );
 
 		$sql   = "\n\t" . join( ",\n\t", $columns ) . "\n";
 		$table = $this->getTableName( $model );
@@ -389,6 +414,19 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function getColumnName( string $property ): string {
 		return $this->quote( $property );
+	}
+
+	protected function getTableIndices( array $properties, string $item ): array {
+		$indices = array_column( $properties, $item, PropertyItem::ID );
+		$indices = array_filter( $indices );
+		$result  = [];
+
+		foreach ( $indices as $key => $value ) {
+			$name              = is_string( $value ) ? $value : $key;
+			$result[ $name ][] = $key;
+		}
+
+		return $result;
 	}
 
 	/**
