@@ -1,13 +1,15 @@
 <?php namespace Peroks\Model;
 
 use mysqli;
+use PDO;
+use PDOException;
 
 class StoreSql implements StoreInterface {
 
 	/**
-	 * @var mysqli $db The MySql database connection.
+	 * @var PDO $db The database object.
 	 */
-	protected mysqli $db;
+	protected PDO $db;
 
 	/**
 	 * @inheritDoc
@@ -100,6 +102,27 @@ class StoreSql implements StoreInterface {
 	 * @return bool True on success, null on failure to create a connection.
 	 */
 	protected function connect( object $connect ): bool {
+		$args = [
+			PDO::ATTR_ERRMODE    => PDO::ERRMODE_EXCEPTION,
+			PDO::ATTR_PERSISTENT => true,
+		];
+
+		try {
+			$dsn = "mysql:charset=utf8mb4;host={$connect->host};dbname={$connect->name}";
+			$db  = new PDO( $dsn, $connect->user, $connect->pass, $args );
+		} catch ( PDOException $e ) {
+			$dsn = "mysql:charset=utf8mb4;host={$connect->host}";
+			$db  = new PDO( $dsn, $connect->user, $connect->pass, $args );
+
+			$db->exec( $this->createDatabaseQuery( $connect->name ) );
+			$db->exec( "USE {$connect->name}" );
+		}
+
+		$this->db = $db;
+		return true;
+	}
+
+	protected function x_connect( object $connect ): bool {
 		mysqli_report( MYSQLI_REPORT_OFF );
 
 		$db = new mysqli( $connect->host, $connect->user, $connect->pass );
@@ -132,8 +155,21 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @return bool
 	 */
-	protected function query( string $sql ): bool {
-		return $this->db->real_query( $sql );
+	protected function exec( string $sql ): bool {
+		$this->db->exec( $sql );
+		return true;
+	}
+
+	/**
+	 * Executes a single query against the database.
+	 *
+	 * @param string $sql An sql statement.
+	 *
+	 * @return array[] The query result.
+	 */
+	protected function query( string $sql ): array {
+		$statement = $this->db->query( $sql, PDO::FETCH_ASSOC );
+		return $statement->fetchAll();
 	}
 
 	/* -------------------------------------------------------------------------
@@ -148,7 +184,7 @@ class StoreSql implements StoreInterface {
 	 * @return bool True on success or if the database already exists, false otherwise.
 	 */
 	protected function createDatabase( string $name ): bool {
-		return $this->query( $this->createDatabaseQuery( $name ) );
+		return $this->exec( $this->createDatabaseQuery( $name ) );
 	}
 
 	/**
@@ -160,7 +196,7 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function dropDatabase( string $name ): bool {
 		$sql = sprintf( 'DROP DATABASE IF EXISTS %s', $name );
-		return $this->query( $sql );
+		return $this->exec( $sql );
 	}
 
 	/**
@@ -190,7 +226,7 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function createTable( string $model ): bool {
 		$sql = $this->createTableQuery( $model );
-		return $this->query( $sql );
+		return $this->exec( $sql );
 	}
 
 	/* -------------------------------------------------------------------------
@@ -283,7 +319,7 @@ class StoreSql implements StoreInterface {
 		$query[] = $this->getColumnType( $property );
 		$query[] = $required ? 'NOT NULL' : '';
 
-		return join( ' ', $query );
+		return join( ' ', array_filter( $query ) );
 	}
 
 	/**
@@ -295,11 +331,11 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function getColumnType( array $property ): string {
 		$type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
-		$max  = $property[ PropertyItem::MAX ] ?? 0;
+		$max  = $property[ PropertyItem::MAX ] ?? null;
 
 		switch ( $type ) {
 			case PropertyType::MIXED:
-				return 'varbinary(128)';
+				return 'varbinary(255)';
 			case PropertyType::BOOL:
 				return 'bool';
 			case PropertyType::INTEGER:
@@ -308,12 +344,12 @@ class StoreSql implements StoreInterface {
 			case PropertyType::NUMBER:
 				return 'decimal(32,10)';
 			case PropertyType::STRING:
-				return $max <= 255 ? sprintf( 'varchar(%d)', $max ) : 'text';
+				return ( $max && $max <= 255 ) ? sprintf( 'varchar(%d)', $max ) : 'text';
 			case PropertyType::UUID:
 				return 'char(36)';
 			case PropertyType::URL:
 			case PropertyType::EMAIL:
-				return $max <= 255 ? sprintf( 'varchar(%d)', $max ) : 'varchar(255)';
+				return ( $max && $max <= 255 ) ? sprintf( 'varchar(%d)', $max ) : 'varchar(255)';
 			case PropertyType::DATETIME:
 				return 'varchar(32)';
 			case PropertyType::DATE:
