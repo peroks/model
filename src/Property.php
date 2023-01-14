@@ -15,7 +15,8 @@
  * @property bool $readable Whether the property is readable or not (default: true).
  * @property bool $writeable Whether the property is writable or not (default: true).
  * @property bool $mutable Whether the property is mutable (changeable) or not (default: true).
- * @property bool $unique Whether the property value is unique or not (default: false).
+ * @property string $index The index name, properties with the same name are combined (default: null).
+ * @property string $unique The unique index name, properties with the same name are combined (default: null).
  * @property string $pattern A regex pattern to validate a string value against (default: null).
  * @property array $enumeration An enumeration of all valid property values (default: null).
  * @property int|float $min The minimum numeric value or string/array length (default: null).
@@ -121,12 +122,17 @@ class Property extends Model {
 			PropertyItem::TYPE    => PropertyType::BOOL,
 			PropertyItem::DEFAULT => true,
 		],
+		'index'       => [
+			PropertyItem::ID   => 'index',
+			PropertyItem::NAME => 'Index',
+			PropertyItem::DESC => 'The index name, properties with the same name are combined (default: null).',
+			PropertyItem::TYPE => PropertyType::STRING,
+		],
 		'unique'      => [
-			PropertyItem::ID      => 'unique',
-			PropertyItem::NAME    => 'Unique',
-			PropertyItem::DESC    => 'Whether the property value is unique or not',
-			PropertyItem::TYPE    => PropertyType::BOOL,
-			PropertyItem::DEFAULT => false,
+			PropertyItem::ID   => 'unique',
+			PropertyItem::NAME => 'Unique',
+			PropertyItem::DESC => 'The unique index name, properties with the same name are combined (default: null).',
+			PropertyItem::TYPE => PropertyType::STRING,
 		],
 		'pattern'     => [
 			PropertyItem::ID   => 'pattern',
@@ -165,4 +171,21 @@ class Property extends Model {
 			PropertyItem::TYPE => PropertyType::ARRAY,
 		],
 	];
+
+	/**
+	 * @inheritDoc
+	 */
+	protected static function prepareProperty( $value, $property ) {
+		$id = $property[ PropertyItem::ID ];
+
+		if ( PropertyItem::INDEX === $id && true === $value ) {
+			return $id;
+		}
+
+		if ( PropertyItem::UNIQUE === $id && true === $value ) {
+			return $id;
+		}
+
+		return parent::prepareProperty( $value, $property );
+	}
 }
