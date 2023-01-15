@@ -256,7 +256,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 */
 	public static function setProperty( Property $property ): void {
 		$property->validate( true );
-		static::$properties[ $property->id() ] = $property->data();
+		static::$properties[ $property->id() ] = $property->data( ModelData::COMPACT );
 	}
 
 	/* -------------------------------------------------------------------------

@@ -172,6 +172,17 @@ class StoreSql implements StoreInterface {
 		return $statement->fetchAll();
 	}
 
+	/**
+	 * Quotes db, table and column names.
+	 *
+	 * @param string $name The name to quote.
+	 *
+	 * @return string The quoted name.
+	 */
+	protected function quote( string $name ): string {
+		return '`' . trim( trim( $name ), '`' ) . '`';
+	}
+
 	/* -------------------------------------------------------------------------
 	 * Execute database statements.
 	 * ---------------------------------------------------------------------- */
@@ -295,17 +306,6 @@ class StoreSql implements StoreInterface {
 		return sprintf( 'CREATE TABLE IF NOT EXISTS %s (%s);', $table, $sql );
 	}
 
-	protected function createIndexQuery( string $model ): string {
-		$properties = $model::properties();
-		$index      = $this->getTableIndex( $properties, PropertyItem::INDEX );
-		$unique     = $this->getTableIndex( $properties, PropertyItem::UNIQUE );
-
-		$sql   = "\n\t" . join( ",\n\t", $columns ) . "\n";
-		$table = $this->getTableName( $model );
-
-		return sprintf( 'CREATE TABLE IF NOT EXISTS %s (%s);', $table, $sql );
-	}
-
 	/**
 	 * Get column definitions from model properties.
 	 *
@@ -392,17 +392,6 @@ class StoreSql implements StoreInterface {
 	 * ---------------------------------------------------------------------- */
 
 	/**
-	 * Quotes db, table and column names.
-	 *
-	 * @param string $name The name to quote.
-	 *
-	 * @return string The quoted name.
-	 */
-	protected function quote( string $name ): string {
-		return '`' . trim( trim( $name ), '`' ) . '`';
-	}
-
-	/**
 	 * Gets the table name corresponding to the given model.
 	 */
 	protected function getTableName( string $model ): string {
@@ -412,18 +401,25 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Gets the column name corresponding to the given property id.
 	 */
-	protected function getColumnName( string $property ): string {
-		return $this->quote( $property );
+	protected function getColumnName( string $id ): string {
+		return $this->quote( $id );
 	}
 
-	protected function getTableIndices( array $properties, string $item ): array {
-		$indices = array_column( $properties, $item, PropertyItem::ID );
+	/**
+	 * Gets table indices of the given index type.
+	 *
+	 * @param array $properties Model properties.
+	 * @param string $type The index type: 'index' or 'unique'.
+	 *
+	 * @return array An assoc array keyed by the index name.
+	 */
+	protected function getTableIndices( array $properties, string $type ): array {
+		$indices = array_column( $properties, $type, PropertyItem::ID );
 		$indices = array_filter( $indices );
 		$result  = [];
 
-		foreach ( $indices as $key => $value ) {
-			$name              = is_string( $value ) ? $value : $key;
-			$result[ $name ][] = $key;
+		foreach ( $indices as $id => $name ) {
+			$result[ $name ][] = $id;
 		}
 
 		return $result;

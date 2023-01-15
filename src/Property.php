@@ -171,21 +171,4 @@ class Property extends Model {
 			PropertyItem::TYPE => PropertyType::ARRAY,
 		],
 	];
-
-	/**
-	 * @inheritDoc
-	 */
-	protected static function prepareProperty( $value, $property ) {
-		$id = $property[ PropertyItem::ID ];
-
-		if ( PropertyItem::INDEX === $id && true === $value ) {
-			return $id;
-		}
-
-		if ( PropertyItem::UNIQUE === $id && true === $value ) {
-			return $id;
-		}
-
-		return parent::prepareProperty( $value, $property );
-	}
 }
