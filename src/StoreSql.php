@@ -76,8 +76,9 @@ class StoreSql implements StoreInterface {
 		$connect = (object) $options->connect;
 
 		if ( $this->connect( $connect ) ) {
-			$this->createTables( $options->models );
-			$this->updateTables( $options->models );
+			$models = $this->getAllModels( $options->models );
+			$this->createTables( $models );
+			$this->updateTables( $models );
 			return true;
 		}
 
@@ -142,7 +143,7 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Quotes db, table and column names.
+	 * Quotes symbols, like db, table, column and index names.
 	 *
 	 * @param string $name The name to quote.
 	 *
@@ -196,8 +197,7 @@ class StoreSql implements StoreInterface {
 	 * @return bool True if all tables were crated or already exist, false otherwise.
 	 */
 	protected function createTables( array $models ): bool {
-		$models = $this->getAllModels( $models );
-		$count  = 0;
+		$count = 0;
 
 		foreach ( $models as $model ) {
 			$count += (int) $this->createTable( $model );
@@ -206,8 +206,14 @@ class StoreSql implements StoreInterface {
 		return count( $models ) === $count;
 	}
 
+	/**
+	 * Update tables for the given models and their sub-models.
+	 *
+	 * @param ModelInterface[]|string[] $models An array of models to update tables for.
+	 *
+	 * @return bool True if all tables were crated or already exist, false otherwise.
+	 */
 	protected function updateTables( array $models ): bool {
-		$models = $this->getAllModels( $models );
 		$tables = $this->getTables();
 		$count  = 0;
 
@@ -226,7 +232,7 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Creates a table for the given model.
 	 *
-	 * @param string $model The model to create a table for.
+	 * @param ModelInterface|string $model The model to create a table for.
 	 *
 	 * @return bool True if the table was created or already exists, false otherwise.
 	 */
@@ -236,31 +242,14 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Updates a table structure based on the given model.
+	 * Creates a table for the given model.
 	 *
-	 * @param ModelInterface|string $model
+	 * @param ModelInterface|string $model The model to update a table for.
 	 *
-	 * @return bool
+	 * @return bool True if the table was successfully updated, false otherwise.
 	 */
 	protected function updateTable( string $model ): bool {
-
-		// Get table structure from the model.
-		$properties = $model::properties();
-		$structure  = $this->getTableStructure( $properties );
-
-		// Read the current table structure from the database.
-		$columns = $this->getColumns( $this->getTableName( $model ) );
-		$columns = array_column( $columns, null, 'Field' );
-
-		// Get structure deltas.
-		$update = array_intersect_key( $structure, $columns );
-		$insert = array_diff_key( $structure, $columns );
-		$delete = array_diff_key( $columns, $structure );
-
-		foreach ( $update as $id => $structure ) {
-			$diff = array_diff_assoc( $structure, $columns[ $id ] );
-		}
-
+		$delta = $this->getTableDelta( $model );
 		return true;
 	}
 
@@ -325,13 +314,13 @@ class StoreSql implements StoreInterface {
 		// Set table indexes.
 		foreach ( $index as $name => $fields ) {
 			$fields    = array_map( [ $this, 'quote' ], $fields );
-			$columns[] = sprintf( 'INDEX KEY %s (%s)', $this->quote( $name ), join( ', ', $fields ) );
+			$columns[] = sprintf( 'INDEX %s (%s)', $this->quote( $name ), join( ', ', $fields ) );
 		}
 
 		// Set table unique indexes.
 		foreach ( $unique as $name => $fields ) {
 			$fields    = array_map( [ $this, 'quote' ], $fields );
-			$columns[] = sprintf( 'UNIQUE KEY %s (%s)', $this->quote( $name ), join( ', ', $fields ) );
+			$columns[] = sprintf( 'UNIQUE %s (%s)', $this->quote( $name ), join( ', ', $fields ) );
 		}
 
 		$sql   = "\n\t" . join( ",\n\t", $columns ) . "\n";
@@ -393,21 +382,76 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
+	 * Gets the deltas between a model and the corresponding table.
+	 *
+	 * @param ModelInterface|string $model A model class name.
+	 *
+	 * @return array An assoc array of added, updated and removed properties.
+	 */
+	protected function getTableDelta( string $model ): array {
+
+		// Generates table columns from model properties.
+		$generated = $this->getTableStructure( $model );
+
+		// Read the current table structure from the database.
+		$columns = $this->getColumns( $this->getTableName( $model ) );
+		$columns = array_column( $columns, null, 'Field' );
+
+		// Get deltas between the new and the current table columns.
+		$union   = array_intersect_key( $generated, $columns );
+		$removed = array_diff_key( $columns, $generated );
+		$added   = array_diff_key( $generated, $columns );
+		$updated = [];
+
+		// Get updated columns.
+		foreach ( $union as $id => $structure ) {
+			if ( $diff = array_diff_assoc( $structure, $columns[ $id ] ) ) {
+				$updated[ $id ] = $diff;
+			}
+		}
+
+		// Get renamed columns.
+		// There is no safe way to know if a model property was replaced or renamed.
+		// Here we assume that if only the name is different, then the property was renamed.
+		foreach ( $removed as $a => $column ) {
+			foreach ( $added as $b => $structure ) {
+				if ( count( $diff = array_diff_assoc( $structure, $column ) ) === 1 ) {
+					$updated[ $a ] = $diff;
+					unset( $removed[ $a ] );
+					unset( $added[ $b ] );
+					break;
+				}
+			}
+		}
+
+		return compact( 'added', 'updated', 'removed' );
+	}
+
+	/**
 	 * Gets the table structure from a model.
 	 *
-	 * @param array[] $properties Model properties keyed by property id.
+	 * @param ModelInterface|string $model A model class name.
 	 *
 	 * @return array[] The corresponding sql table structure.
 	 */
-	protected function getTableStructure( array $properties ): array {
-		$unique  = $this->getTableIndices( $properties, PropertyItem::UNIQUE );
-		$indices = $this->getTableIndices( $properties, PropertyItem::INDEX );
-		$columns = [];
+	protected function getTableStructure( string $model ): array {
+		$properties = $model::properties();
+		$primary    = $model::idProperty();
+		$unique     = $this->getTableIndices( $properties, PropertyItem::UNIQUE );
+		$indices    = $this->getTableIndices( $properties, PropertyItem::INDEX );
+		$columns    = [];
 
+		// Generate sql columns for all model properties.
 		foreach ( $properties as $property ) {
 			$this->getColumnStructure( $property, $columns );
 		}
 
+		// Set the primary key.
+		if ( array_key_exists( $primary, $properties ) ) {
+			$columns[ $primary ]['Key'] = 'PRI';
+		}
+
+		// Set unique and index keys.
 		foreach ( array_merge( $indices, $unique ) as $fields ) {
 			foreach ( $fields as $field ) {
 				$columns[ $field ]['Key'] = count( $fields ) === 1 ? 'UNI' : 'MUL';
@@ -451,6 +495,10 @@ class StoreSql implements StoreInterface {
 			if ( Utils::isModel( $property->model ) || Utils::isModel( $property->foreign ) ) {
 				return $column;
 			}
+		}
+
+		if ( PropertyType::UUID === $property->type && true === $property->default ) {
+			$property->default = null;
 		}
 
 		// Replace sub-models with foreign keys.
