@@ -143,14 +143,25 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Quotes symbols, like db, table, column and index names.
+	 * Quotes db, table, column and index names.
 	 *
 	 * @param string $name The name to quote.
 	 *
 	 * @return string The quoted name.
 	 */
-	protected function quote( string $name ): string {
+	protected function name( string $name ): string {
 		return '`' . trim( trim( $name ), '`' ) . '`';
+	}
+
+	/**
+	 * Quotes a string for use in a query.
+	 *
+	 * @param string $value The string to be quoted.
+	 *
+	 * @return string The quoted string.
+	 */
+	protected function quote( string $value ): string {
+		return $this->db->quote( $value );
 	}
 
 	/* -------------------------------------------------------------------------
@@ -265,7 +276,7 @@ class StoreSql implements StoreInterface {
 	 * @return string Sql query to create a database.
 	 */
 	protected function createDatabaseQuery( string $name ): string {
-		return sprintf( 'CREATE DATABASE IF NOT EXISTS %s', $this->quote( $name ) );
+		return sprintf( 'CREATE DATABASE IF NOT EXISTS %s', $this->name( $name ) );
 	}
 
 	/**
@@ -276,7 +287,7 @@ class StoreSql implements StoreInterface {
 	 * @return string Sql query to delete a database.
 	 */
 	protected function dropDatabaseQuery( string $name ): string {
-		return sprintf( 'DROP DATABASE IF EXISTS %s', $this->quote( $name ) );
+		return sprintf( 'DROP DATABASE IF EXISTS %s', $this->name( $name ) );
 	}
 
 	/* Table queries --------------------------------------------------------- */
@@ -299,75 +310,45 @@ class StoreSql implements StoreInterface {
 	protected function createTableQuery( string $model ): string {
 		$properties = $model::properties();
 		$primary    = $model::idProperty();
-		$index      = $this->getTableIndices( $properties, PropertyItem::INDEX );
-		$unique     = $this->getTableIndices( $properties, PropertyItem::UNIQUE );
+		$unique     = $this->getTableIndexes( $properties, PropertyItem::UNIQUE );
+		$index      = $this->getTableIndexes( $properties, PropertyItem::INDEX );
+		$columns    = $this->getTableColumns( $model );
+		$sql        = [];
 
-		// Get column definitions from model properties.
-		$columns = array_map( [ $this, 'createColumnQuery' ], $properties );
-		$columns = array_values( array_filter( $columns ) );
+		// Generate sql for columns.
+		foreach ( $columns as $column ) {
+			$default = $column['Default'] ?: null;
+			$default = is_string( $default ) ? $this->quote( $default ) : $default;
+
+			$sql[] = join( ' ', array_filter( [
+				$this->name( $column['Field'] ),
+				$column['Type'],
+				$column['Null'] === 'NO' ? 'NOT NULL' : null,
+				isset( $default ) ? "DEFAULT {$default}" : null,
+			] ) );
+		}
 
 		// Set primary key.
 		if ( $primary && array_key_exists( $primary, $properties ) ) {
-			$columns[] = sprintf( 'PRIMARY KEY (%s)', $this->quote( $primary ) );
+			$sql[] = sprintf( 'PRIMARY KEY (%s)', $this->name( $primary ) );
 		}
 
 		// Set table indexes.
 		foreach ( $index as $name => $fields ) {
-			$fields    = array_map( [ $this, 'quote' ], $fields );
-			$columns[] = sprintf( 'INDEX %s (%s)', $this->quote( $name ), join( ', ', $fields ) );
+			$fields = array_map( [ $this, 'name' ], $fields );
+			$sql[]  = sprintf( 'INDEX %s (%s)', $this->name( $name ), join( ', ', $fields ) );
 		}
 
 		// Set table unique indexes.
 		foreach ( $unique as $name => $fields ) {
-			$fields    = array_map( [ $this, 'quote' ], $fields );
-			$columns[] = sprintf( 'UNIQUE %s (%s)', $this->quote( $name ), join( ', ', $fields ) );
+			$fields = array_map( [ $this, 'name' ], $fields );
+			$sql[]  = sprintf( 'UNIQUE %s (%s)', $this->name( $name ), join( ', ', $fields ) );
 		}
 
-		$sql   = "\n\t" . join( ",\n\t", $columns ) . "\n";
-		$table = $this->quote( $this->getTableName( $model ) );
+		$sql   = "\n\t" . join( ",\n\t", $sql ) . "\n";
+		$table = $this->name( $this->getTableName( $model ) );
 
 		return sprintf( 'CREATE TABLE IF NOT EXISTS %s (%s);', $table, $sql );
-	}
-
-	/**
-	 * Get column definitions from model properties.
-	 *
-	 * @param array $property A model property.
-	 *
-	 * @return string Column definition string.
-	 */
-	protected function createColumnQuery( array $property ): string {
-		$type     = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
-		$model    = $property[ PropertyItem::MODEL ] ?? null;
-		$foreign  = $property[ PropertyItem::FOREIGN ] ?? null;
-		$required = $property[ PropertyItem::REQUIRED ] ?? false;
-
-		// Storing functions is not supported.
-		if ( PropertyType::FUNCTION === $type ) {
-			return '';
-		}
-
-		// Arrays of models require a separate relationship table.
-		if ( PropertyType::ARRAY === $type && ( $model || $foreign ) ) {
-			if ( Utils::isModel( $model ) || Utils::isModel( $foreign ) ) {
-				return '';
-			}
-		}
-
-		// Replace sub-models with foreign keys.
-		if ( PropertyType::OBJECT === $type && Utils::isModel( $model ) ) {
-			if ( $primary = $model::getProperty( $model::idProperty() ) ) {
-				$query[] = $this->quote( $property[ PropertyItem::ID ] );
-				$query[] = $this->getColumnType( $primary->data() );
-				return join( ' ', $query );
-			}
-		}
-
-		$query[] = $this->quote( $property[ PropertyItem::ID ] );
-		$query[] = $this->getColumnType( $property );
-		$query[] = $required ? 'NOT NULL' : '';
-
-		return join( ' ', array_filter( $query ) );
 	}
 
 	/* -------------------------------------------------------------------------
@@ -391,7 +372,7 @@ class StoreSql implements StoreInterface {
 	protected function getTableDelta( string $model ): array {
 
 		// Generates table columns from model properties.
-		$generated = $this->getTableStructure( $model );
+		$generated = $this->getTableColumns( $model );
 
 		// Read the current table structure from the database.
 		$columns = $this->getColumns( $this->getTableName( $model ) );
@@ -432,95 +413,101 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param ModelInterface|string $model A model class name.
 	 *
-	 * @return array[] The corresponding sql table structure.
+	 * @return array[] An array of column definitions.
 	 */
-	protected function getTableStructure( string $model ): array {
+	protected function getTableColumns( string $model ): array {
 		$properties = $model::properties();
 		$primary    = $model::idProperty();
-		$unique     = $this->getTableIndices( $properties, PropertyItem::UNIQUE );
-		$indices    = $this->getTableIndices( $properties, PropertyItem::INDEX );
+		$unique     = $this->getTableIndexes( $properties, PropertyItem::UNIQUE );
+		$indexes    = $this->getTableIndexes( $properties, PropertyItem::INDEX );
 		$columns    = [];
 
-		// Generate sql columns for all model properties.
-		foreach ( $properties as $property ) {
-			$this->getColumnStructure( $property, $columns );
+		// Generate sql column definitions for all model properties.
+		foreach ( $properties as $id => $property ) {
+			$columns[ $id ] = $this->getColumnDefinition( $property );
 		}
 
 		// Set the primary key.
 		if ( array_key_exists( $primary, $properties ) ) {
-			$columns[ $primary ]['Key'] = 'PRI';
+			$columns[ $primary ]['Key']     = 'PRI';
+			$columns[ $primary ]['Default'] = null;
 		}
 
 		// Set unique and index keys.
-		foreach ( array_merge( $indices, $unique ) as $fields ) {
+		foreach ( array_merge( $indexes, $unique ) as $fields ) {
 			foreach ( $fields as $field ) {
 				$columns[ $field ]['Key'] = count( $fields ) === 1 ? 'UNI' : 'MUL';
 			}
 		}
 
-		return $columns;
+		return array_filter( $columns );
 	}
 
 	/**
-	 * Gets table indices of the given index type.
+	 * Gets table indexes of the given index type.
 	 *
 	 * @param array $properties Model properties.
 	 * @param string $type The index type: 'index' or 'unique'.
 	 *
 	 * @return array An assoc array keyed by the index name.
 	 */
-	protected function getTableIndices( array $properties, string $type ): array {
-		$indices = array_column( $properties, $type, PropertyItem::ID );
-		$indices = array_filter( $indices );
+	protected function getTableIndexes( array $properties, string $type ): array {
+		$indexes = array_column( $properties, $type, PropertyItem::ID );
+		$indexes = array_filter( $indexes );
 		$result  = [];
 
-		foreach ( $indices as $id => $name ) {
+		foreach ( $indexes as $id => $name ) {
 			$result[ $name ][] = $id;
 		}
 
 		return $result;
 	}
 
-	protected function getColumnStructure( array $data, array &$columns ): array {
-		$property = Property::create( $data );
-		$column   = [];
+	/**
+	 * Generates the column definition for a model property.
+	 *
+	 * @param array $property The model property.
+	 *
+	 * @return array An assoc array of column definition fields.
+	 */
+	protected function getColumnDefinition( array $property ): array {
+		$type     = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
+		$model    = $property[ PropertyItem::MODEL ] ?? null;
+		$foreign  = $property[ PropertyItem::FOREIGN ] ?? null;
+		$required = $property[ PropertyItem::REQUIRED ] ?? null;
 
 		// Storing functions is not supported.
-		if ( PropertyType::FUNCTION === $property->type ) {
-			return $column;
+		if ( PropertyType::FUNCTION === $type ) {
+			return [];
 		}
 
 		// Arrays of models require a separate relationship table.
-		if ( PropertyType::ARRAY === $property->type && ( $property->model || $property->foreign ) ) {
-			if ( Utils::isModel( $property->model ) || Utils::isModel( $property->foreign ) ) {
-				return $column;
+		if ( PropertyType::ARRAY === $type && ( $model || $foreign ) ) {
+			if ( Utils::isModel( $model ) || Utils::isModel( $foreign ) ) {
+				return [];
 			}
 		}
 
-		if ( PropertyType::UUID === $property->type && true === $property->default ) {
-			$property->default = null;
-		}
-
 		// Replace sub-models with foreign keys.
-		if ( PropertyType::OBJECT === $property->type && Utils::isModel( $property->model ) ) {
-			if ( $primary = $property->model::getProperty( $property->model::idProperty() ) ) {
-				return $columns[ $property->id ] = [
+		if ( PropertyType::OBJECT === $type && Utils::isModel( $model ) ) {
+			if ( $external = $model::getProperty( $model::idProperty() ) ) {
+				return [
 					'Field'   => $property[ PropertyItem::ID ],
-					'Type'    => $this->getColumnType( $primary->data() ),
-					'Null'    => $property->required ? 'NO' : 'YES',
-					'Key'     => '', // PRI, MUL, UNI
-					'Default' => is_scalar( $property->default ) ? $property->default : null,
+					'Type'    => $this->getColumnType( $external->data( ModelData::COMPACT ) ),
+					'Null'    => $required ? 'NO' : 'YES',
+					'Key'     => '',
+					'Default' => null,
 					'Extra'   => '',
 				];
 			}
 		}
 
-		return $columns[ $property->id ] = [
+		return [
 			'Field'   => $property[ PropertyItem::ID ],
-			'Type'    => $this->getColumnType( $property->data( ModelData::COMPACT ) ),
-			'Null'    => $property->required ? 'NO' : 'YES',
-			'Key'     => '', // PRI, MUL, UNI
-			'Default' => is_scalar( $property->default ) ? $property->default : null,
+			'Type'    => $this->getColumnType( $property ),
+			'Null'    => $required ? 'NO' : 'YES',
+			'Key'     => '',
+			'Default' => $this->getColumnDefault( $property ),
 			'Extra'   => '',
 		];
 	}
@@ -534,7 +521,6 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function getColumnType( array $property ): string {
 		$type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
-		$max  = $property[ PropertyItem::MAX ] ?? null;
 
 		switch ( $type ) {
 			case PropertyType::MIXED:
@@ -546,23 +532,51 @@ class StoreSql implements StoreInterface {
 			case PropertyType::FLOAT:
 			case PropertyType::NUMBER:
 				return 'decimal(32,10)';
-			case PropertyType::STRING:
-				return ( $max && $max <= 255 ) ? sprintf( 'varchar(%d)', $max ) : 'text';
 			case PropertyType::UUID:
 				return 'char(36)';
+			case PropertyType::STRING:
 			case PropertyType::URL:
 			case PropertyType::EMAIL:
-				return ( $max && $max <= 255 ) ? sprintf( 'varchar(%d)', $max ) : 'varchar(255)';
+				$unique  = $property[ PropertyItem::UNIQUE ] ?? null;
+				$index   = $property[ PropertyItem::INDEX ] ?? null;
+				$default = $property[ PropertyItem::DEFAULT ] ?? null;
+				$max     = $property[ PropertyItem::MAX ] ?? PHP_INT_MAX;
+				$max     = isset( $unique ) || isset( $index ) || isset( $default ) ? min( 255, $max ) : $max;
+
+				return ( $max <= 255 ) ? sprintf( 'varchar(%d)', $max ) : 'text';
 			case PropertyType::DATETIME:
 				return 'varchar(32)';
 			case PropertyType::DATE:
-			case PropertyType::TIME:
 				return 'varchar(10)';
+			case PropertyType::TIME:
+				return 'varchar(8)';
 			case PropertyType::OBJECT:
 			case PropertyType::ARRAY:
 				return 'text';
 		}
 		return '';
+	}
+
+	/**
+	 * Gets the column default value.
+	 *
+	 * @param array $property A model property.
+	 *
+	 * @return string The default value.
+	 */
+	protected function getColumnDefault( array $property ) {
+		$type    = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
+		$default = $property[ PropertyItem::DEFAULT ] ?? null;
+
+		if ( PropertyType::UUID === $type && true === $default ) {
+			return null;
+		}
+
+		if ( is_scalar( $default ) ) {
+			return $default;
+		}
+
+		return null;
 	}
 
 	/**
