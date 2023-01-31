@@ -34,6 +34,31 @@ class Utils {
 	}
 
 	/**
+	 * Groups an array by the index field.
+	 *
+	 * @param array $array
+	 * @param string $index
+	 * @param string $column
+	 *
+	 * @return array
+	 */
+	public static function group( array $array, string $index, string $column = '' ): array {
+		$result = [];
+
+		foreach ( $array as $entry ) {
+			if ( is_scalar( $key = $entry[ $index ] ?? null ) ) {
+				if ( $column && array_key_exists( $column, $entry ) ) {
+					$result[ $key ][] = $entry[ $column ];
+				} elseif ( empty( $column ) ) {
+					$result[ $key ][] = $entry;
+				}
+			}
+		}
+
+		return $result;
+	}
+
+	/**
 	 * Checks if the value is a valid date string.
 	 *
 	 * @param string $value The date string to validate.

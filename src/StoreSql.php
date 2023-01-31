@@ -86,7 +86,7 @@ class StoreSql implements StoreInterface {
 	}
 
 	/* -------------------------------------------------------------------------
-	 * Database interface
+	 * Database abstraction layer
 	 * ---------------------------------------------------------------------- */
 
 	/**
@@ -165,183 +165,7 @@ class StoreSql implements StoreInterface {
 	}
 
 	/* -------------------------------------------------------------------------
-	 * Execute database statements.
-	 * ---------------------------------------------------------------------- */
-
-	/**
-	 * Creates a new database with the given name.
-	 *
-	 * @param string $name The database name.
-	 *
-	 * @return bool True on success or if the database already exists, false otherwise.
-	 */
-	protected function createDatabase( string $name ): bool {
-		return $this->exec( $this->createDatabaseQuery( $name ) );
-	}
-
-	/**
-	 * Deletes the database with the given name.
-	 *
-	 * @param string $name The database name.
-	 *
-	 * @return bool True on success or if the database doesn't exist, false otherwise.
-	 */
-	protected function dropDatabase( string $name ): bool {
-		return $this->exec( $this->dropDatabaseQuery( $name ) );
-	}
-
-	protected function getTables(): array {
-		$sql = $this->getTablesQuery();
-		return $this->query( $sql, [], PDO::FETCH_COLUMN );
-	}
-
-	protected function getColumns( string $table ): array {
-		$sql = $this->getColumnsQuery( $table );
-		return $this->query( $sql );
-	}
-
-	/**
-	 * Creates tables for the given models and their sub-models.
-	 *
-	 * @param ModelInterface[]|string[] $models An array of models to create tables for.
-	 *
-	 * @return bool True if all tables were crated or already exist, false otherwise.
-	 */
-	protected function createTables( array $models ): bool {
-		$count = 0;
-
-		foreach ( $models as $model ) {
-			$count += (int) $this->createTable( $model );
-		}
-
-		return count( $models ) === $count;
-	}
-
-	/**
-	 * Update tables for the given models and their sub-models.
-	 *
-	 * @param ModelInterface[]|string[] $models An array of models to update tables for.
-	 *
-	 * @return bool True if all tables were crated or already exist, false otherwise.
-	 */
-	protected function updateTables( array $models ): bool {
-		$tables = $this->getTables();
-		$count  = 0;
-
-		foreach ( $models as $model ) {
-			if ( in_array( $this->getTableName( $model ), $tables ) ) {
-				$count += (int) $this->updateTable( $model );
-			}
-			else {
-				$count += (int) $this->createTable( $model );
-			}
-		}
-
-		return count( $models ) === $count;
-	}
-
-	/**
-	 * Creates a table for the given model.
-	 *
-	 * @param ModelInterface|string $model The model to create a table for.
-	 *
-	 * @return bool True if the table was created or already exists, false otherwise.
-	 */
-	protected function createTable( string $model ): bool {
-		$sql = $this->createTableQuery( $model );
-		return $this->exec( $sql );
-	}
-
-	/**
-	 * Creates a table for the given model.
-	 *
-	 * @param ModelInterface|string $model The model to update a table for.
-	 *
-	 * @return bool True if the table was successfully updated, false otherwise.
-	 */
-	protected function updateTable( string $model ): bool {
-		$sql = $this->updateTableQuery( $model );
-		//	return $this->exec( $sql );
-		return true;
-	}
-
-	/* -------------------------------------------------------------------------
-	 * Table indexes
-	 * ---------------------------------------------------------------------- */
-
-	protected function showIndexesQuery( string $table ): string {
-		return vsprintf( 'SHOW INDEXES FROM %s;', [
-			$this->name( $table ),
-		] );
-	}
-
-	protected function showIndexQuery( string $table, string $index ): string {
-		return vsprintf( 'SHOW INDEX FROM %s WHERE Key_name = %s;', [
-			$this->name( $table ),
-			$this->quote( $index ),
-		] );
-	}
-
-	protected function createPrimaryQuery( string $table, array $fields ): string {
-		return vsprintf( 'ALTER TABLE %s ADD PRIMARY KEY (%s);', [
-			$this->name( $table ),
-			join( ', ', array_map( [ $this, 'name' ], $fields ) ),
-		] );
-	}
-
-	protected function createIndexQuery( string $table, string $index, array $fields, string $type = '' ): string {
-		return vsprintf( 'CREATE %s INDEX %s ON %s (%s);', [
-			$type,
-			$this->name( $index ),
-			$this->name( $table ),
-			join( ', ', array_map( [ $this, 'name' ], $fields ) ),
-		] );
-	}
-
-	protected function dropIndexQuery( string $table, string $index ): string {
-		return vsprintf( 'DROP INDEX %s ON %s;', [
-			$this->name( $index ),
-			$this->name( $table ),
-		] );
-	}
-
-	protected function getIndexNames( string $table ): array {
-		$sql     = $this->showIndexesQuery( $table );
-		$indexes = $this->query( $sql );
-		$names   = array_column( $indexes, 'Key_name' );
-
-		return array_values( array_unique( $names ) );
-	}
-
-	protected function showIndex( string $table, string $index ): array {
-		$sql = $this->showIndexQuery( $table, $index );
-		return $this->query( $sql );
-	}
-
-	protected function createPrimary( string $table, array $fields ): bool {
-		$sql = $this->createPrimaryQuery( $table, $fields );
-		return $this->exec( $sql );
-	}
-
-	protected function createIndex( string $table, string $index, array $fields, string $type = '' ): bool {
-		$sql = $this->createIndexQuery( $table, $index, $fields, $type );
-		return $this->exec( $sql );
-	}
-
-	protected function dropIndex( string $table, string $index ): bool {
-		$sql = $this->dropIndexQuery( $table, $index );
-		return $this->exec( $sql );
-	}
-
-	protected function dropIndexes( string $table ): bool {
-		foreach ( $this->getIndexNames( $table ) as $index ) {
-			$this->dropIndex( $table, $index );
-		}
-		return true;
-	}
-
-	/* -------------------------------------------------------------------------
-	 * Generate sql queries from models.
+	 * Create and drop databases
 	 * ---------------------------------------------------------------------- */
 
 	/**
@@ -356,6 +180,18 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
+	 * Creates a new database with the given name.
+	 *
+	 * @param string $name The database name.
+	 *
+	 * @return bool True on success or if the database already exists, false otherwise.
+	 */
+	protected function createDatabase( string $name ): bool {
+		$sql = $this->createDatabaseQuery( $name );
+		return $this->exec( $sql );
+	}
+
+	/**
 	 * Generates a query to delete a database with the given name.
 	 *
 	 * @param string $name The database name.
@@ -366,14 +202,29 @@ class StoreSql implements StoreInterface {
 		return sprintf( 'DROP DATABASE IF EXISTS %s', $this->name( $name ) );
 	}
 
-	/* Table queries --------------------------------------------------------- */
+	/**
+	 * Deletes the database with the given name.
+	 *
+	 * @param string $name The database name.
+	 *
+	 * @return bool True on success or if the database doesn't exist, false otherwise.
+	 */
+	protected function dropDatabase( string $name ): bool {
+		$sql = $this->dropDatabaseQuery( $name );
+		return $this->exec( $sql );
+	}
 
-	protected function getTablesQuery(): string {
+	/* -------------------------------------------------------------------------
+	 * Show, create and drop tables
+	 * ---------------------------------------------------------------------- */
+
+	protected function showTablesQuery(): string {
 		return 'SHOW TABLES;';
 	}
 
-	protected function getColumnsQuery( string $table ): string {
-		return sprintf( 'SHOW COLUMNS FROM %s;', $this->name( $table ) );
+	protected function showTables(): array {
+		$sql = $this->showTablesQuery();
+		return $this->query( $sql, [], PDO::FETCH_COLUMN );
 	}
 
 	/**
@@ -442,40 +293,237 @@ class StoreSql implements StoreInterface {
 		$index      = $this->getTableIndexes( $properties, PropertyItem::INDEX );
 		$columns    = $this->getTableColumns( $model );
 		$delta      = $this->getColumnDelta( $model );
+		$balla      = $this->getIndexFields( $table );
 		$sql        = [];
 
-		$this->dropIndexes( $table );
+		//	$this->dropIndexes( $table );
+
+		// Generate sql for updating columns.
+		foreach ( $delta['updated'] as $old => $column ) {
+			$default    = $column['Default'] ?: null;
+			$default    = is_string( $default ) ? $this->quote( $default ) : $default;
+			$definition = join( ' ', array_filter( [
+				$this->name( $column['Field'] ),
+				$column['Type'],
+				$column['Null'] === 'NO' ? 'NOT NULL' : null,
+				isset( $default ) ? "DEFAULT {$default}" : null,
+			] ) );
+
+			$sql[] = $old === $column['Field']
+				? sprintf( 'MODIFY COLUMN %s', $definition )
+				: sprintf( 'CHANGE COLUMN %s %s', $this->name( $old ), $definition );
+		}
+
+		foreach ( $delta['added'] as $column ) {
+			$default    = $column['Default'] ?: null;
+			$default    = is_string( $default ) ? $this->quote( $default ) : $default;
+			$definition = join( ' ', array_filter( [
+				$this->name( $column['Field'] ),
+				$column['Type'],
+				$column['Null'] === 'NO' ? 'NOT NULL' : null,
+				isset( $default ) ? "DEFAULT {$default}" : null,
+			] ) );
+
+			$sql[] = sprintf( 'MODIFY COLUMN %s', $definition );
+		}
 
 		// Set primary key.
 		if ( $primary && array_key_exists( $primary, $properties ) ) {
-			$this->createPrimary( $table, [ $primary ] );
+			//	$this->createPrimary( $table, [ $primary ] );
 		}
 
 		// Set table indexes.
 		foreach ( $index as $name => $fields ) {
-			$this->createIndex( $table, $name, $fields );
+			//	$this->createIndex( $table, $name, $fields );
 		}
 
 		// Set table unique indexes.
 		foreach ( $unique as $name => $fields ) {
-			$this->createIndex( $table, $name, $fields, 'UNIQUE' );
+			//	$this->createIndex( $table, $name, $fields, 'UNIQUE' );
 		}
 
-		/*
-		foreach ( $delta['updated'] as $id => $diff ) {
-			foreach ( $diff as $key => $value ) {
-				switch ( $key ) {
-					case 'Field':
-					case 'Type':
-					case 'Null':
-					case 'Default':
-						break;
-				}
+		$sql   = "\n\t" . join( ",\n\t", $sql );
+		$table = $this->name( $this->getTableName( $model ) );
+
+		return sprintf( 'ALTER TABLE %s %s;', $table, $sql );
+	}
+
+	/**
+	 * Creates a table for the given model.
+	 *
+	 * @param ModelInterface|string $model The model to create a table for.
+	 *
+	 * @return bool True if the table was created or already exists, false otherwise.
+	 */
+	protected function createTable( string $model ): bool {
+		$sql = $this->createTableQuery( $model );
+		return $this->exec( $sql );
+	}
+
+	/**
+	 * Creates a table for the given model.
+	 *
+	 * @param ModelInterface|string $model The model to update a table for.
+	 *
+	 * @return bool True if the table was successfully updated, false otherwise.
+	 */
+	protected function updateTable( string $model ): bool {
+		$sql = $this->updateTableQuery( $model );
+		return $this->exec( $sql );
+	}
+
+	/**
+	 * Creates tables for the given models and their sub-models.
+	 *
+	 * @param ModelInterface[]|string[] $models An array of models to create tables for.
+	 *
+	 * @return bool True if all tables were crated or already exist, false otherwise.
+	 */
+	protected function createTables( array $models ): bool {
+		$count = 0;
+
+		foreach ( $models as $model ) {
+			$count += (int) $this->createTable( $model );
+		}
+
+		return count( $models ) === $count;
+	}
+
+	/**
+	 * Update tables for the given models and their sub-models.
+	 *
+	 * @param ModelInterface[]|string[] $models An array of models to update tables for.
+	 *
+	 * @return bool True if all tables were crated or already exist, false otherwise.
+	 */
+	protected function updateTables( array $models ): bool {
+		$tables = $this->showTables();
+		$count  = 0;
+
+		foreach ( $models as $model ) {
+			if ( in_array( $this->getTableName( $model ), $tables ) ) {
+				$count += (int) $this->updateTable( $model );
+			} else {
+				$count += (int) $this->createTable( $model );
 			}
 		}
-		*/
 
-		return '';
+		return count( $models ) === $count;
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Show table columns.
+	 * ---------------------------------------------------------------------- */
+
+	protected function showColumnsQuery( string $table ): string {
+		return sprintf( 'SHOW COLUMNS FROM %s;', $this->name( $table ) );
+	}
+
+	protected function showColumns( string $table ): array {
+		$sql = $this->showColumnsQuery( $table );
+		return $this->query( $sql );
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Show, create and update table indexes
+	 * ---------------------------------------------------------------------- */
+
+	protected function showIndexesQuery( string $table ): string {
+		return vsprintf( 'SHOW INDEXES FROM %s;', [
+			$this->name( $table ),
+		] );
+	}
+
+	protected function showIndexQuery( string $table, string $index ): string {
+		return vsprintf( 'SHOW INDEX FROM %s WHERE Key_name = %s;', [
+			$this->name( $table ),
+			$this->quote( $index ),
+		] );
+	}
+
+	protected function createIndexQuery( string $table, string $index, array $fields, string $type = '' ): string {
+		switch ( $type ) {
+			case 'PRIMARY':
+				return vsprintf( 'ALTER TABLE %s ADD PRIMARY KEY (%s);', [
+					$this->name( $table ),
+					join( ', ', array_map( [ $this, 'name' ], $fields ) ),
+				] );
+			case 'UNIQUE':
+				return vsprintf( 'CREATE UNIQUE INDEX %s ON %s (%s);', [
+					$this->name( $index ),
+					$this->name( $table ),
+					join( ', ', array_map( [ $this, 'name' ], $fields ) ),
+				] );
+			default:
+				return vsprintf( 'CREATE INDEX %s ON %s (%s);', [
+					$this->name( $index ),
+					$this->name( $table ),
+					join( ', ', array_map( [ $this, 'name' ], $fields ) ),
+				] );
+		}
+	}
+
+	protected function dropIndexQuery( string $table, string $index ): string {
+		return vsprintf( 'DROP INDEX %s ON %s;', [
+			$this->name( $index ),
+			$this->name( $table ),
+		] );
+	}
+
+	protected function showIndexes( string $table ): array {
+		$sql = $this->showIndexesQuery( $table );
+		return $this->query( $sql );
+	}
+
+	protected function showIndex( string $table, string $index ): array {
+		$sql = $this->showIndexQuery( $table, $index );
+		return $this->query( $sql );
+	}
+
+	protected function createIndex( string $table, string $index, array $fields, string $type = '' ): bool {
+		$sql = $this->createIndexQuery( $table, $index, $fields, $type );
+		return $this->exec( $sql );
+	}
+
+	protected function dropIndex( string $table, string $index ): bool {
+		$sql = $this->dropIndexQuery( $table, $index );
+		return $this->exec( $sql );
+	}
+
+	protected function dropIndexes( string $table ): bool {
+		foreach ( $this->getIndexNames( $table ) as $index ) {
+			$this->dropIndex( $table, $index );
+		}
+		return true;
+	}
+
+	protected function getIndexNames( string $table ): array {
+		$indexes = $this->showIndexes( $table );
+		$names   = array_column( $indexes, 'Key_name' );
+		return array_values( array_unique( $names ) );
+	}
+
+	protected function getIndexFields( string $table ): array {
+		$indexes = $this->showIndexes( $table );
+		$result  = [ 'PRIMARY' => [], 'UNIQUE' => [], 'INDEX' => [] ];
+
+		// Group by index type.
+		foreach ( $indexes as $index ) {
+			if ( 'PRIMARY' === $index['Key_name'] ) {
+				$type = 'PRIMARY';
+			} else {
+				$type = $index['Non_unique'] ? 'INDEX' : 'UNIQUE';
+			}
+
+			$result[ $type ][] = $index;
+		}
+
+		// Group by index name.
+		foreach ( $result as $type => &$entries ) {
+			$entries = Utils::group( $entries, 'Key_name', 'Column_name' );
+		}
+
+		return $result;
 	}
 
 	/* -------------------------------------------------------------------------
@@ -502,7 +550,7 @@ class StoreSql implements StoreInterface {
 		$generated = $this->getTableColumns( $model );
 
 		// Read the current table structure from the database.
-		$columns = $this->getColumns( $this->getTableName( $model ) );
+		$columns = $this->showColumns( $this->getTableName( $model ) );
 		$columns = array_column( $columns, null, 'Field' );
 
 		// Get deltas between the new and the current table columns.
@@ -513,18 +561,61 @@ class StoreSql implements StoreInterface {
 
 		// Get updated columns.
 		foreach ( $union as $id => $structure ) {
-			if ( $diff = array_diff_assoc( $structure, $columns[ $id ] ) ) {
-				$updated[ $id ] = $diff;
+			if ( array_diff_assoc( $structure, $columns[ $id ] ) ) {
+				$updated[ $id ] = $structure;
 			}
 		}
 
 		// Get renamed columns.
 		// There is no safe way to know if a model property was replaced or renamed.
-		// Here we assume that if only the name is different, then the property was renamed.
+		// Here we assume that if the column type remains the same, then the property was renamed.
 		foreach ( $removed as $a => $column ) {
 			foreach ( $added as $b => $structure ) {
-				if ( count( $diff = array_diff_assoc( $structure, $column ) ) === 1 ) {
-					$updated[ $a ] = $diff;
+				if ( $column['Type'] === $structure['Type'] ) {
+					$updated[ $a ] = $structure;
+					unset( $removed[ $a ] );
+					unset( $added[ $b ] );
+					break;
+				}
+			}
+		}
+
+		return compact( 'added', 'updated', 'removed' );
+	}
+
+	protected function getIndexDelta( string $model ): array {
+		$properties = $model::properties();
+		$primary    = $model::idProperty();
+		$unique     = $this->getTableIndexes( $properties, PropertyItem::UNIQUE );
+		$indexes    = $this->getTableIndexes( $properties, PropertyItem::INDEX );
+
+		// Generates table columns from model properties.
+		$generated = $this->getTableColumns( $model );
+
+		// Read the current table structure from the database.
+		$columns = $this->showColumns( $this->getTableName( $model ) );
+		$columns = array_column( $columns, null, 'Field' );
+
+		// Get deltas between the new and the current table columns.
+		$union   = array_intersect_key( $generated, $columns );
+		$removed = array_diff_key( $columns, $generated );
+		$added   = array_diff_key( $generated, $columns );
+		$updated = [];
+
+		// Get updated columns.
+		foreach ( $union as $id => $structure ) {
+			if ( array_diff_assoc( $structure, $columns[ $id ] ) ) {
+				$updated[ $id ] = $structure;
+			}
+		}
+
+		// Get renamed columns.
+		// There is no safe way to know if a model property was replaced or renamed.
+		// Here we assume that if the column type remains the same, then the property was renamed.
+		foreach ( $removed as $a => $column ) {
+			foreach ( $added as $b => $structure ) {
+				if ( $column['Type'] === $structure['Type'] ) {
+					$updated[ $a ] = $structure;
 					unset( $removed[ $a ] );
 					unset( $added[ $b ] );
 					break;
