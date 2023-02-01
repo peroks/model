@@ -235,117 +235,24 @@ class StoreSql implements StoreInterface {
 	 * @return string Sql query to create a database table.
 	 */
 	protected function createTableQuery( string $model ): string {
-		$properties = $model::properties();
-		$primary    = $model::idProperty();
-		$unique     = $this->getTableIndexes( $properties, PropertyItem::UNIQUE );
-		$index      = $this->getTableIndexes( $properties, PropertyItem::INDEX );
-		$columns    = $this->getTableColumns( $model );
-		$sql        = [];
+		$columns = $this->getModelColumns( $model );
+		$indexes = $this->getModelIndexes( $model );
+		$sql     = [];
 
-		// Generate sql for columns.
+		// Create columns.
 		foreach ( $columns as $column ) {
-			$default = $column['Default'] ?: null;
-			$default = is_string( $default ) ? $this->quote( $default ) : $default;
-
-			$sql[] = join( ' ', array_filter( [
-				$this->name( $column['Field'] ),
-				$column['Type'],
-				$column['Null'] === 'NO' ? 'NOT NULL' : null,
-				isset( $default ) ? "DEFAULT {$default}" : null,
-			] ) );
+			$sql[] = $this->defineColumnQuery( $column );
 		}
 
-		// Set primary key.
-		if ( $primary && array_key_exists( $primary, $properties ) ) {
-			$sql[] = sprintf( 'PRIMARY KEY (%s)', $this->name( $primary ) );
-		}
-
-		// Set table indexes.
-		foreach ( $index as $name => $fields ) {
-			$fields = array_map( [ $this, 'name' ], $fields );
-			$sql[]  = sprintf( 'INDEX %s (%s)', $this->name( $name ), join( ', ', $fields ) );
-		}
-
-		// Set table unique indexes.
-		foreach ( $unique as $name => $fields ) {
-			$fields = array_map( [ $this, 'name' ], $fields );
-			$sql[]  = sprintf( 'UNIQUE %s (%s)', $this->name( $name ), join( ', ', $fields ) );
+		// Create indexes.
+		foreach ( $indexes as $index ) {
+			$sql[] = $this->defineIndexQuery( $index );
 		}
 
 		$sql   = "\n\t" . join( ",\n\t", $sql ) . "\n";
 		$table = $this->name( $this->getTableName( $model ) );
 
-		return sprintf( 'CREATE TABLE IF NOT EXISTS %s (%s);', $table, $sql );
-	}
-
-	/**
-	 * Generates a query to update a database table for the given model.
-	 *
-	 * @param ModelInterface|string $model The model to create a database table for.
-	 *
-	 * @return string Sql query to update a database table.
-	 */
-	protected function updateTableQuery( string $model ): string {
-		$properties = $model::properties();
-		$primary    = $model::idProperty();
-		$table      = $this->getTableName( $model );
-		$unique     = $this->getTableIndexes( $properties, PropertyItem::UNIQUE );
-		$index      = $this->getTableIndexes( $properties, PropertyItem::INDEX );
-		$columns    = $this->getTableColumns( $model );
-		$delta      = $this->getColumnDelta( $model );
-		$balla      = $this->getIndexFields( $table );
-		$sql        = [];
-
-		//	$this->dropIndexes( $table );
-
-		// Generate sql for updating columns.
-		foreach ( $delta['updated'] as $old => $column ) {
-			$default    = $column['Default'] ?: null;
-			$default    = is_string( $default ) ? $this->quote( $default ) : $default;
-			$definition = join( ' ', array_filter( [
-				$this->name( $column['Field'] ),
-				$column['Type'],
-				$column['Null'] === 'NO' ? 'NOT NULL' : null,
-				isset( $default ) ? "DEFAULT {$default}" : null,
-			] ) );
-
-			$sql[] = $old === $column['Field']
-				? sprintf( 'MODIFY COLUMN %s', $definition )
-				: sprintf( 'CHANGE COLUMN %s %s', $this->name( $old ), $definition );
-		}
-
-		foreach ( $delta['added'] as $column ) {
-			$default    = $column['Default'] ?: null;
-			$default    = is_string( $default ) ? $this->quote( $default ) : $default;
-			$definition = join( ' ', array_filter( [
-				$this->name( $column['Field'] ),
-				$column['Type'],
-				$column['Null'] === 'NO' ? 'NOT NULL' : null,
-				isset( $default ) ? "DEFAULT {$default}" : null,
-			] ) );
-
-			$sql[] = sprintf( 'MODIFY COLUMN %s', $definition );
-		}
-
-		// Set primary key.
-		if ( $primary && array_key_exists( $primary, $properties ) ) {
-			//	$this->createPrimary( $table, [ $primary ] );
-		}
-
-		// Set table indexes.
-		foreach ( $index as $name => $fields ) {
-			//	$this->createIndex( $table, $name, $fields );
-		}
-
-		// Set table unique indexes.
-		foreach ( $unique as $name => $fields ) {
-			//	$this->createIndex( $table, $name, $fields, 'UNIQUE' );
-		}
-
-		$sql   = "\n\t" . join( ",\n\t", $sql );
-		$table = $this->name( $this->getTableName( $model ) );
-
-		return sprintf( 'ALTER TABLE %s %s;', $table, $sql );
+		return sprintf( 'CREATE TABLE IF NOT EXISTS %s (%s)', $table, $sql );
 	}
 
 	/**
@@ -358,6 +265,51 @@ class StoreSql implements StoreInterface {
 	protected function createTable( string $model ): bool {
 		$sql = $this->createTableQuery( $model );
 		return $this->exec( $sql );
+	}
+
+	/**
+	 * Generates a query to update a database table for the given model.
+	 *
+	 * @param ModelInterface|string $model The model to create a database table for.
+	 *
+	 * @return string Sql query to update a database table.
+	 */
+	protected function updateTableQuery( string $model ): string {
+		$columns = $this->getDeltaColumns( $model );
+		$indexes = $this->getDeltaIndexes( $model );
+		$sql     = [];
+
+		// Drop indexes.
+		foreach ( array_keys( $indexes['drop'] ) as $name ) {
+			$sql[] = sprintf( 'DROP INDEX %s', $name );
+		}
+
+		// Drop columns.
+		foreach ( array_keys( $columns['drop'] ) as $name ) {
+			$sql[] = sprintf( 'DROP COLUMN %s', $name );
+		}
+
+		// Alter columns.
+		foreach ( $columns['alter'] as $old => $column ) {
+			$sql[] = $old === $column['name']
+				? sprintf( 'MODIFY COLUMN %s', $this->defineColumnQuery( $column ) )
+				: sprintf( 'CHANGE COLUMN %s %s', $this->name( $old ), $this->defineColumnQuery( $column ) );
+		}
+
+		// Create columns.
+		foreach ( $columns['create'] as $column ) {
+			$sql[] = sprintf( 'ADD COLUMN %s', $this->defineColumnQuery( $column ) );
+		}
+
+		// Create indexes.
+		foreach ( $indexes['create'] as $index ) {
+			$sql[] = sprintf( 'ADD %s', $this->defineIndexQuery( $index ) );
+		}
+
+		$sql   = "\n" . join( ",\n", $sql );
+		$table = $this->name( $this->getTableName( $model ) );
+
+		return sprintf( 'ALTER TABLE %s %s', $table, $sql );
 	}
 
 	/**
@@ -416,7 +368,7 @@ class StoreSql implements StoreInterface {
 	 * ---------------------------------------------------------------------- */
 
 	protected function showColumnsQuery( string $table ): string {
-		return sprintf( 'SHOW COLUMNS FROM %s;', $this->name( $table ) );
+		return sprintf( 'SHOW COLUMNS FROM %s', $this->name( $table ) );
 	}
 
 	protected function showColumns( string $table ): array {
@@ -424,47 +376,153 @@ class StoreSql implements StoreInterface {
 		return $this->query( $sql );
 	}
 
+	protected function defineColumnQuery( array $column ): string {
+		$required = $column['required'] ?? null;
+		$default  = $column['default'] ?? null;
+
+		// Cast default value to string or integer.
+		if ( isset( $default ) ) {
+			$default = is_string( $default ) ? $this->quote( $default ) : (int) $default;
+		}
+
+		return join( ' ', array_filter( [
+			$this->name( $column['name'] ),
+			$column['type'],
+			$required ? 'NOT NULL' : null,
+			isset( $default ) ? "DEFAULT {$default}" : null,
+		] ) );
+	}
+
+	protected function getTableColumns( string $table ): array {
+		$columns = $this->showColumns( $table );
+		$result  = [];
+
+		foreach ( $columns as $column ) {
+			$name = $column['Field'];
+
+			$result[ $name ] = [
+				'name'     => $name,
+				'type'     => $column['Type'],
+				'required' => $column['Null'] === 'NO',
+				'default'  => $column['Default'],
+			];
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Get model indexes.
+	 *
+	 * @param ModelInterface|string $model
+	 *
+	 * @return array
+	 */
+	protected function getModelColumns( string $model ): array {
+		$properties = $model::properties();
+		$result     = [];
+
+		foreach ( $properties as $id => $property ) {
+			$type    = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
+			$default = $property[ PropertyItem::DEFAULT ] ?? null;
+
+			if ( empty( is_scalar( $default ) ) ) {
+				$default = null;
+			}
+
+			if ( PropertyType::UUID === $type && true === $default ) {
+				$default = null;
+			}
+
+			$result[ $id ] = [
+				'name'     => $id,
+				'type'     => $this->getColumnType( $property ),
+				'required' => $property[ PropertyItem::REQUIRED ] ?? false,
+				'default'  => $default,
+			];
+		}
+
+		return $result;
+	}
+
+	/**
+	 * @param ModelInterface|string $model
+	 *
+	 * @return array
+	 */
+	protected function getDeltaColumns( string $model ): array {
+		$tableColumns = $this->getTableColumns( $this->getTableName( $model ) );
+		$modelColumns = $this->getModelColumns( $model );
+
+		$union  = array_intersect_key( $modelColumns, $tableColumns );
+		$drop   = array_diff_key( $tableColumns, $modelColumns );
+		$create = array_diff_key( $modelColumns, $tableColumns );
+		$alter  = [];
+
+		// Get altered columns.
+		foreach ( $union as $name => $column ) {
+			if ( array_diff_assoc( $column, $tableColumns[ $name ] ) ) {
+				$alter[ $name ] = $column;
+			}
+		}
+
+		// Get renamed columns.
+		// There is no safe way to know if a model property was replaced or renamed.
+		// Here we assume that if the column type remains the same, then the property was renamed.
+		foreach ( $create as $name => $modelColumn ) {
+			foreach ( $drop as $old => $tableColumn ) {
+				if ( $modelColumn['type'] === $tableColumn['type'] ) {
+					$alter[ $old ] = $modelColumn;
+					unset( $create[ $name ] );
+					unset( $drop[ $old ] );
+					break;
+				}
+			}
+		}
+
+		return compact( 'drop', 'alter', 'create' );
+	}
+
 	/* -------------------------------------------------------------------------
 	 * Show, create and update table indexes
 	 * ---------------------------------------------------------------------- */
 
 	protected function showIndexesQuery( string $table ): string {
-		return vsprintf( 'SHOW INDEXES FROM %s;', [
+		return vsprintf( 'SHOW INDEXES FROM %s', [
 			$this->name( $table ),
 		] );
 	}
 
 	protected function showIndexQuery( string $table, string $index ): string {
-		return vsprintf( 'SHOW INDEX FROM %s WHERE Key_name = %s;', [
+		return vsprintf( 'SHOW INDEX FROM %s WHERE Key_name = %s', [
 			$this->name( $table ),
 			$this->quote( $index ),
 		] );
 	}
 
-	protected function createIndexQuery( string $table, string $index, array $fields, string $type = '' ): string {
-		switch ( $type ) {
+	protected function createIndexQuery( string $table, string $name, array $columns, string $type = '' ): string {
+		$sql[] = sprintf( 'ALTER TABLE %s', $table );
+		$sql[] = $this->defineIndexQuery( $name, $columns, $type );
+
+		return join( ' ', $sql );
+	}
+
+	protected function defineIndexQuery( array $index ): string {
+		$name    = $this->name( $index['name'] );
+		$columns = join( ', ', array_map( [ $this, 'name' ], $index['columns'] ) );
+
+		switch ( $index['type'] ?? 'INDEX' ) {
 			case 'PRIMARY':
-				return vsprintf( 'ALTER TABLE %s ADD PRIMARY KEY (%s);', [
-					$this->name( $table ),
-					join( ', ', array_map( [ $this, 'name' ], $fields ) ),
-				] );
+				return sprintf( 'PRIMARY KEY (%s)', $columns );
 			case 'UNIQUE':
-				return vsprintf( 'CREATE UNIQUE INDEX %s ON %s (%s);', [
-					$this->name( $index ),
-					$this->name( $table ),
-					join( ', ', array_map( [ $this, 'name' ], $fields ) ),
-				] );
+				return sprintf( 'UNIQUE %s (%s)', $name, $columns );
 			default:
-				return vsprintf( 'CREATE INDEX %s ON %s (%s);', [
-					$this->name( $index ),
-					$this->name( $table ),
-					join( ', ', array_map( [ $this, 'name' ], $fields ) ),
-				] );
+				return sprintf( 'INDEX %s (%s)', $name, $columns );
 		}
 	}
 
 	protected function dropIndexQuery( string $table, string $index ): string {
-		return vsprintf( 'DROP INDEX %s ON %s;', [
+		return vsprintf( 'DROP INDEX %s ON %s', [
 			$this->name( $index ),
 			$this->name( $table ),
 		] );
@@ -503,24 +561,80 @@ class StoreSql implements StoreInterface {
 		return array_values( array_unique( $names ) );
 	}
 
-	protected function getIndexFields( string $table ): array {
+	protected function getTableIndexes( string $table ): array {
 		$indexes = $this->showIndexes( $table );
-		$result  = [ 'PRIMARY' => [], 'UNIQUE' => [], 'INDEX' => [] ];
+		$indexes = Utils::group( $indexes, 'Key_name' );
+		$result  = [];
 
-		// Group by index type.
-		foreach ( $indexes as $index ) {
-			if ( 'PRIMARY' === $index['Key_name'] ) {
+		foreach ( $indexes as $name => $index ) {
+			if ( 'PRIMARY' === $index[0]['Key_name'] ) {
 				$type = 'PRIMARY';
 			} else {
-				$type = $index['Non_unique'] ? 'INDEX' : 'UNIQUE';
+				$type = $index[0]['Non_unique'] ? 'INDEX' : 'UNIQUE';
 			}
 
-			$result[ $type ][] = $index;
+			$result[ $name ] = [
+				'name'    => $name,
+				'type'    => $type,
+				'columns' => array_column( $index, 'Column_name' ),
+			];
 		}
 
-		// Group by index name.
-		foreach ( $result as $type => &$entries ) {
-			$entries = Utils::group( $entries, 'Key_name', 'Column_name' );
+		return $result;
+	}
+
+	/**
+	 * Get model indexes.
+	 *
+	 * @param ModelInterface|string $model
+	 *
+	 * @return array
+	 */
+	protected function getModelIndexes( string $model ): array {
+		$properties = $model::properties();
+		$primary    = $model::idProperty();
+		$result     = [];
+
+		if ( $primary && array_key_exists( $primary, $properties ) ) {
+			$result['PRIMARY'] = [ 'name' => 'PRIMARY', 'type' => 'PRIMARY', 'columns' => [ $primary ] ];
+		}
+
+		foreach ( $properties as $id => $property ) {
+			$index = $property[ PropertyItem::INDEX ] ?? null;
+			$name  = $index ?? $property[ PropertyItem::UNIQUE ] ?? null;
+
+			if ( $name ) {
+				$result[ $name ]['name']      = $name;
+				$result[ $name ]['type']      = $index ? 'INDEX' : 'UNIQUE';
+				$result[ $name ]['columns'][] = $id;
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * @param ModelInterface|string $model
+	 *
+	 * @return array
+	 */
+	protected function getDeltaIndexes( string $model ): array {
+		$tableIndexes = $this->getTableIndexes( $this->getTableName( $model ) );
+		$modelIndexes = $this->getModelIndexes( $model );
+
+		$result['drop']   = [];
+		$result['create'] = [];
+
+		foreach ( $tableIndexes as $name => $index ) {
+			if ( empty( $modelIndexes[ $name ] ) || $modelIndexes[ $name ] !== $index ) {
+				$result['drop'][ $name ] = $index;
+			}
+		}
+
+		foreach ( $modelIndexes as $name => $index ) {
+			if ( empty( $tableIndexes[ $name ] ) || $tableIndexes[ $name ] !== $index ) {
+				$result['create'][ $name ] = $index;
+			}
 		}
 
 		return $result;
@@ -547,7 +661,7 @@ class StoreSql implements StoreInterface {
 	protected function getColumnDelta( string $model ): array {
 
 		// Generates table columns from model properties.
-		$generated = $this->getTableColumns( $model );
+		$generated = $this->getModelColumns( $model );
 
 		// Read the current table structure from the database.
 		$columns = $this->showColumns( $this->getTableName( $model ) );
@@ -586,11 +700,11 @@ class StoreSql implements StoreInterface {
 	protected function getIndexDelta( string $model ): array {
 		$properties = $model::properties();
 		$primary    = $model::idProperty();
-		$unique     = $this->getTableIndexes( $properties, PropertyItem::UNIQUE );
-		$indexes    = $this->getTableIndexes( $properties, PropertyItem::INDEX );
+		$unique     = $this->getModelIndexes( $properties, PropertyItem::UNIQUE );
+		$indexes    = $this->getModelIndexes( $properties, PropertyItem::INDEX );
 
 		// Generates table columns from model properties.
-		$generated = $this->getTableColumns( $model );
+		$generated = $this->getModelColumns( $model );
 
 		// Read the current table structure from the database.
 		$columns = $this->showColumns( $this->getTableName( $model ) );
@@ -633,11 +747,11 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @return array[] An array of column definitions.
 	 */
-	protected function getTableColumns( string $model ): array {
+	protected function x_getModelColumns( string $model ): array {
 		$properties = $model::properties();
 		$primary    = $model::idProperty();
-		$unique     = $this->getTableIndexes( $properties, PropertyItem::UNIQUE );
-		$indexes    = $this->getTableIndexes( $properties, PropertyItem::INDEX );
+		$unique     = $this->getModelIndexes( $properties, PropertyItem::UNIQUE );
+		$indexes    = $this->getModelIndexes( $properties, PropertyItem::INDEX );
 		$columns    = [];
 
 		// Generate sql column definitions for all model properties.
@@ -659,26 +773,6 @@ class StoreSql implements StoreInterface {
 		}
 
 		return array_filter( $columns );
-	}
-
-	/**
-	 * Gets table indexes of the given index type.
-	 *
-	 * @param array $properties Model properties.
-	 * @param string $type The index type: 'index' or 'unique'.
-	 *
-	 * @return array An assoc array keyed by the index name.
-	 */
-	protected function getTableIndexes( array $properties, string $type ): array {
-		$indexes = array_column( $properties, $type, PropertyItem::ID );
-		$indexes = array_filter( $indexes );
-		$result  = [];
-
-		foreach ( $indexes as $id => $name ) {
-			$result[ $name ][] = $id;
-		}
-
-		return $result;
 	}
 
 	/**
