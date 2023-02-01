@@ -546,42 +546,6 @@ class StoreSql implements StoreInterface {
 		return $this->query( $sql );
 	}
 
-	protected function showIndexQuery( string $table, string $index ): string {
-		return vsprintf( 'SHOW INDEX FROM %s WHERE Key_name = %s', [
-			$this->name( $table ),
-			$this->quote( $index ),
-		] );
-	}
-
-	protected function showIndex( string $table, string $index ): array {
-		$sql = $this->showIndexQuery( $table, $index );
-		return $this->query( $sql );
-	}
-
-	protected function createIndexQuery( string $table, array $index ): string {
-		return vsprintf( 'ALTER TABLE %s ADD %s', [
-			$this->name( $table ),
-			$this->defineIndexQuery( $index ),
-		] );
-	}
-
-	protected function createIndex( string $table, array $index ): bool {
-		$sql = $this->createIndexQuery( $table, $index );
-		return $this->exec( $sql );
-	}
-
-	protected function dropIndexQuery( string $table, string $index ): string {
-		return vsprintf( 'DROP INDEX %s ON %s', [
-			$this->name( $index ),
-			$this->name( $table ),
-		] );
-	}
-
-	protected function dropIndex( string $table, string $index ): bool {
-		$sql = $this->dropIndexQuery( $table, $index );
-		return $this->exec( $sql );
-	}
-
 	protected function defineIndexQuery( array $index ): string {
 		$name    = $this->name( $index['name'] );
 		$columns = join( ', ', array_map( [ $this, 'name' ], $index['columns'] ) );
