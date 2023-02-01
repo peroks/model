@@ -77,8 +77,7 @@ class StoreSql implements StoreInterface {
 
 		if ( $this->connect( $connect ) ) {
 			$models = $this->getAllModels( $options->models );
-			//	$this->createTables( $models );
-			$this->updateTables( $models );
+			$this->buildTables( $models );
 			return true;
 		}
 
@@ -256,7 +255,7 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Creates a table for the given model.
+	 * Generates a query to create a table for the given model.
 	 *
 	 * @param ModelInterface|string $model The model to create a table for.
 	 *
@@ -268,25 +267,25 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Generates a query to update a database table for the given model.
+	 * Generates a query to alter a database table to match the given model.
 	 *
 	 * @param ModelInterface|string $model The model to create a database table for.
 	 *
 	 * @return string Sql query to update a database table.
 	 */
-	protected function updateTableQuery( string $model ): string {
+	protected function alterTableQuery( string $model ): string {
 		$columns = $this->getDeltaColumns( $model );
 		$indexes = $this->getDeltaIndexes( $model );
 		$sql     = [];
 
 		// Drop indexes.
 		foreach ( array_keys( $indexes['drop'] ) as $name ) {
-			$sql[] = sprintf( 'DROP INDEX %s', $name );
+			$sql[] = sprintf( 'DROP INDEX %s', $this->name( $name ) );
 		}
 
 		// Drop columns.
 		foreach ( array_keys( $columns['drop'] ) as $name ) {
-			$sql[] = sprintf( 'DROP COLUMN %s', $name );
+			$sql[] = sprintf( 'DROP COLUMN %s', $this->name( $name ) );
 		}
 
 		// Alter columns.
@@ -319,26 +318,9 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @return bool True if the table was successfully updated, false otherwise.
 	 */
-	protected function updateTable( string $model ): bool {
-		$sql = $this->updateTableQuery( $model );
+	protected function alterTable( string $model ): bool {
+		$sql = $this->alterTableQuery( $model );
 		return $this->exec( $sql );
-	}
-
-	/**
-	 * Creates tables for the given models and their sub-models.
-	 *
-	 * @param ModelInterface[]|string[] $models An array of models to create tables for.
-	 *
-	 * @return bool True if all tables were crated or already exist, false otherwise.
-	 */
-	protected function createTables( array $models ): bool {
-		$count = 0;
-
-		foreach ( $models as $model ) {
-			$count += (int) $this->createTable( $model );
-		}
-
-		return count( $models ) === $count;
 	}
 
 	/**
@@ -348,13 +330,13 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @return bool True if all tables were crated or already exist, false otherwise.
 	 */
-	protected function updateTables( array $models ): bool {
+	protected function buildTables( array $models ): bool {
 		$tables = $this->showTables();
 		$count  = 0;
 
 		foreach ( $models as $model ) {
 			if ( in_array( $this->getTableName( $model ), $tables ) ) {
-				$count += (int) $this->updateTable( $model );
+				$count += (int) $this->alterTable( $model );
 			} else {
 				$count += (int) $this->createTable( $model );
 			}
@@ -412,7 +394,7 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Get model indexes.
+	 * Get model columns.
 	 *
 	 * @param ModelInterface|string $model
 	 *
@@ -423,8 +405,22 @@ class StoreSql implements StoreInterface {
 		$result     = [];
 
 		foreach ( $properties as $id => $property ) {
-			$type    = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
-			$default = $property[ PropertyItem::DEFAULT ] ?? null;
+			$type     = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
+			$submodel = $property[ PropertyItem::MODEL ] ?? null;
+			$foreign  = $property[ PropertyItem::FOREIGN ] ?? null;
+			$default  = $property[ PropertyItem::DEFAULT ] ?? null;
+
+			// Storing functions is not supported.
+			if ( PropertyType::FUNCTION === $type ) {
+				continue;
+			}
+
+			// Arrays of models require a separate relationship table.
+			if ( PropertyType::ARRAY === $type && ( $submodel || $foreign ) ) {
+				if ( Utils::isModel( $submodel ) || Utils::isModel( $foreign ) ) {
+					continue;
+				}
+			}
 
 			if ( empty( is_scalar( $default ) ) ) {
 				$default = null;
@@ -440,9 +436,61 @@ class StoreSql implements StoreInterface {
 				'required' => $property[ PropertyItem::REQUIRED ] ?? false,
 				'default'  => $default,
 			];
+
+			// Replace sub-models with foreign keys.
+			if ( PropertyType::OBJECT === $type && Utils::isModel( $submodel ) ) {
+				if ( $primary = $submodel::getProperty( $submodel::idProperty() ) ) {
+					$result[ $id ]['type'] = $this->getColumnType( $primary->data( ModelData::COMPACT ) );
+				}
+			}
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Gets the column data type.
+	 *
+	 * @param array $property A model property.
+	 *
+	 * @return string The sql data type.
+	 */
+	protected function getColumnType( array $property ): string {
+		$type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
+
+		switch ( $type ) {
+			case PropertyType::MIXED:
+				return 'varbinary(255)';
+			case PropertyType::BOOL:
+				return 'bool';
+			case PropertyType::INTEGER:
+				return 'bigint';
+			case PropertyType::FLOAT:
+			case PropertyType::NUMBER:
+				return 'decimal(32,10)';
+			case PropertyType::UUID:
+				return 'char(36)';
+			case PropertyType::STRING:
+			case PropertyType::URL:
+			case PropertyType::EMAIL:
+				$unique  = $property[ PropertyItem::UNIQUE ] ?? null;
+				$index   = $property[ PropertyItem::INDEX ] ?? null;
+				$default = $property[ PropertyItem::DEFAULT ] ?? null;
+				$max     = $property[ PropertyItem::MAX ] ?? PHP_INT_MAX;
+				$max     = isset( $unique ) || isset( $index ) || isset( $default ) ? min( 255, $max ) : $max;
+
+				return ( $max <= 255 ) ? sprintf( 'varchar(%d)', $max ) : 'text';
+			case PropertyType::DATETIME:
+				return 'varchar(32)';
+			case PropertyType::DATE:
+				return 'varchar(10)';
+			case PropertyType::TIME:
+				return 'varchar(8)';
+			case PropertyType::OBJECT:
+			case PropertyType::ARRAY:
+				return 'text';
+		}
+		return '';
 	}
 
 	/**
@@ -493,6 +541,11 @@ class StoreSql implements StoreInterface {
 		] );
 	}
 
+	protected function showIndexes( string $table ): array {
+		$sql = $this->showIndexesQuery( $table );
+		return $this->query( $sql );
+	}
+
 	protected function showIndexQuery( string $table, string $index ): string {
 		return vsprintf( 'SHOW INDEX FROM %s WHERE Key_name = %s', [
 			$this->name( $table ),
@@ -500,11 +553,33 @@ class StoreSql implements StoreInterface {
 		] );
 	}
 
-	protected function createIndexQuery( string $table, string $name, array $columns, string $type = '' ): string {
-		$sql[] = sprintf( 'ALTER TABLE %s', $table );
-		$sql[] = $this->defineIndexQuery( $name, $columns, $type );
+	protected function showIndex( string $table, string $index ): array {
+		$sql = $this->showIndexQuery( $table, $index );
+		return $this->query( $sql );
+	}
 
-		return join( ' ', $sql );
+	protected function createIndexQuery( string $table, array $index ): string {
+		return vsprintf( 'ALTER TABLE %s ADD %s', [
+			$this->name( $table ),
+			$this->defineIndexQuery( $index ),
+		] );
+	}
+
+	protected function createIndex( string $table, array $index ): bool {
+		$sql = $this->createIndexQuery( $table, $index );
+		return $this->exec( $sql );
+	}
+
+	protected function dropIndexQuery( string $table, string $index ): string {
+		return vsprintf( 'DROP INDEX %s ON %s', [
+			$this->name( $index ),
+			$this->name( $table ),
+		] );
+	}
+
+	protected function dropIndex( string $table, string $index ): bool {
+		$sql = $this->dropIndexQuery( $table, $index );
+		return $this->exec( $sql );
 	}
 
 	protected function defineIndexQuery( array $index ): string {
@@ -519,46 +594,6 @@ class StoreSql implements StoreInterface {
 			default:
 				return sprintf( 'INDEX %s (%s)', $name, $columns );
 		}
-	}
-
-	protected function dropIndexQuery( string $table, string $index ): string {
-		return vsprintf( 'DROP INDEX %s ON %s', [
-			$this->name( $index ),
-			$this->name( $table ),
-		] );
-	}
-
-	protected function showIndexes( string $table ): array {
-		$sql = $this->showIndexesQuery( $table );
-		return $this->query( $sql );
-	}
-
-	protected function showIndex( string $table, string $index ): array {
-		$sql = $this->showIndexQuery( $table, $index );
-		return $this->query( $sql );
-	}
-
-	protected function createIndex( string $table, string $index, array $fields, string $type = '' ): bool {
-		$sql = $this->createIndexQuery( $table, $index, $fields, $type );
-		return $this->exec( $sql );
-	}
-
-	protected function dropIndex( string $table, string $index ): bool {
-		$sql = $this->dropIndexQuery( $table, $index );
-		return $this->exec( $sql );
-	}
-
-	protected function dropIndexes( string $table ): bool {
-		foreach ( $this->getIndexNames( $table ) as $index ) {
-			$this->dropIndex( $table, $index );
-		}
-		return true;
-	}
-
-	protected function getIndexNames( string $table ): array {
-		$indexes = $this->showIndexes( $table );
-		$names   = array_column( $indexes, 'Key_name' );
-		return array_values( array_unique( $names ) );
 	}
 
 	protected function getTableIndexes( string $table ): array {
@@ -622,22 +657,25 @@ class StoreSql implements StoreInterface {
 		$tableIndexes = $this->getTableIndexes( $this->getTableName( $model ) );
 		$modelIndexes = $this->getModelIndexes( $model );
 
-		$result['drop']   = [];
-		$result['create'] = [];
+		$union  = array_intersect_key( $modelIndexes, $tableIndexes );
+		$drop   = array_diff_key( $tableIndexes, $modelIndexes );
+		$create = array_diff_key( $modelIndexes, $tableIndexes );
 
-		foreach ( $tableIndexes as $name => $index ) {
-			if ( empty( $modelIndexes[ $name ] ) || $modelIndexes[ $name ] !== $index ) {
-				$result['drop'][ $name ] = $index;
+		// Check for differences.
+		foreach ( $union as $name => $modelIndex ) {
+			$tableIndex = $tableIndexes[ $name ];
+
+			// Convert columns to string for comparing.
+			$tableIndex['columns'] = join( ', ', $tableIndex['columns'] );
+			$modelIndex['columns'] = join( ', ', $modelIndex['columns'] );
+
+			if ( array_diff( $modelIndex, $tableIndex ) ) {
+				$drop[ $name ]   = $tableIndexes[ $name ];
+				$create[ $name ] = $modelIndexes[ $name ];
 			}
 		}
 
-		foreach ( $modelIndexes as $name => $index ) {
-			if ( empty( $tableIndexes[ $name ] ) || $tableIndexes[ $name ] !== $index ) {
-				$result['create'][ $name ] = $index;
-			}
-		}
-
-		return $result;
+		return compact( 'drop', 'create' );
 	}
 
 	/* -------------------------------------------------------------------------
@@ -649,270 +687,6 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function getTableName( string $model ): string {
 		return strtolower( str_replace( '\\', '_', $model ) );
-	}
-
-	/**
-	 * Gets the deltas between a model and the corresponding table.
-	 *
-	 * @param ModelInterface|string $model A model class name.
-	 *
-	 * @return array An assoc array of added, updated and removed properties.
-	 */
-	protected function getColumnDelta( string $model ): array {
-
-		// Generates table columns from model properties.
-		$generated = $this->getModelColumns( $model );
-
-		// Read the current table structure from the database.
-		$columns = $this->showColumns( $this->getTableName( $model ) );
-		$columns = array_column( $columns, null, 'Field' );
-
-		// Get deltas between the new and the current table columns.
-		$union   = array_intersect_key( $generated, $columns );
-		$removed = array_diff_key( $columns, $generated );
-		$added   = array_diff_key( $generated, $columns );
-		$updated = [];
-
-		// Get updated columns.
-		foreach ( $union as $id => $structure ) {
-			if ( array_diff_assoc( $structure, $columns[ $id ] ) ) {
-				$updated[ $id ] = $structure;
-			}
-		}
-
-		// Get renamed columns.
-		// There is no safe way to know if a model property was replaced or renamed.
-		// Here we assume that if the column type remains the same, then the property was renamed.
-		foreach ( $removed as $a => $column ) {
-			foreach ( $added as $b => $structure ) {
-				if ( $column['Type'] === $structure['Type'] ) {
-					$updated[ $a ] = $structure;
-					unset( $removed[ $a ] );
-					unset( $added[ $b ] );
-					break;
-				}
-			}
-		}
-
-		return compact( 'added', 'updated', 'removed' );
-	}
-
-	protected function getIndexDelta( string $model ): array {
-		$properties = $model::properties();
-		$primary    = $model::idProperty();
-		$unique     = $this->getModelIndexes( $properties, PropertyItem::UNIQUE );
-		$indexes    = $this->getModelIndexes( $properties, PropertyItem::INDEX );
-
-		// Generates table columns from model properties.
-		$generated = $this->getModelColumns( $model );
-
-		// Read the current table structure from the database.
-		$columns = $this->showColumns( $this->getTableName( $model ) );
-		$columns = array_column( $columns, null, 'Field' );
-
-		// Get deltas between the new and the current table columns.
-		$union   = array_intersect_key( $generated, $columns );
-		$removed = array_diff_key( $columns, $generated );
-		$added   = array_diff_key( $generated, $columns );
-		$updated = [];
-
-		// Get updated columns.
-		foreach ( $union as $id => $structure ) {
-			if ( array_diff_assoc( $structure, $columns[ $id ] ) ) {
-				$updated[ $id ] = $structure;
-			}
-		}
-
-		// Get renamed columns.
-		// There is no safe way to know if a model property was replaced or renamed.
-		// Here we assume that if the column type remains the same, then the property was renamed.
-		foreach ( $removed as $a => $column ) {
-			foreach ( $added as $b => $structure ) {
-				if ( $column['Type'] === $structure['Type'] ) {
-					$updated[ $a ] = $structure;
-					unset( $removed[ $a ] );
-					unset( $added[ $b ] );
-					break;
-				}
-			}
-		}
-
-		return compact( 'added', 'updated', 'removed' );
-	}
-
-	/**
-	 * Gets the table structure from a model.
-	 *
-	 * @param ModelInterface|string $model A model class name.
-	 *
-	 * @return array[] An array of column definitions.
-	 */
-	protected function x_getModelColumns( string $model ): array {
-		$properties = $model::properties();
-		$primary    = $model::idProperty();
-		$unique     = $this->getModelIndexes( $properties, PropertyItem::UNIQUE );
-		$indexes    = $this->getModelIndexes( $properties, PropertyItem::INDEX );
-		$columns    = [];
-
-		// Generate sql column definitions for all model properties.
-		foreach ( $properties as $id => $property ) {
-			$columns[ $id ] = $this->getColumnDefinition( $property );
-		}
-
-		// Set the primary key.
-		if ( array_key_exists( $primary, $properties ) ) {
-			$columns[ $primary ]['Key']     = 'PRI';
-			$columns[ $primary ]['Default'] = null;
-		}
-
-		// Set unique and index keys.
-		foreach ( array_merge( $indexes, $unique ) as $fields ) {
-			foreach ( $fields as $field ) {
-				$columns[ $field ]['Key'] = count( $fields ) === 1 ? 'UNI' : 'MUL';
-			}
-		}
-
-		return array_filter( $columns );
-	}
-
-	/**
-	 * Generates the column definition for a model property.
-	 *
-	 * @param array $property The model property.
-	 *
-	 * @return array An assoc array of column definition fields.
-	 */
-	protected function getColumnDefinition( array $property ): array {
-		$type     = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
-		$model    = $property[ PropertyItem::MODEL ] ?? null;
-		$foreign  = $property[ PropertyItem::FOREIGN ] ?? null;
-		$required = $property[ PropertyItem::REQUIRED ] ?? null;
-
-		// Storing functions is not supported.
-		if ( PropertyType::FUNCTION === $type ) {
-			return [];
-		}
-
-		// Arrays of models require a separate relationship table.
-		if ( PropertyType::ARRAY === $type && ( $model || $foreign ) ) {
-			if ( Utils::isModel( $model ) || Utils::isModel( $foreign ) ) {
-				return [];
-			}
-		}
-
-		// Replace sub-models with foreign keys.
-		if ( PropertyType::OBJECT === $type && Utils::isModel( $model ) ) {
-			if ( $external = $model::getProperty( $model::idProperty() ) ) {
-				return [
-					'Field'   => $property[ PropertyItem::ID ],
-					'Type'    => $this->getColumnType( $external->data( ModelData::COMPACT ) ),
-					'Null'    => $required ? 'NO' : 'YES',
-					'Key'     => '',
-					'Default' => null,
-					'Extra'   => '',
-				];
-			}
-		}
-
-		return [
-			'Field'   => $property[ PropertyItem::ID ],
-			'Type'    => $this->getColumnType( $property ),
-			'Null'    => $required ? 'NO' : 'YES',
-			'Key'     => '',
-			'Default' => $this->getColumnDefault( $property ),
-			'Extra'   => '',
-		];
-	}
-
-	/**
-	 * Gets the column data type.
-	 *
-	 * @param array $property A model property.
-	 *
-	 * @return string The sql data type.
-	 */
-	protected function getColumnType( array $property ): string {
-		$type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
-
-		switch ( $type ) {
-			case PropertyType::MIXED:
-				return 'varbinary(255)';
-			case PropertyType::BOOL:
-				return 'bool';
-			case PropertyType::INTEGER:
-				return 'bigint';
-			case PropertyType::FLOAT:
-			case PropertyType::NUMBER:
-				return 'decimal(32,10)';
-			case PropertyType::UUID:
-				return 'char(36)';
-			case PropertyType::STRING:
-			case PropertyType::URL:
-			case PropertyType::EMAIL:
-				$unique  = $property[ PropertyItem::UNIQUE ] ?? null;
-				$index   = $property[ PropertyItem::INDEX ] ?? null;
-				$default = $property[ PropertyItem::DEFAULT ] ?? null;
-				$max     = $property[ PropertyItem::MAX ] ?? PHP_INT_MAX;
-				$max     = isset( $unique ) || isset( $index ) || isset( $default ) ? min( 255, $max ) : $max;
-
-				return ( $max <= 255 ) ? sprintf( 'varchar(%d)', $max ) : 'text';
-			case PropertyType::DATETIME:
-				return 'varchar(32)';
-			case PropertyType::DATE:
-				return 'varchar(10)';
-			case PropertyType::TIME:
-				return 'varchar(8)';
-			case PropertyType::OBJECT:
-			case PropertyType::ARRAY:
-				return 'text';
-		}
-		return '';
-	}
-
-	/**
-	 * Gets the column default value.
-	 *
-	 * @param array $property A model property.
-	 *
-	 * @return string The default value.
-	 */
-	protected function getColumnDefault( array $property ) {
-		$type    = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
-		$default = $property[ PropertyItem::DEFAULT ] ?? null;
-
-		if ( PropertyType::UUID === $type && true === $default ) {
-			return null;
-		}
-
-		if ( is_scalar( $default ) ) {
-			return $default;
-		}
-
-		return null;
-	}
-
-	/**
-	 * Extract all sub-models from the given model.
-	 *
-	 * @param ModelInterface|string $model A model class name.
-	 * @param bool $include Whether to include the given model in the result or not.
-	 *
-	 * @return ModelInterface|string[] An array of sub-model classes of the given model class.
-	 */
-	protected function getSubModels( string $model, bool $include = true ): array {
-		$result = $include ? [ $model ] : [];
-
-		foreach ( $model::properties() as $property ) {
-			$foreign = $property[ PropertyItem::MODEL ] ?? $property[ PropertyItem::FOREIGN ] ?? null;
-
-			if ( $foreign && is_a( $foreign, ModelInterface::class, true ) ) {
-				if ( empty( in_array( $foreign, $result, true ) ) ) {
-					$result = array_merge( $result, $this->getSubModels( $foreign ) );
-				}
-			}
-		}
-
-		return $result;
 	}
 
 	/**
@@ -935,6 +709,30 @@ class StoreSql implements StoreInterface {
 						$result[] = $foreign;
 						$this->getAllModels( [ $foreign ], $result );
 					}
+				}
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Extract all sub-models from the given model.
+	 *
+	 * @param ModelInterface|string $model A model class name.
+	 * @param bool $include Whether to include the given model in the result or not.
+	 *
+	 * @return ModelInterface|string[] An array of sub-model classes of the given model class.
+	 */
+	protected function getSubModels( string $model, bool $include = true ): array {
+		$result = $include ? [ $model ] : [];
+
+		foreach ( $model::properties() as $property ) {
+			$foreign = $property[ PropertyItem::MODEL ] ?? $property[ PropertyItem::FOREIGN ] ?? null;
+
+			if ( $foreign && is_a( $foreign, ModelInterface::class, true ) ) {
+				if ( empty( in_array( $foreign, $result, true ) ) ) {
+					$result = array_merge( $result, $this->getSubModels( $foreign ) );
 				}
 			}
 		}
