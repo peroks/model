@@ -135,10 +135,10 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @return array[] The query result.
 	 */
-	protected function query( string $sql, array $param = [], int $mode = PDO::FETCH_ASSOC ): array {
+	protected function query( string $sql, array $param = [] ): array {
 		$statement = $this->db->prepare( $sql );
 		$statement->execute( $param );
-		return $statement->fetchAll( $mode );
+		return $statement->fetchAll( PDO::FETCH_ASSOC );
 	}
 
 	/**
@@ -214,16 +214,23 @@ class StoreSql implements StoreInterface {
 	}
 
 	/* -------------------------------------------------------------------------
-	 * Show, create and drop tables
+	 * Show, create and alter tables
 	 * ---------------------------------------------------------------------- */
 
 	protected function showTablesQuery(): string {
-		return 'SHOW TABLES;';
+		return 'SHOW TABLES';
 	}
 
 	protected function showTables(): array {
 		$sql = $this->showTablesQuery();
-		return $this->query( $sql, [], PDO::FETCH_COLUMN );
+		return $this->query( $sql );
+	}
+
+	protected function showTableNames(): array {
+		foreach ( $this->showTables() as $table ) {
+			$result[] = current( $table );
+		}
+		return $result ?? [];
 	}
 
 	/**
@@ -331,11 +338,11 @@ class StoreSql implements StoreInterface {
 	 * @return bool True if all tables were crated or already exist, false otherwise.
 	 */
 	protected function buildTables( array $models ): bool {
-		$tables = $this->showTables();
+		$tables = $this->showTableNames();
 		$count  = 0;
 
 		foreach ( $models as $model ) {
-			if ( in_array( $this->getTableName( $model ), $tables ) ) {
+			if ( in_array( $this->getTableName( $model ), $tables, true ) ) {
 				$count += (int) $this->alterTable( $model );
 			} else {
 				$count += (int) $this->createTable( $model );
@@ -346,7 +353,7 @@ class StoreSql implements StoreInterface {
 	}
 
 	/* -------------------------------------------------------------------------
-	 * Show table columns.
+	 * Show and define table columns.
 	 * ---------------------------------------------------------------------- */
 
 	protected function showColumnsQuery( string $table ): string {
@@ -532,7 +539,7 @@ class StoreSql implements StoreInterface {
 	}
 
 	/* -------------------------------------------------------------------------
-	 * Show, create and update table indexes
+	 * Show and define table indexes
 	 * ---------------------------------------------------------------------- */
 
 	protected function showIndexesQuery( string $table ): string {
@@ -650,7 +657,7 @@ class StoreSql implements StoreInterface {
 	 * Gets the table name corresponding to the given model.
 	 */
 	protected function getTableName( string $model ): string {
-		return strtolower( str_replace( '\\', '_', $model ) );
+		return str_replace( '\\', '_', $model );
 	}
 
 	/**
