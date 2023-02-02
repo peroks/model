@@ -11,6 +11,11 @@ class StoreSql implements StoreInterface {
 	protected PDO $db;
 
 	/**
+	 * @var array A temp array of model relations.
+	 */
+	protected array $relations;
+
+	/**
 	 * @inheritDoc
 	 */
 	public function get( string $id, string $class, bool $create = true ): ?ModelInterface {
@@ -77,7 +82,7 @@ class StoreSql implements StoreInterface {
 
 		if ( $this->connect( $connect ) ) {
 			$models = $this->getAllModels( $options->models );
-			$this->buildTables( $models );
+			$this->buildDatabase( $models );
 			return true;
 		}
 
@@ -213,6 +218,41 @@ class StoreSql implements StoreInterface {
 		return $this->exec( $sql );
 	}
 
+	/**
+	 * Creates or update tables for the given models and their sub-models.
+	 *
+	 * @param ModelInterface[]|string[] $models An array of models to update tables for.
+	 *
+	 * @return int The number of created or altered tables.
+	 */
+	protected function buildDatabase( array $models ): int {
+		$tables = $this->showTableNames();
+		$count  = 0;
+
+		// Reset relations.
+		$this->relations = [];
+
+		// Create or alter database tables for models.
+		foreach ( $models as $model ) {
+			if ( in_array( $this->getTableName( $model ), $tables, true ) ) {
+				$count += (int) $this->alterTable( $model );
+			} else {
+				$count += (int) $this->createTable( $model );
+			}
+		}
+
+		// Create or alter database tables for model relations.
+		foreach ( $this->relations as $relation => $definition ) {
+			if ( in_array( $this->getTableName( $relation ), $tables, true ) ) {
+				$count += (int) $this->alterTable( $relation );
+			} else {
+				$count += (int) $this->createTable( $relation );
+			}
+		}
+
+		return $count;
+	}
+
 	/* -------------------------------------------------------------------------
 	 * Show, create and alter tables
 	 * ---------------------------------------------------------------------- */
@@ -241,9 +281,15 @@ class StoreSql implements StoreInterface {
 	 * @return string Sql query to create a database table.
 	 */
 	protected function createTableQuery( string $model ): string {
-		$columns = $this->getModelColumns( $model );
-		$indexes = $this->getModelIndexes( $model );
-		$sql     = [];
+		if ( Utils::isModel( $model ) ) {
+			$columns = $this->getModelColumns( $model );
+			$indexes = $this->getModelIndexes( $model );
+		} else {
+			$columns = $this->getRelationColumns( $model );
+			$indexes = $this->getRelationIndexes( $model );
+		}
+
+		$sql = [];
 
 		// Create columns.
 		foreach ( $columns as $column ) {
@@ -330,28 +376,6 @@ class StoreSql implements StoreInterface {
 		return $this->exec( $sql );
 	}
 
-	/**
-	 * Update tables for the given models and their sub-models.
-	 *
-	 * @param ModelInterface[]|string[] $models An array of models to update tables for.
-	 *
-	 * @return bool True if all tables were crated or already exist, false otherwise.
-	 */
-	protected function buildTables( array $models ): bool {
-		$tables = $this->showTableNames();
-		$count  = 0;
-
-		foreach ( $models as $model ) {
-			if ( in_array( $this->getTableName( $model ), $tables, true ) ) {
-				$count += (int) $this->alterTable( $model );
-			} else {
-				$count += (int) $this->createTable( $model );
-			}
-		}
-
-		return count( $models ) === $count;
-	}
-
 	/* -------------------------------------------------------------------------
 	 * Show and define table columns.
 	 * ---------------------------------------------------------------------- */
@@ -422,9 +446,10 @@ class StoreSql implements StoreInterface {
 				continue;
 			}
 
-			// Arrays of models require a separate relationship table.
+			// Arrays of models require a separate relation table.
 			if ( PropertyType::ARRAY === $type && ( $submodel || $foreign ) ) {
 				if ( Utils::isModel( $submodel ) || Utils::isModel( $foreign ) ) {
+					$this->addRelation( $model, $submodel );
 					continue;
 				}
 			}
@@ -447,7 +472,7 @@ class StoreSql implements StoreInterface {
 			// Replace sub-models with foreign keys.
 			if ( PropertyType::OBJECT === $type && Utils::isModel( $submodel ) ) {
 				if ( $primary = $submodel::getProperty( $submodel::idProperty() ) ) {
-					$result[ $id ]['type'] = $this->getColumnType( $primary->data( ModelData::COMPACT ) );
+					$result[ $id ]['type'] = $this->getColumnType( $primary );
 				}
 			}
 		}
@@ -458,11 +483,11 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Gets the column data type.
 	 *
-	 * @param array $property A model property.
+	 * @param Property|array $property A model property.
 	 *
 	 * @return string The sql data type.
 	 */
-	protected function getColumnType( array $property ): string {
+	protected function getColumnType( $property ): string {
 		$type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
 
 		switch ( $type ) {
@@ -507,7 +532,9 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function getDeltaColumns( string $model ): array {
 		$tableColumns = $this->getTableColumns( $this->getTableName( $model ) );
-		$modelColumns = $this->getModelColumns( $model );
+		$modelColumns = Utils::isModel( $model )
+			? $this->getModelColumns( $model )
+			: $this->getRelationColumns( $model );
 
 		$union  = array_intersect_key( $modelColumns, $tableColumns );
 		$drop   = array_diff_key( $tableColumns, $modelColumns );
@@ -626,7 +653,9 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function getDeltaIndexes( string $model ): array {
 		$tableIndexes = $this->getTableIndexes( $this->getTableName( $model ) );
-		$modelIndexes = $this->getModelIndexes( $model );
+		$modelIndexes = Utils::isModel( $model )
+			? $this->getModelIndexes( $model )
+			: $this->getRelationIndexes( $model );
 
 		$union  = array_intersect_key( $modelIndexes, $tableIndexes );
 		$drop   = array_diff_key( $tableIndexes, $modelIndexes );
@@ -647,6 +676,59 @@ class StoreSql implements StoreInterface {
 		}
 
 		return compact( 'drop', 'create' );
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Model relations
+	 * ---------------------------------------------------------------------- */
+
+	protected function getRelationColumns( string $relation ): array {
+		return $this->relations[ $relation ]['columns'] ?? [];
+	}
+
+	protected function getRelationIndexes( string $relation ): array {
+		return $this->relations[ $relation ]['indexes'] ?? [];
+	}
+
+	/**
+	 * Adds a model relation table and adds to the processing stack.
+	 *
+	 * @param ModelInterface|string $model
+	 * @param ModelInterface|string $foreign
+	 */
+	protected function addRelation( string $model, string $foreign ): bool {
+		$modelPrimary   = $model::getProperty( $model::idProperty() );
+		$foreignPrimary = $foreign::getProperty( $foreign::idProperty() );
+
+		if ( isset( $modelPrimary, $foreignPrimary ) ) {
+			$left     = current( array_reverse( explode( '\\', $model ) ) );
+			$right    = current( array_reverse( explode( '\\', $foreign ) ) );
+			$relation = $model . '\\' . $right;
+
+			$columns[ $left ] = [
+				'name'     => $left,
+				'type'     => $this->getColumnType( $modelPrimary ),
+				'required' => true,
+				'default'  => null,
+			];
+
+			$columns[ $right ] = [
+				'name'     => $right,
+				'type'     => $this->getColumnType( $foreignPrimary ),
+				'required' => true,
+				'default'  => null,
+			];
+
+			$indexes[ $left ] = [
+				'name'    => $left,
+				'type'    => 'INDEX',
+				'columns' => [ $left ],
+			];
+
+			$this->relations[ $relation ] = compact( 'columns', 'indexes' );
+			return true;
+		}
+		return false;
 	}
 
 	/* -------------------------------------------------------------------------
@@ -675,7 +757,7 @@ class StoreSql implements StoreInterface {
 			foreach ( $model::properties() as $property ) {
 				$foreign = $property[ PropertyItem::MODEL ] ?? $property[ PropertyItem::FOREIGN ] ?? null;
 
-				if ( $foreign && is_a( $foreign, ModelInterface::class, true ) ) {
+				if ( Utils::isModel( $foreign ) ) {
 					if ( empty( in_array( $foreign, $result, true ) ) ) {
 						$result[] = $foreign;
 						$this->getAllModels( [ $foreign ], $result );
@@ -701,7 +783,7 @@ class StoreSql implements StoreInterface {
 		foreach ( $model::properties() as $property ) {
 			$foreign = $property[ PropertyItem::MODEL ] ?? $property[ PropertyItem::FOREIGN ] ?? null;
 
-			if ( $foreign && is_a( $foreign, ModelInterface::class, true ) ) {
+			if ( Utils::isModel( $foreign ) ) {
 				if ( empty( in_array( $foreign, $result, true ) ) ) {
 					$result = array_merge( $result, $this->getSubModels( $foreign ) );
 				}
