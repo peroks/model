@@ -34,6 +34,18 @@ class Utils {
 	}
 
 	/**
+	 * Encode data to a json string.
+	 *
+	 * @param mixed $data The data to encode.
+	 *
+	 * @return string The encoded json string.
+	 */
+	public static function encode( $data ): string {
+		$flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+		return json_encode( $data, $flags );
+	}
+
+	/**
 	 * Groups an array by the index field.
 	 *
 	 * @param array $array
@@ -123,6 +135,15 @@ class Utils {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * @param ModelInterface|string $model
+	 *
+	 * @return Property|null
+	 */
+	public static function getModelPrimary( $model ): ?Property {
+		return $model::getProperty( $model::idProperty() );
 	}
 
 	/**
