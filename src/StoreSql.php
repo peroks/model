@@ -237,7 +237,10 @@ class StoreSql implements StoreInterface {
 	 * @return string Sql query to create a database.
 	 */
 	protected function createDatabaseQuery( string $name ): string {
-		return sprintf( 'CREATE DATABASE IF NOT EXISTS %s', $this->name( $name ) );
+		$name  = $this->name( $name );
+		$sql[] = "CREATE DATABASE IF NOT EXISTS {$name}";
+		$sql[] = 'DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
+		return join( "\n", $sql );
 	}
 
 	/**
@@ -1047,6 +1050,10 @@ class StoreSql implements StoreInterface {
 				}
 			}
 
+			if ( is_bool( $value ) ) {
+				$value = (int) $value;
+			}
+
 			$result[ $id ] = $value;
 		}
 		return $result ?? [];
@@ -1067,7 +1074,7 @@ class StoreSql implements StoreInterface {
 			foreach ( $class::properties() as $property ) {
 				$foreign = $property[ PropertyItem::MODEL ] ?? $property[ PropertyItem::FOREIGN ] ?? null;
 
-				if ( Utils::isModel( $foreign ) ) {
+				if ( Utils::isModel( $foreign ) && Utils::getModelPrimary( $foreign ) ) {
 					if ( empty( in_array( $foreign, $result, true ) ) ) {
 						$result[] = $foreign;
 						$this->getAllModels( [ $foreign ], $result );
@@ -1093,7 +1100,7 @@ class StoreSql implements StoreInterface {
 		foreach ( $class::properties() as $property ) {
 			$foreign = $property[ PropertyItem::MODEL ] ?? $property[ PropertyItem::FOREIGN ] ?? null;
 
-			if ( Utils::isModel( $foreign ) ) {
+			if ( Utils::isModel( $foreign ) && Utils::getModelPrimary( $foreign ) ) {
 				if ( empty( in_array( $foreign, $result, true ) ) ) {
 					$result = array_merge( $result, $this->getSubModels( $foreign ) );
 				}
