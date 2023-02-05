@@ -85,7 +85,9 @@ class StoreSql implements StoreInterface {
 	 */
 	public function set( ModelInterface $model ): ModelInterface {
 		$model->validate( true );
-		$values = $this->getModelValues( $model );
+
+		$values    = $this->getModelValues( $model );
+		$relations = $this->getModelRelations( $model );
 
 		try {
 			$query = $this->insertRowStatement( get_class( $model ) );
@@ -93,6 +95,10 @@ class StoreSql implements StoreInterface {
 		} catch ( PDOException $e ) {
 			$query = $this->updateRowStatement( get_class( $model ) );
 			$rows  = $this->update( $query, $values );
+		}
+
+		foreach ( $relations as $child => $list ) {
+			$this->updateRelation( $model, $child, $list );
 		}
 
 		return $model;
@@ -133,6 +139,13 @@ class StoreSql implements StoreInterface {
 			PDO::ATTR_ERRMODE    => PDO::ERRMODE_EXCEPTION,
 			PDO::ATTR_PERSISTENT => true,
 		];
+
+		// Delete database.
+		if ( false ) {
+			$dsn = "mysql:charset=utf8mb4;host={$connect->host}";
+			$db  = new PDO( $dsn, $connect->user, $connect->pass, $args );
+			$db->exec( $this->dropDatabaseQuery( $connect->name ) );
+		}
 
 		try {
 			$dsn = "mysql:charset=utf8mb4;host={$connect->host};dbname={$connect->name}";
@@ -289,22 +302,22 @@ class StoreSql implements StoreInterface {
 		$tables = $this->showTableNames();
 		$count  = 0;
 
-		// Create or alter database tables for models.
+		// Create missing tables + columns for models.
 		foreach ( $models as $class ) {
-			if ( in_array( $this->getTableName( $class ), $tables, true ) ) {
-				$count += (int) $this->alterTable( $class );
-			} else {
-				$count += (int) $this->createTable( $class );
-			}
+			$count += (int) $this->createTable( $class );
 		}
 
-		// Create or alter database tables for model relations.
-		foreach ( $this->relations as $relation => $definition ) {
-			if ( in_array( $this->getTableName( $relation ), $tables, true ) ) {
-				$count += (int) $this->alterTable( $relation );
-			} else {
-				$count += (int) $this->createTable( $relation );
-			}
+		// Create missing tables + columns for relations.
+		foreach ( array_keys( $this->relations ) as $relation ) {
+			$count += (int) $this->createTable( $relation );
+		}
+
+		// Merge all models and relations.
+		$all = array_merge( $models, array_keys( $this->relations ) );
+
+		// Apply table indexes after all tables + columns are in place.
+		foreach ( $all as $class ) {
+			$count += (int) $this->alterTable( $class );
 		}
 
 		return $count;
@@ -333,35 +346,29 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Generates a query to create a database table for the given model.
 	 *
+	 * This method only creates table columns, not indexes.
+	 *
 	 * @param ModelInterface|string $class The model to create a database table for.
 	 *
 	 * @return string Sql query to create a database table.
 	 */
 	protected function createTableQuery( string $class ): string {
-		if ( Utils::isModel( $class ) ) {
-			$columns = $this->getModelColumns( $class );
-			$indexes = $this->getModelIndexes( $class );
-		} else {
-			$columns = $this->getRelationColumns( $class );
-			$indexes = $this->getRelationIndexes( $class );
-		}
+		$columns = Utils::isModel( $class )
+			? $this->getModelColumns( $class )
+			: $this->getRelationColumns( $class );
 
-		$sql = [];
-
-		// Create columns.
 		foreach ( $columns as $column ) {
 			$sql[] = $this->defineColumnQuery( $column );
 		}
 
-		// Create indexes.
-		foreach ( $indexes as $index ) {
-			$sql[] = $this->defineIndexQuery( $index );
+		if ( isset( $sql ) ) {
+			$sql   = "\n\t" . join( ",\n\t", $sql ) . "\n";
+			$table = $this->name( $this->getTableName( $class ) );
+			return sprintf( 'CREATE TABLE IF NOT EXISTS %s (%s)', $table, $sql );
 		}
 
-		$sql   = "\n\t" . join( ",\n\t", $sql ) . "\n";
 		$table = $this->name( $this->getTableName( $class ) );
-
-		return sprintf( 'CREATE TABLE IF NOT EXISTS %s (%s)', $table, $sql );
+		return sprintf( 'CREATE TABLE IF NOT EXISTS %s', $table );
 	}
 
 	/**
@@ -386,7 +393,6 @@ class StoreSql implements StoreInterface {
 	protected function alterTableQuery( string $class ): string {
 		$columns = $this->getDeltaColumns( $class );
 		$indexes = $this->getDeltaIndexes( $class );
-		$sql     = [];
 
 		// Drop indexes.
 		foreach ( array_keys( $indexes['drop'] ) as $name ) {
@@ -415,10 +421,12 @@ class StoreSql implements StoreInterface {
 			$sql[] = sprintf( 'ADD %s', $this->defineIndexQuery( $index ) );
 		}
 
-		$sql   = "\n" . join( ",\n", $sql );
-		$table = $this->name( $this->getTableName( $class ) );
-
-		return sprintf( 'ALTER TABLE %s %s', $table, $sql );
+		if ( isset( $sql ) ) {
+			$sql   = "\n" . join( ",\n", $sql );
+			$table = $this->name( $this->getTableName( $class ) );
+			return sprintf( 'ALTER TABLE %s %s', $table, $sql );
+		}
+		return '';
 	}
 
 	/**
@@ -429,8 +437,10 @@ class StoreSql implements StoreInterface {
 	 * @return bool True if the table was successfully updated, false otherwise.
 	 */
 	protected function alterTable( string $class ): bool {
-		$query = $this->alterTableQuery( $class );
-		return $this->exec( $query );
+		if ( $query = $this->alterTableQuery( $class ) ) {
+			return $this->exec( $query );
+		}
+		return false;
 	}
 
 	/* -------------------------------------------------------------------------
@@ -592,13 +602,13 @@ class StoreSql implements StoreInterface {
 			? $this->getModelColumns( $class )
 			: $this->getRelationColumns( $class );
 
-		$union  = array_intersect_key( $modelColumns, $tableColumns );
+		$common = array_intersect_key( $modelColumns, $tableColumns );
 		$drop   = array_diff_key( $tableColumns, $modelColumns );
 		$create = array_diff_key( $modelColumns, $tableColumns );
 		$alter  = [];
 
 		// Get altered columns.
-		foreach ( $union as $name => $column ) {
+		foreach ( $common as $name => $column ) {
 			if ( array_diff_assoc( $column, $tableColumns[ $name ] ) ) {
 				$alter[ $name ] = $column;
 			}
@@ -643,11 +653,41 @@ class StoreSql implements StoreInterface {
 		switch ( $index['type'] ?? 'INDEX' ) {
 			case 'PRIMARY':
 				return sprintf( 'PRIMARY KEY (%s)', $columns );
+			case 'FOREIGN':
+				return $this->defineForeignQuery( $index );
 			case 'UNIQUE':
 				return sprintf( 'UNIQUE %s (%s)', $name, $columns );
 			default:
 				return sprintf( 'INDEX %s (%s)', $name, $columns );
 		}
+	}
+
+	protected function defineForeignQuery( array $index ): string {
+
+		// Index name and columns.
+		$name    = $this->name( $index['name'] );
+		$columns = join( ', ', array_map( [ $this, 'name' ], $index['columns'] ) );
+
+		// Reference table and columns.
+		$table = $this->name( $index['table'] );
+		$match = join( ', ', array_map( [ $this, 'name' ], $index['match'] ) );
+
+		// ON UPDATE / DELETE actions.
+		$update = $index['update'] ?? null;
+		$delete = $index['delete'] ?? null;
+
+		$sql[] = sprintf( 'FOREIGN KEY %s (%s)', $name, $columns );
+		$sql[] = sprintf( 'REFERENCES %s (%s)', $table, $match );
+
+		if ( $update ) {
+			$sql[] = sprintf( 'ON UPDATE %s', $update );
+		}
+
+		if ( $delete ) {
+			$sql[] = sprintf( 'ON DELETE %s', $delete );
+		}
+
+		return join( ' ', $sql );
 	}
 
 	protected function getTableIndexes( string $table ): array {
@@ -713,21 +753,19 @@ class StoreSql implements StoreInterface {
 			? $this->getModelIndexes( $class )
 			: $this->getRelationIndexes( $class );
 
-		$union  = array_intersect_key( $modelIndexes, $tableIndexes );
+		$common = array_intersect_key( $modelIndexes, $tableIndexes );
 		$drop   = array_diff_key( $tableIndexes, $modelIndexes );
 		$create = array_diff_key( $modelIndexes, $tableIndexes );
 
 		// Check for differences.
-		foreach ( $union as $name => $modelIndex ) {
+		foreach ( $common as $name => $modelIndex ) {
 			$tableIndex = $tableIndexes[ $name ];
+			$modelJson  = Utils::encode( $modelIndex );
+			$tableJson  = Utils::encode( $tableIndex );
 
-			// Convert columns to string for comparing.
-			$tableIndex['columns'] = join( ', ', $tableIndex['columns'] );
-			$modelIndex['columns'] = join( ', ', $modelIndex['columns'] );
-
-			if ( array_diff( $modelIndex, $tableIndex ) ) {
-				$drop[ $name ]   = $tableIndexes[ $name ];
-				$create[ $name ] = $modelIndexes[ $name ];
+			if ( $modelJson !== $tableJson && $modelIndex['type'] !== 'FOREIGN' ) {
+				$drop[ $name ]   = $tableIndex;
+				$create[ $name ] = $modelIndex;
 			}
 		}
 
@@ -750,11 +788,11 @@ class StoreSql implements StoreInterface {
 	 * Adds a model relation table to the processing stack.
 	 *
 	 * @param ModelInterface|string $class
-	 * @param ModelInterface|string $foreign
+	 * @param ModelInterface|string $child
 	 */
-	protected function addRelation( string $class, string $foreign ): bool {
+	protected function addRelation( string $class, string $child ): bool {
 		$left     = current( array_reverse( explode( '\\', $class ) ) );
-		$right    = current( array_reverse( explode( '\\', $foreign ) ) );
+		$right    = current( array_reverse( explode( '\\', $child ) ) );
 		$relation = $class . '\\' . $right;
 
 		// No need to continue when the relation already exists.
@@ -762,11 +800,11 @@ class StoreSql implements StoreInterface {
 			return true;
 		}
 
-		$modelPrimary   = Utils::getModelPrimary( $class );
-		$foreignPrimary = Utils::getModelPrimary( $foreign );
+		$modelPrimary = Utils::getModelPrimary( $class );
+		$childPrimary = Utils::getModelPrimary( $child );
 
 		// A valid primary key is required for both sides of the relation table.
-		if ( empty( $modelPrimary ) || empty( $foreignPrimary ) ) {
+		if ( empty( $modelPrimary ) || empty( $childPrimary ) ) {
 			return false;
 		}
 
@@ -779,15 +817,27 @@ class StoreSql implements StoreInterface {
 
 		$columns[ $right ] = [
 			'name'     => $right,
-			'type'     => $this->getColumnType( $foreignPrimary ),
+			'type'     => $this->getColumnType( $childPrimary ),
 			'required' => true,
 			'default'  => null,
 		];
 
 		$indexes[ $left ] = [
 			'name'    => $left,
-			'type'    => 'INDEX',
+			'type'    => 'FOREIGN',
 			'columns' => [ $left ],
+			'table'   => $this->getTableName( $class ),
+			'match'   => [ $modelPrimary->id() ],
+			'delete'  => 'CASCADE',
+		];
+
+		$indexes[ $right ] = [
+			'name'    => $right,
+			'type'    => 'FOREIGN',
+			'columns' => [ $right ],
+			'table'   => $this->getTableName( $child ),
+			'match'   => [ $childPrimary->id() ],
+			'delete'  => 'CASCADE',
 		];
 
 		$this->relations[ $relation ] = compact( 'columns', 'indexes' );
@@ -816,13 +866,21 @@ class StoreSql implements StoreInterface {
 		$select   = $this->selectRelationStatement( $table, $left );
 		$existing = $this->select( $select, [ $model->id() ] );
 		$existing = array_column( $existing, null, $model::idProperty() );
+		$common   = array_intersect_key( $list, $existing );
 
-		if ( array_diff_key( $list, $existing ) || array_diff_key( $existing, $list ) ) {
+		if ( count( $common ) < count( $existing ) ) {
 			$delete = $this->deleteRelationStatement( $table, $left );
 			$insert = $this->insertRelationStatement( $table );
 			$rows   = $this->update( $delete, [ $model->id() ] );
 
 			foreach ( $list as $item ) {
+				$rows = $this->update( $insert, [ $model->id(), $item->id() ] );
+			}
+		} elseif ( count( $common ) < count( $list ) ) {
+			$insert = $this->insertRelationStatement( $table );
+			$added  = array_diff_key( $list, $existing );
+
+			foreach ( $added as $item ) {
 				$rows = $this->update( $insert, [ $model->id(), $item->id() ] );
 			}
 		}
@@ -831,7 +889,7 @@ class StoreSql implements StoreInterface {
 	}
 
 	/* -------------------------------------------------------------------------
-	 * Select, insert, update and delete relations.
+	 * Select, insert and delete relations.
 	 * ---------------------------------------------------------------------- */
 
 	/**
@@ -1021,8 +1079,7 @@ class StoreSql implements StoreInterface {
 			if ( PropertyType::OBJECT === $type && isset( $value ) ) {
 				if ( Utils::isModel( $child ) ) {
 					if ( Utils::getModelPrimary( $child ) ) {
-						$result[ $id ] = $value->id();
-						$this->set( $value );
+						$result[ $id ] = $this->set( $value )->id();
 						continue;
 					}
 					$result[ $id ] = Utils::encode( $value->data( ModelData::COMPACT ) );
@@ -1035,7 +1092,7 @@ class StoreSql implements StoreInterface {
 			if ( PropertyType::ARRAY === $type ) {
 				if ( Utils::isModel( $child ) ) {
 					if ( Utils::getModelPrimary( $child ) ) {
-						$this->updateRelation( $model, $child, $value ?? [] );
+						// Arrays of models are stored in a separate relation table.
 						continue;
 					}
 					if ( isset( $value ) ) {
@@ -1056,6 +1113,21 @@ class StoreSql implements StoreInterface {
 
 			$result[ $id ] = $value;
 		}
+		return $result ?? [];
+	}
+
+	protected function getModelRelations( ModelInterface $model ): array {
+		foreach ( $model::properties() as $id => $property ) {
+			$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
+			$child = $property[ PropertyItem::MODEL ] ?? null;
+
+			if ( PropertyType::ARRAY === $type ) {
+				if ( Utils::isModel( $child ) && Utils::getModelPrimary( $child ) ) {
+					$result[ $child ] = $model[ $id ] ?? [];
+				}
+			}
+		}
+
 		return $result ?? [];
 	}
 
