@@ -300,22 +300,22 @@ class StoreSql implements StoreInterface {
 	protected function buildDatabase( array $models ): int {
 		$count = 0;
 
-		// Create or alter tables (columns + indexes) for models.
-		foreach ( $models as $class ) {
-			$count += $this->createTable( $class ) ?: $this->alterTable( $class );
+		// Create or alter model tables (columns + indexes).
+		foreach ( $models as $name ) {
+			$count += $this->createTable( $name ) ?: $this->alterTable( $name );
 		}
 
-		// Create or alter tables (columns + indexes) for relations.
-		foreach ( array_keys( $this->relations ) as $relation ) {
-			$count += $this->createTable( $relation ) ?: $this->alterTable( $relation );
+		// Create or alter relation tables (columns + indexes).
+		foreach ( array_keys( $this->relations ) as $name ) {
+			$count += $this->createTable( $name ) ?: $this->alterTable( $name );
 		}
 
-		// Merge all models and relations.
+		// Merge all model class names and relation table names.
 		$all = array_merge( $models, array_keys( $this->relations ) );
 
 		// Set foreign keys after all tables, columns and indexes are in place.
-		foreach ( $all as $class ) {
-			$count += $this->alterTable( $class, true );
+		foreach ( $all as $name ) {
+			$count += $this->alterForeign( $name );
 		}
 
 		return $count;
@@ -398,20 +398,9 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @return string Sql query to update a database table.
 	 */
-	protected function alterTableQuery( string $class, bool $constraints = false ): string {
+	protected function alterTableQuery( string $class ): string {
 		$columns = $this->getDeltaColumns( $class );
 		$indexes = $this->getDeltaIndexes( $class );
-
-		if ( $constraints ) {
-			$foreign = $this->getDeltaForeign( $class );
-		}
-
-		// Drop foreign keys.
-		if ( isset( $foreign ) ) {
-			foreach ( array_keys( $foreign['drop'] ) as $name ) {
-				$sql[] = sprintf( 'DROP FOREIGN KEY %s', $this->name( $name ) );
-			}
-		}
 
 		// Drop indexes.
 		foreach ( array_keys( $indexes['drop'] ) as $name ) {
@@ -440,18 +429,12 @@ class StoreSql implements StoreInterface {
 			$sql[] = sprintf( 'ADD %s', $this->defineIndexQuery( $index ) );
 		}
 
-		// Create foreign keys.
-		if ( isset( $foreign ) ) {
-			foreach ( $foreign['create'] as $index ) {
-				$sql[] = sprintf( 'ADD %s', $this->defineForeignQuery( $index ) );
-			}
-		}
-
 		if ( isset( $sql ) ) {
 			$sql   = "\n" . join( ",\n", $sql );
 			$table = $this->name( $this->getTableName( $class ) );
 			return sprintf( 'ALTER TABLE %s %s', $table, $sql );
 		}
+
 		return '';
 	}
 
@@ -462,8 +445,8 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @return int True if the table was successfully updated, false otherwise.
 	 */
-	protected function alterTable( string $class, bool $constraints = false ): int {
-		if ( $query = $this->alterTableQuery( $class, $constraints ) ) {
+	protected function alterTable( string $class ): int {
+		if ( $query = $this->alterTableQuery( $class ) ) {
 			return $this->exec( $query );
 		}
 		return 0;
@@ -792,20 +775,56 @@ class StoreSql implements StoreInterface {
 	 * ---------------------------------------------------------------------- */
 
 	protected function showForeignQuery( string $table ): string {
-		$sql[] = 'SELECT * FROM information_schema.KEY_COLUMN_USAGE';
-		$sql[] = "WHERE REFERENCED_TABLE_SCHEMA IS NOT NULL";
-		$sql[] = "AND TABLE_SCHEMA = %s";
-		$sql[] = "AND TABLE_NAME = %s";
+		$sql[] = 'SELECT * FROM information_schema.KEY_COLUMN_USAGE as kcu';
+		$sql[] = 'JOIN   information_schema.REFERENTIAL_CONSTRAINTS as rc';
+		$sql[] = 'ON     kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME';
+		$sql[] = 'WHERE  kcu.TABLE_SCHEMA = ? AND rc.CONSTRAINT_SCHEMA = ?';
+		$sql[] = 'AND    kcu.TABLE_NAME = ? AND rc.TABLE_NAME = ?';
 
-		return vsprintf( join( "\n", $sql ), [
-			$this->quote( $this->dbname ),
-			$this->quote( $table ),
-		] );
+		return join( "\n", $sql );
 	}
 
 	protected function showForeign( string $table ): array {
-		$query = $this->showForeignQuery( $table );
-		return $this->query( $query );
+		$query  = $this->prepare( $this->showForeignQuery( $table ) );
+		$values = [ $this->dbname, $this->dbname, $table, $table ];
+
+		return $this->select( $query, $values );
+	}
+
+	protected function alterForeignQuery( string $class ): array {
+		$foreign = $this->getDeltaForeign( $class );
+
+		// Drop foreign keys.
+		foreach ( array_keys( $foreign['drop'] ) as $name ) {
+			$drop[] = sprintf( 'DROP FOREIGN KEY %s', $this->name( $name ) );
+		}
+
+		// Create foreign keys.
+		foreach ( $foreign['create'] as $index ) {
+			$create[] = sprintf( 'ADD %s', $this->defineForeignQuery( $index ) );
+		}
+
+		if ( isset( $drop ) ) {
+			$drop  = "\n" . join( ",\n", $drop );
+			$table = $this->name( $this->getTableName( $class ) );
+			$sql[] = sprintf( 'ALTER TABLE %s %s', $table, $drop );
+		}
+
+		if ( isset( $create ) ) {
+			$create = "\n" . join( ",\n", $create );
+			$table  = $this->name( $this->getTableName( $class ) );
+			$sql[]  = sprintf( 'ALTER TABLE %s %s', $table, $create );
+		}
+
+		return $sql ?? [];
+	}
+
+	protected function alterForeign( string $class ): bool {
+		foreach ( $this->alterForeignQuery( $class ) as $query ) {
+			$this->exec( $query );
+		}
+
+		return isset( $query );
 	}
 
 	protected function defineForeignQuery( array $index ): string {
@@ -815,15 +834,15 @@ class StoreSql implements StoreInterface {
 		$columns = join( ', ', array_map( [ $this, 'name' ], $index['columns'] ) );
 
 		// Reference table and columns.
-		$table = $this->name( $index['table'] );
-		$match = join( ', ', array_map( [ $this, 'name' ], $index['match'] ) );
+		$table  = $this->name( $index['table'] );
+		$fields = join( ', ', array_map( [ $this, 'name' ], $index['fields'] ) );
 
 		// ON UPDATE / DELETE actions.
 		$update = $index['update'] ?? null;
 		$delete = $index['delete'] ?? null;
 
 		$sql[] = sprintf( 'CONSTRAINT %s FOREIGN KEY (%s)', $name, $columns );
-		$sql[] = sprintf( 'REFERENCES %s (%s)', $table, $match );
+		$sql[] = sprintf( 'REFERENCES %s (%s)', $table, $fields );
 
 		if ( $update ) {
 			$sql[] = sprintf( 'ON UPDATE %s', $update );
@@ -847,7 +866,9 @@ class StoreSql implements StoreInterface {
 				'type'    => 'FOREIGN',
 				'columns' => [ $constraint['COLUMN_NAME'] ],
 				'table'   => $constraint['REFERENCED_TABLE_NAME'],
-				'match'   => [ $constraint['REFERENCED_COLUMN_NAME'] ],
+				'fields'  => [ $constraint['REFERENCED_COLUMN_NAME'] ],
+				'update'  => $constraint['UPDATE_RULE'],
+				'delete'  => $constraint['DELETE_RULE'],
 			];
 		}
 
@@ -874,7 +895,8 @@ class StoreSql implements StoreInterface {
 					'type'    => 'FOREIGN',
 					'columns' => [ $id ],
 					'table'   => $this->getTableName( $foreign ),
-					'match'   => [ $foreign::idProperty() ],
+					'fields'  => [ $foreign::idProperty() ],
+					'update'  => 'CASCADE',
 					'delete'  => $required ? 'CASCADE' : 'SET NULL',
 				];
 			}
@@ -901,15 +923,12 @@ class StoreSql implements StoreInterface {
 		// Check for differences.
 		foreach ( $common as $name => $modelConstraint ) {
 			$tableConstraint = $tableConstraints[ $name ];
-			unset( $modelConstraint['delete'] );
-			unset( $modelConstraint['update'] );
-
-			$modelJson = Utils::encode( $modelConstraint );
-			$tableJson = Utils::encode( $tableConstraint );
+			$modelJson       = Utils::encode( $modelConstraint );
+			$tableJson       = Utils::encode( $tableConstraint );
 
 			if ( $modelJson !== $tableJson ) {
-				$drop[ $name ]   = $modelConstraint[ $name ];
-				$create[ $name ] = $tableConstraints[ $name ];
+				$drop[ $name ]   = $modelConstraint;
+				$create[ $name ] = $tableConstraint;
 			}
 		}
 
@@ -993,7 +1012,8 @@ class StoreSql implements StoreInterface {
 			'type'    => 'FOREIGN',
 			'columns' => [ $leftColumn ],
 			'table'   => $this->getTableName( $class ),
-			'match'   => [ $class::idProperty() ],
+			'fields'  => [ $class::idProperty() ],
+			'update'  => 'CASCADE',
 			'delete'  => 'CASCADE',
 		];
 
@@ -1002,7 +1022,8 @@ class StoreSql implements StoreInterface {
 			'type'    => 'FOREIGN',
 			'columns' => [ $rightColumn ],
 			'table'   => $this->getTableName( $child ),
-			'match'   => [ $child::idProperty() ],
+			'fields'  => [ $child::idProperty() ],
+			'update'  => 'CASCADE',
 			'delete'  => 'CASCADE',
 		];
 
@@ -1214,60 +1235,53 @@ class StoreSql implements StoreInterface {
 
 	protected function getModelValues( ModelInterface $model ): array {
 		foreach ( $model::properties() as $id => $property ) {
-			if ( empty( Utils::isColumn( $property ) ) ) {
-				continue;
+			if ( Utils::isColumn( $property ) ) {
+				$result[ $id ] = $this->getPropertyValue( $model[ $id ], $property );
 			}
-
-			$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
-			$child = $property[ PropertyItem::MODEL ] ?? null;
-			$value = $model[ $id ];
-
-			// Storing functions is not supported.
-			if ( PropertyType::FUNCTION === $type ) {
-				continue;
-			}
-
-			// Storing objects.
-			if ( PropertyType::OBJECT === $type && isset( $value ) ) {
-				if ( Utils::isModel( $child ) ) {
-					if ( Utils::getModelPrimary( $child ) ) {
-						$result[ $id ] = $this->set( $value )->id();
-						continue;
-					}
-					$result[ $id ] = Utils::encode( $value->data( ModelData::COMPACT ) );
-					continue;
-				}
-				$result[ $id ] = Utils::encode( $value );
-				continue;
-			}
-
-			// Storing arrays.
-			if ( PropertyType::ARRAY === $type ) {
-				if ( Utils::isModel( $child ) ) {
-					if ( isset( $value ) ) {
-						$compact       = array_map( fn( $item ) => $item->data( ModelData::COMPACT ), $value );
-						$result[ $id ] = Utils::encode( $compact );
-						continue;
-					}
-				}
-				if ( isset( $value ) ) {
-					$result[ $id ] = Utils::encode( $value );
-					continue;
-				}
-			}
-
-			if ( is_bool( $value ) ) {
-				$value = (int) $value;
-			}
-
-			$result[ $id ] = $value;
 		}
 		return $result ?? [];
 	}
 
+	protected function getPropertyValue( $value, array $property ) {
+		$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
+		$child = $property[ PropertyItem::MODEL ] ?? null;
+
+		// Short-circuit null values.
+		if ( is_null( $value ) ) {
+			return null;
+		}
+
+		// Transform boolean values.
+		if ( is_bool( $value ) ) {
+			return (int) $value;
+		}
+
+		// Transform objects.
+		if ( PropertyType::OBJECT === $type ) {
+			if ( Utils::isModel( $child ) ) {
+				if ( Utils::getModelPrimary( $child ) ) {
+					return $this->set( $value )->id();
+				}
+				return Utils::encode( $value->data( ModelData::COMPACT ) );
+			}
+			return Utils::encode( $value );
+		}
+
+		// Transform arrays.
+		if ( PropertyType::ARRAY === $type ) {
+			if ( Utils::isModel( $child ) ) {
+				$callback = fn( $item ) => $item->data( ModelData::COMPACT );
+				return Utils::encode( array_map( $callback, $value ) );
+			}
+			return Utils::encode( $value );
+		}
+
+		return $value;
+	}
+
 	protected function getModelRelations( ModelInterface $model ): array {
 		foreach ( $model::properties() as $id => $property ) {
-			if ( empty( Utils::isColumn( $property ) ) ) {
+			if ( Utils::isRelation( $property ) ) {
 				$child            = $property[ PropertyItem::MODEL ];
 				$result[ $child ] = $model[ $id ] ?? [];
 			}

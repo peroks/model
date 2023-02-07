@@ -148,6 +148,25 @@ class Utils {
 	}
 
 	/**
+	 * Checks if a model property corresponds to a relation table.
+	 *
+	 * @param Property|array $property The property.
+	 *
+	 * @return bool
+	 */
+	public static function isRelation( $property ): bool {
+		$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
+		$model = $property[ PropertyItem::MODEL ] ?? null;
+
+		if ( PropertyType::ARRAY === $type ) {
+			if ( static::isModel( $model ) && static::getModelPrimary( $model ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Checks if a model property corresponds to a table column.
 	 *
 	 * @param Property|array $property The property.
@@ -155,20 +174,23 @@ class Utils {
 	 * @return bool
 	 */
 	public static function isColumn( $property ): bool {
-		$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
-		$model = $property[ PropertyItem::MODEL ] ?? null;
+		$type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
 
-		if ( PropertyType::ARRAY === $type ) {
-			if ( static::isModel( $model ) && static::getModelPrimary( $model ) ) {
-				return false;
-			}
+		// Storing functions is not supported.
+		if ( PropertyType::FUNCTION === $type ) {
+			return false;
+		}
+
+		// Relations are stored in a separate relation table.
+		if ( static::isRelation( $property ) ) {
+			return false;
 		}
 
 		return true;
 	}
 
 	/**
-	 * Checks if a model property is a foreign key.
+	 * Checks if a model property needs a foreign key.
 	 *
 	 * @param Property|array $property The property.
 	 *
