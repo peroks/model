@@ -466,17 +466,22 @@ class StoreSql implements StoreInterface {
 	}
 
 	protected function defineColumnQuery( array $column ): string {
+		$type     = $column['type'];
 		$required = $column['required'] ?? null;
 		$default  = $column['default'] ?? null;
 
-		// Cast default value to string or integer.
+		// Cast default value.
 		if ( isset( $default ) ) {
-			$default = is_string( $default ) ? $this->quote( $default ) : (int) $default;
+			if ( is_string( $default ) ) {
+				$default = $this->quote( $default );
+			}
+		} elseif ( empty( $required ) && 'TEXT' !== $type ) {
+			$default = 'NULL';
 		}
 
 		return join( ' ', array_filter( [
 			$this->name( $column['name'] ),
-			$column['type'],
+			$type,
 			$required ? 'NOT NULL' : null,
 			isset( $default ) ? "DEFAULT {$default}" : null,
 		] ) );
@@ -487,13 +492,21 @@ class StoreSql implements StoreInterface {
 		$result  = [];
 
 		foreach ( $columns as $column ) {
-			$name = $column['Field'];
+			$name    = $column['Field'];
+			$default = $column['Default'];
+
+			// Normalise default values.
+			if ( isset( $default ) ) {
+				if ( 'decimal(32,10)' === $column['Type'] ) {
+					$default = (float) $default;
+				}
+			}
 
 			$result[ $name ] = [
 				'name'     => $name,
 				'type'     => $column['Type'],
 				'required' => $column['Null'] === 'NO',
-				'default'  => $column['Default'],
+				'default'  => $default,
 			];
 		}
 
@@ -512,40 +525,38 @@ class StoreSql implements StoreInterface {
 		$result     = [];
 
 		foreach ( $properties as $id => $property ) {
-			if ( empty( Utils::isColumn( $property ) ) ) {
-				$this->addRelation( $class, $property[ PropertyItem::MODEL ] );
-				continue;
-			}
+			if ( Utils::isColumn( $property ) ) {
+				$type    = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
+				$child   = $property[ PropertyItem::MODEL ] ?? null;
+				$default = $property[ PropertyItem::DEFAULT ] ?? null;
 
-			$type    = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
-			$child   = $property[ PropertyItem::MODEL ] ?? null;
-			$default = $property[ PropertyItem::DEFAULT ] ?? null;
-
-			// Storing functions is not supported.
-			if ( PropertyType::FUNCTION === $type ) {
-				continue;
-			}
-
-			if ( empty( is_scalar( $default ) ) ) {
-				$default = null;
-			}
-
-			if ( PropertyType::UUID === $type && true === $default ) {
-				$default = null;
-			}
-
-			$result[ $id ] = [
-				'name'     => $id,
-				'type'     => $this->getColumnType( $property ),
-				'required' => $property[ PropertyItem::REQUIRED ] ?? false,
-				'default'  => $default,
-			];
-
-			// Replace sub-models with foreign keys.
-			if ( PropertyType::OBJECT === $type && Utils::isModel( $child ) ) {
-				if ( $primary = $child::getProperty( $child::idProperty() ) ) {
-					$result[ $id ]['type'] = $this->getColumnType( $primary );
+				if ( empty( is_scalar( $default ) ) ) {
+					$default = null;
 				}
+
+				if ( PropertyType::UUID === $type && true === $default ) {
+					$default = null;
+				}
+
+				if ( is_bool( $default ) ) {
+					$default = (int) $default;
+				}
+
+				$result[ $id ] = [
+					'name'     => $id,
+					'type'     => $this->getColumnType( $property ),
+					'required' => $property[ PropertyItem::REQUIRED ] ?? false,
+					'default'  => $default,
+				];
+
+				// Replace sub-models with foreign keys.
+				if ( PropertyType::OBJECT === $type && Utils::isModel( $child ) ) {
+					if ( $primary = Utils::getModelPrimary( $child ) ) {
+						$result[ $id ]['type'] = $this->getColumnType( $primary );
+					}
+				}
+			} elseif ( Utils::isRelation( $property ) ) {
+				$this->addRelation( $class, $property[ PropertyItem::MODEL ] );
 			}
 		}
 
@@ -566,9 +577,9 @@ class StoreSql implements StoreInterface {
 			case PropertyType::MIXED:
 				return 'varbinary(255)';
 			case PropertyType::BOOL:
-				return 'bool';
+				return 'tinyint(1)';
 			case PropertyType::INTEGER:
-				return 'bigint';
+				return 'bigint(20)';
 			case PropertyType::FLOAT:
 			case PropertyType::NUMBER:
 				return 'decimal(32,10)';
