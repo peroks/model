@@ -143,7 +143,47 @@ class Utils {
 	 * @return Property|null
 	 */
 	public static function getModelPrimary( $model ): ?Property {
-		return $model::getProperty( $model::idProperty() );
+		$primary = $model::idProperty();
+		return $primary ? $model::getProperty( $primary ) : null;
+	}
+
+	/**
+	 * Checks if a model property corresponds to a table column.
+	 *
+	 * @param Property|array $property The property.
+	 *
+	 * @return bool
+	 */
+	public static function isColumn( $property ): bool {
+		$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
+		$model = $property[ PropertyItem::MODEL ] ?? null;
+
+		if ( PropertyType::ARRAY === $type ) {
+			if ( static::isModel( $model ) && static::getModelPrimary( $model ) ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Checks if a model property is a foreign key.
+	 *
+	 * @param Property|array $property The property.
+	 *
+	 * @return bool
+	 */
+	public static function isForeign( $property ): bool {
+		$model   = $property[ PropertyItem::MODEL ] ?? null;
+		$foreign = $property[ PropertyItem::FOREIGN ] ?? $model;
+
+		if ( static::isModel( $foreign ) && static::getModelPrimary( $foreign ) ) {
+			$type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
+			return PropertyType::ARRAY !== $type;
+		}
+
+		return false;
 	}
 
 	/**
