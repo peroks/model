@@ -17,7 +17,7 @@ interface StoreInterface {
 	 * Gets a model from the data store.
 	 *
 	 * @param string $id The model id.
-	 * @param string $class The model class name.
+	 * @param ModelInterface|string $class The model class name.
 	 * @param bool $create Whether to create a new model if not found.
 	 *
 	 * @return ModelInterface|null A new or existing model of the given class.
@@ -28,7 +28,7 @@ interface StoreInterface {
 	 * Retrieves a collection of model from the data store.
 	 *
 	 * @param string[] $ids An array of model ids.
-	 * @param string $class The model class name.
+	 * @param ModelInterface|string $class The model class name.
 	 * @param bool $create Whether to create a new model if not found.
 	 *
 	 * @return ModelInterface[] An array of new or existing models of the given class.
@@ -39,7 +39,7 @@ interface StoreInterface {
 	 * Checks if a model with the given id exists in the data store.
 	 *
 	 * @param string $id The model id.
-	 * @param string $class The model class name.
+	 * @param ModelInterface|string $class The model class name.
 	 *
 	 * @return bool True if the model is found in the data store.
 	 */
@@ -52,7 +52,7 @@ interface StoreInterface {
 	/**
 	 * Gets a list of all models of the given class.
 	 *
-	 * @param string $class The model class name.
+	 * @param ModelInterface|string $class The model class name.
 	 *
 	 * @return ModelInterface[] An assoc array of models keyed by the model ids.
 	 */
@@ -61,7 +61,7 @@ interface StoreInterface {
 	/**
 	 * Gets a filtered list of models of the given class.
 	 *
-	 * @param string $class The model class name.
+	 * @param ModelInterface|string $class The model class name.
 	 * @param array $filter Properties (key/value pairs) to match the stored models.
 	 *
 	 * @return ModelInterface[] An assoc array of models keyed by the model ids.
@@ -85,7 +85,7 @@ interface StoreInterface {
 	 * Deletes a model from the data store.
 	 *
 	 * @param string $id The model id.
-	 * @param string $class The model class name.
+	 * @param ModelInterface|string $class The model class name.
 	 *
 	 * @return bool True if the model existed, false otherwise.
 	 */

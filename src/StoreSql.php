@@ -33,51 +33,52 @@ class StoreSql implements StoreInterface {
 	 * @inheritDoc
 	 */
 	public function get( string $id, string $class, bool $create = true ): ?ModelInterface {
-		$table    = $this->name( $this->getTableName( $class ) );
-		$primary  = $this->name( $class::idProperty() );
-		$children = static::getChildModels( $class );
+		$query  = $this->selectRowStatement( $class );
+		$result = $this->select( $query, [ $id ] );
 
-		$sql  = "SELECT * FROM {$table} WHERE {$primary} = ?";
-		$data = $this->query( $sql, [ $id ] );
-
-		if ( $data ) {
-			foreach ( $children as $id => $property ) {
-				$child       = $property[ PropertyItem::MODEL ];
-				$value       = $data[ $id ];
-				$data[ $id ] = $this->get( $value, $child );
-
-			}
-			return $class::create( $data );
+		if ( $result ) {
+			return $this->assemble( new $class( $result[0] ) );
 		}
-		return null;
+		return $create ? $class::create() : null;
 	}
 
 	/**
 	 * @inheritDoc
 	 */
 	public function collect( array $ids, string $class, bool $create = true ): array {
-		// TODO: Implement collect() method.
+		$query  = $this->collectRowsStatement( $class, count( $ids ) );
+		$result = $this->select( $query, array_values( $ids ) );
+
+		return array_map( fn( $data ) => $this->assemble( new $class( $data ) ), $result );
 	}
 
 	/**
 	 * @inheritDoc
 	 */
 	public function exists( string $id, string $class ): bool {
-		// TODO: Implement exists() method.
+		$query  = $this->existsRowStatement( $class );
+		$result = $this->select( $query, [ $id ] );
+		return (bool) $result;
 	}
 
 	/**
 	 * @inheritDoc
 	 */
 	public function list( string $class ): array {
-		// TODO: Implement list() method.
+		$query  = $this->selectListStatement( $class );
+		$result = $this->select( $query );
+
+		return array_map( fn( $data ) => $this->assemble( new $class( $data ) ), $result );
 	}
 
 	/**
 	 * @inheritDoc
 	 */
 	public function filter( string $class, array $filter ): array {
-		// TODO: Implement filter() method.
+		$query  = $this->selectFilterStatement( $class, $filter );
+		$result = $this->select( $query, $filter );
+
+		return array_map( fn( $data ) => $this->assemble( new $class( $data ) ), $result );
 	}
 
 	/**
@@ -115,7 +116,7 @@ class StoreSql implements StoreInterface {
 	 * @inheritDoc
 	 */
 	public function save(): bool {
-		// TODO: Implement save() method.
+		return true;
 	}
 
 	public function build( array $models ): int {
@@ -136,8 +137,9 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function connect( object $connect ): bool {
 		$args = [
-			PDO::ATTR_ERRMODE    => PDO::ERRMODE_EXCEPTION,
-			PDO::ATTR_PERSISTENT => true,
+			PDO::ATTR_ERRMODE          => PDO::ERRMODE_EXCEPTION,
+			PDO::ATTR_PERSISTENT       => true,
+			PDO::ATTR_EMULATE_PREPARES => false,
 		];
 
 		// Delete database.
@@ -950,6 +952,11 @@ class StoreSql implements StoreInterface {
 	 * Model relations
 	 * ---------------------------------------------------------------------- */
 
+	protected function getRelationName( string $class, string $child ): string {
+		$right = current( array_reverse( explode( '\\', $child ) ) );
+		return $class . '\\' . $right;
+	}
+
 	protected function getRelationColumns( string $relation ): array {
 		return $this->relations[ $relation ]['columns'] ?? [];
 	}
@@ -1138,9 +1145,205 @@ class StoreSql implements StoreInterface {
 		return $this->queries[ $table ]['select'];
 	}
 
+	/**
+	 * Gets a prepared select statement for the given relation table.
+	 *
+	 * @param ModelInterface|string $class A relation table name.
+	 * @param ModelInterface|string $child A relation table name.
+	 *
+	 * @return PDOStatement
+	 */
+	protected function selectChildrenStatement( string $class, string $child ): object {
+		$left  = current( array_reverse( explode( '\\', $class ) ) );
+		$right = current( array_reverse( explode( '\\', $child ) ) );
+		$table = $this->getTableName( $class . '\\' . $right );
+
+		if ( empty( $this->queries[ $table ]['children'] ) ) {
+			$name    = $this->name( $table );
+			$source  = $this->name( $this->getTableName( $child ) );
+			$primary = $this->name( $child::idProperty() );
+			$left    = $this->name( $left );
+			$right   = $this->name( $right );
+
+			$sql[] = "SELECT C.*";
+			$sql[] = "FROM   {$name} as R";
+			$sql[] = "JOIN   {$source} as C";
+			$sql[] = "ON     R.{$right} = C.{$primary}";
+			$sql[] = "WHERE  R.{$left} = ?";
+
+			$sql = join( "\n", $sql );;
+			$this->queries[ $table ]['children'] = $this->prepare( $sql );
+		}
+		return $this->queries[ $table ]['children'];
+	}
+
 	/* -------------------------------------------------------------------------
 	 * Select, insert, update and delete rows.
 	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Generates a select query template.
+	 *
+	 * @param string $table
+	 * @param string $primary
+	 *
+	 * @return string
+	 */
+	protected function selectRowQuery( string $table, string $primary ): string {
+		$table   = $this->name( $table );
+		$primary = $this->name( $primary );
+
+		return "SELECT * FROM {$table} WHERE {$primary} = ?";
+	}
+
+	/**
+	 * Gets a prepared select statement for the given model.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return PDOStatement|null
+	 */
+	protected function selectRowStatement( string $class ): ?object {
+		$table = $this->getTableName( $class );
+
+		if ( empty( $this->queries[ $table ]['select'] ) ) {
+			$primary = $class::idProperty();
+			$query   = $this->selectRowQuery( $table, $primary );;
+			$this->queries[ $table ]['select'] = $this->prepare( $query );
+		}
+		return $this->queries[ $table ]['select'];
+	}
+
+	/**
+	 * Generates a select query template.
+	 *
+	 * @param string $table
+	 * @param string $primary
+	 * @param int $count
+	 *
+	 * @return string
+	 */
+	protected function collectRowsQuery( string $table, string $primary, int $count ): string {
+		$table   = $this->name( $table );
+		$primary = $this->name( $primary );
+		$ids     = join( ', ', array_fill( 0, $count, '?' ) );
+
+		return "SELECT * FROM {$table} WHERE {$primary} IN ({$ids})";
+	}
+
+	/**
+	 * Gets a prepared statement to check if a model exists.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return PDOStatement|null
+	 */
+	protected function collectRowsStatement( string $class, int $count ): ?object {
+		$table   = $this->getTableName( $class );
+		$primary = $class::idProperty();
+		$query   = $this->collectRowsQuery( $table, $primary, $count );
+
+		return $this->prepare( $query );
+	}
+
+	/**
+	 * Generates an exists query template.
+	 *
+	 * @param string $table
+	 * @param string $primary
+	 *
+	 * @return string
+	 */
+	protected function existsRowQuery( string $table, string $primary ): string {
+		$table   = $this->name( $table );
+		$primary = $this->name( $primary );
+
+		return "SELECT {$primary} FROM {$table} WHERE {$primary} = ?";
+	}
+
+	/**
+	 * Gets a prepared statement to check if a model exists.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return PDOStatement|null
+	 */
+	protected function existsRowStatement( string $class ): ?object {
+		$table = $this->getTableName( $class );
+
+		if ( empty( $this->queries[ $table ]['exists'] ) ) {
+			$primary = $class::idProperty();
+			$query   = $this->existsRowQuery( $table, $primary );;
+			$this->queries[ $table ]['exists'] = $this->prepare( $query );
+		}
+		return $this->queries[ $table ]['exists'];
+	}
+
+	/**
+	 * Generates an exists query template.
+	 *
+	 * @param string $table
+	 *
+	 * @return string
+	 */
+	protected function selectListQuery( string $table ): string {
+		$table = $this->name( $table );
+		return "SELECT * FROM {$table}";
+	}
+
+	/**
+	 * Gets a prepared statement to check if a model exists.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return PDOStatement|null
+	 */
+	protected function selectListStatement( string $class ): ?object {
+		$table = $this->getTableName( $class );
+
+		if ( empty( $this->queries[ $table ]['list'] ) ) {
+			$query = $this->selectListQuery( $table );;
+			$this->queries[ $table ]['list'] = $this->prepare( $query );
+		}
+		return $this->queries[ $table ]['list'] ?? null;
+	}
+
+	/**
+	 * Generates an exists query template.
+	 *
+	 * @param string $table
+	 * @param string $primary
+	 *
+	 * @return string
+	 */
+	protected function selectFilterQuery( string $table, array $filter ): string {
+		$table = $this->name( $table );
+		$sql   = [];
+
+		foreach ( array_keys( $filter ) as $column ) {
+			$sql[] = sprintf( '(%s = ?)', $this->name( $column ) );
+		}
+
+		$sql = join( "\nAND ", $sql );
+		return "SELECT * FROM {$table} \nWHERE {$sql}";
+	}
+
+	/**
+	 * Gets a prepared statement to check if a model exists.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return PDOStatement|null
+	 */
+	protected function selectFilterStatement( string $class, array $filter ): ?object {
+		$table = $this->getTableName( $class );
+
+		if ( empty( $this->queries[ $table ]['filter'] ) ) {
+			$query = $this->selectFilterQuery( $table, $filter );;
+			$this->queries[ $table ]['filter'] = $this->prepare( $query );
+		}
+		return $this->queries[ $table ]['filter'] ?? null;
+	}
 
 	/**
 	 * Generates an update query template.
@@ -1232,6 +1435,39 @@ class StoreSql implements StoreInterface {
 		return $this->queries[ $table ]['update'];
 	}
 
+	/**
+	 * Generates an delete query template.
+	 *
+	 * @param string $table
+	 * @param string $primary
+	 *
+	 * @return string
+	 */
+	protected function deleteRowQuery( string $table, string $primary ): string {
+		$table   = $this->name( $table );
+		$primary = $this->name( $primary );
+
+		return "DELETE FROM {$table} WHERE {$primary} = ?";
+	}
+
+	/**
+	 * Gets a prepared update statement for the given model.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return PDOStatement
+	 */
+	protected function deleteRowStatement( string $class ): object {
+		$table = $this->getTableName( $class );
+
+		if ( empty( $this->queries[ $table ]['delete'] ) ) {
+			$primary = $class::idProperty();
+			$query   = $this->deleteRowQuery( $table, $primary );;
+			$this->queries[ $table ]['delete'] = $this->prepare( $query );
+		}
+		return $this->queries[ $table ]['delete'];
+	}
+
 	/* -------------------------------------------------------------------------
 	 * Helpers
 	 * ---------------------------------------------------------------------- */
@@ -1301,6 +1537,29 @@ class StoreSql implements StoreInterface {
 		return $result ?? [];
 	}
 
+	protected function assemble( ModelInterface $model ): ModelInterface {
+		foreach ( $model::properties() as $id => $property ) {
+			if ( $child = $property[ PropertyItem::MODEL ] ?? null ) {
+				if ( Utils::isColumn( $property ) ) {
+					$value = $model[ $id ];
+
+					if ( isset( $value ) && Utils::getModelPrimary( $child ) ) {
+						$model[ $id ] = $this->get( $value, $child );
+					}
+				} elseif ( Utils::isRelation( $property ) ) {
+					$select = $this->selectChildrenStatement( get_class( $model ), $child );
+					$result = $this->select( $select, (array) $model->id() );
+
+					$model[ $id ] = array_map( function( $data ) use ( $child ) {
+						return $this->assemble( new $child( $data ) );
+					}, $result );
+				}
+			}
+		}
+
+		return $model->validate( true );
+	}
+
 	/**
 	 * Extract all sub-models from the given models.
 	 *
@@ -1352,16 +1611,5 @@ class StoreSql implements StoreInterface {
 		}
 
 		return $result;
-	}
-
-	/**
-	 * @param ModelInterface|string $class
-	 *
-	 * @return array An array of child model properties keyed by the child class name.
-	 */
-	protected function getChildModels( string $class ): array {
-		return array_filter( $class::properties(), function( array $property ): bool {
-			return Utils::isModel( $property[ PropertyItem::MODEL ] ?? null );
-		} );
 	}
 }
