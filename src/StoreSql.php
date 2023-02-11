@@ -2,6 +2,13 @@
 
 use PDO, PDOException, PDOStatement;
 
+/**
+ * Class for storing and retrieving models from a SQL database.
+ *
+ * @author Per Egil Roksvaag
+ * @copyright Per Egil Roksvaag
+ * @license MIT
+ */
 class StoreSql implements StoreInterface {
 
 	/**
@@ -29,31 +36,17 @@ class StoreSql implements StoreInterface {
 		$this->connect( $connect );
 	}
 
-	/**
-	 * @inheritDoc
-	 */
-	public function get( string $id, string $class, bool $create = true ): ?ModelInterface {
-		$query  = $this->selectRowStatement( $class );
-		$result = $this->select( $query, [ $id ] );
-
-		if ( $result ) {
-			return $this->assemble( new $class( $result[0] ) );
-		}
-		return $create ? $class::create() : null;
-	}
+	/* -------------------------------------------------------------------------
+	 * Retrieving models.
+	 * ---------------------------------------------------------------------- */
 
 	/**
-	 * @inheritDoc
-	 */
-	public function collect( array $ids, string $class, bool $create = true ): array {
-		$query  = $this->collectRowsStatement( $class, count( $ids ) );
-		$result = $this->select( $query, array_values( $ids ) );
-
-		return array_map( fn( $data ) => $this->assemble( new $class( $data ) ), $result );
-	}
-
-	/**
-	 * @inheritDoc
+	 * Checks if a model with the given id exists in the data store.
+	 *
+	 * @param string $id The model id.
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return bool True if the model is found in the data store.
 	 */
 	public function exists( string $id, string $class ): bool {
 		$query  = $this->existsRowStatement( $class );
@@ -62,27 +55,98 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * @inheritDoc
+	 * Gets a model from the data store.
+	 *
+	 * @param int|string $id The model id.
+	 * @param ModelInterface|string $class The model class name.
+	 * @param bool $restore Whether to restore the model including all sub-model or not.
+	 *
+	 * @return ModelInterface|null A new or existing model of the given class.
 	 */
-	public function list( string $class ): array {
+	public function get( $id, string $class, bool $restore = true ): ?ModelInterface {
+		$query  = $this->selectRowStatement( $class );
+		$result = $this->select( $query, [ $id ] );
+		$result = array_map( fn( $row ) => new $class( $row ), $result );
+
+		if ( $result ) {
+			return $restore ? $this->restore( $result[0] ) : $result[0];
+		}
+
+		return null;
+	}
+
+	/**
+	 * Retrieves a collection of model from the data store.
+	 *
+	 * @param int[]|string[] $ids An array of model ids.
+	 * @param ModelInterface|string $class The model class name.
+	 * @param bool $restore Whether to restore the models including all sub-models or not.
+	 *
+	 * @return ModelInterface[] An array of new or existing models of the given class.
+	 */
+	public function collect( array $ids, string $class, bool $restore = true ): array {
+		$query  = $this->collectRowsStatement( $class, count( $ids ) );
+		$result = $this->select( $query, array_values( $ids ) );
+		$result = array_map( fn( $row ) => new $class( $row ), $result );
+
+		if ( $restore ) {
+			array_walk( $result, [ $this, 'restore' ] );
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Gets a list of all models of the given class.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 * @param bool $restore Whether to restore the models including all sub-models or not.
+	 *
+	 * @return ModelInterface[] An array of models.
+	 */
+	public function list( string $class, bool $restore = true ): array {
 		$query  = $this->selectListStatement( $class );
 		$result = $this->select( $query );
+		$result = array_map( fn( $row ) => new $class( $row ), $result );
 
-		return array_map( fn( $data ) => $this->assemble( new $class( $data ) ), $result );
+		if ( $restore ) {
+			array_walk( $result, [ $this, 'restore' ] );
+		}
+
+		return $result;
 	}
 
 	/**
-	 * @inheritDoc
+	 * Gets a filtered list of models of the given class.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 * @param array $filter Properties (key/value pairs) to match the stored models.
+	 * @param bool $restore Whether to restore the models including all sub-models or not.
+	 *
+	 * @return ModelInterface[] An array of models.
 	 */
-	public function filter( string $class, array $filter ): array {
+	public function filter( string $class, array $filter, bool $restore = true ): array {
 		$query  = $this->selectFilterStatement( $class, $filter );
 		$result = $this->select( $query, $filter );
+		$result = array_map( fn( $row ) => new $class( $row ), $result );
 
-		return array_map( fn( $data ) => $this->assemble( new $class( $data ) ), $result );
+		if ( $restore ) {
+			array_walk( $result, [ $this, 'restore' ] );
+		}
+
+		return $result;
 	}
 
+	/* -------------------------------------------------------------------------
+	 * Updating and deleting models
+	 * ---------------------------------------------------------------------- */
+
 	/**
-	 * @inheritDoc
+	 * Saves and validates a model in the data store.
+	 *
+	 * @param ModelInterface $model The model to store.
+	 *
+	 * @return ModelInterface The stored model.
 	 */
 	public function set( ModelInterface $model ): ModelInterface {
 		$model->validate( true );
@@ -106,22 +170,70 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * @inheritDoc
+	 * Deletes a model from the data store.
+	 *
+	 * @param string $id The model id.
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return bool True if the model existed, false otherwise.
 	 */
 	public function delete( string $id, string $class ): bool {
-		// TODO: Implement delete() method.
+		$query  = $this->deleteRowStatement( $class );
+		$result = $this->select( $query, [ $id ] );
+		return (bool) $result;
 	}
 
 	/**
-	 * @inheritDoc
+	 * Completely restores the given model including all sub-models.
+	 *
+	 * @param ModelInterface $model The model to restore.
+	 *
+	 * @return ModelInterface The completely restored model.
 	 */
-	public function save(): bool {
-		return true;
+	public function restore( ModelInterface $model ): ModelInterface {
+		foreach ( $model::properties() as $id => $property ) {
+			if ( $child = $property[ PropertyItem::MODEL ] ?? null ) {
+				$value = &$model[ $id ];
+
+				if ( Utils::isColumn( $property ) ) {
+					if ( isset( $value ) && Utils::getModelPrimary( $child ) ) {
+						$value = $this->get( $value, $child );
+					}
+				} elseif ( Utils::isRelation( $property ) ) {
+					$select = $this->selectChildrenStatement( get_class( $model ), $child );
+					$result = $this->select( $select, (array) $model->id() );
+					$value  = array_map( fn( $row ) => $this->restore( new $child( $row ) ), $result );
+				}
+			}
+		}
+
+		return $model->validate( true );
 	}
 
-	public function build( array $models ): int {
+	/* -------------------------------------------------------------------------
+	 * Data store handling
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Builds a data store is necessary.
+	 *
+	 * @param array $models The models to add to the data store.
+	 * @param array $options An assoc array of options.
+	 *
+	 * @return bool
+	 */
+	public function build( array $models, array $options = [] ): bool {
 		$models = $this->getAllModels( $models );
-		return $this->buildDatabase( $models );
+		return (bool) $this->buildDatabase( $models );
+	}
+
+	/**
+	 * Flushes model data to permanent storage is necessary.
+	 *
+	 * @return bool True if data changes exists and were saved, false otherwise.
+	 */
+	public function flush(): bool {
+		return true;
 	}
 
 	/* -------------------------------------------------------------------------
@@ -1182,6 +1294,39 @@ class StoreSql implements StoreInterface {
 	 * ---------------------------------------------------------------------- */
 
 	/**
+	 * Generates an exists query template.
+	 *
+	 * @param string $table
+	 * @param string $primary
+	 *
+	 * @return string
+	 */
+	protected function existsRowQuery( string $table, string $primary ): string {
+		$table   = $this->name( $table );
+		$primary = $this->name( $primary );
+
+		return "SELECT {$primary} FROM {$table} WHERE {$primary} = ?";
+	}
+
+	/**
+	 * Gets a prepared statement to check if a model exists.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return PDOStatement|null
+	 */
+	protected function existsRowStatement( string $class ): ?object {
+		$table = $this->getTableName( $class );
+
+		if ( empty( $this->queries[ $table ]['exists'] ) ) {
+			$primary = $class::idProperty();
+			$query   = $this->existsRowQuery( $table, $primary );;
+			$this->queries[ $table ]['exists'] = $this->prepare( $query );
+		}
+		return $this->queries[ $table ]['exists'];
+	}
+
+	/**
 	 * Generates a select query template.
 	 *
 	 * @param string $table
@@ -1250,39 +1395,6 @@ class StoreSql implements StoreInterface {
 	 * Generates an exists query template.
 	 *
 	 * @param string $table
-	 * @param string $primary
-	 *
-	 * @return string
-	 */
-	protected function existsRowQuery( string $table, string $primary ): string {
-		$table   = $this->name( $table );
-		$primary = $this->name( $primary );
-
-		return "SELECT {$primary} FROM {$table} WHERE {$primary} = ?";
-	}
-
-	/**
-	 * Gets a prepared statement to check if a model exists.
-	 *
-	 * @param ModelInterface|string $class The model class name.
-	 *
-	 * @return PDOStatement|null
-	 */
-	protected function existsRowStatement( string $class ): ?object {
-		$table = $this->getTableName( $class );
-
-		if ( empty( $this->queries[ $table ]['exists'] ) ) {
-			$primary = $class::idProperty();
-			$query   = $this->existsRowQuery( $table, $primary );;
-			$this->queries[ $table ]['exists'] = $this->prepare( $query );
-		}
-		return $this->queries[ $table ]['exists'];
-	}
-
-	/**
-	 * Generates an exists query template.
-	 *
-	 * @param string $table
 	 *
 	 * @return string
 	 */
@@ -1321,7 +1433,7 @@ class StoreSql implements StoreInterface {
 		$sql   = [];
 
 		foreach ( array_keys( $filter ) as $column ) {
-			$sql[] = sprintf( '(%s = ?)', $this->name( $column ) );
+			$sql[] = sprintf( '(%s = :%s)', $this->name( $column ), $column );
 		}
 
 		$sql = join( "\nAND ", $sql );
@@ -1535,29 +1647,6 @@ class StoreSql implements StoreInterface {
 		}
 
 		return $result ?? [];
-	}
-
-	protected function assemble( ModelInterface $model ): ModelInterface {
-		foreach ( $model::properties() as $id => $property ) {
-			if ( $child = $property[ PropertyItem::MODEL ] ?? null ) {
-				if ( Utils::isColumn( $property ) ) {
-					$value = $model[ $id ];
-
-					if ( isset( $value ) && Utils::getModelPrimary( $child ) ) {
-						$model[ $id ] = $this->get( $value, $child );
-					}
-				} elseif ( Utils::isRelation( $property ) ) {
-					$select = $this->selectChildrenStatement( get_class( $model ), $child );
-					$result = $this->select( $select, (array) $model->id() );
-
-					$model[ $id ] = array_map( function( $data ) use ( $child ) {
-						return $this->assemble( new $child( $data ) );
-					}, $result );
-				}
-			}
-		}
-
-		return $model->validate( true );
 	}
 
 	/**

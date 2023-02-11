@@ -52,16 +52,29 @@ class Store implements StoreInterface {
 	 * ---------------------------------------------------------------------- */
 
 	/**
-	 * Gets a model from the data store.
+	 * Checks if a model with the given id exists in the data store.
 	 *
 	 * @param string $id The model id.
-	 * @param string $class The model class name.
-	 * @param bool $create Whether to create a new model if not found.
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return bool True if the model is found in the data store.
+	 */
+	public function exists( string $id, string $class ): bool {
+		return isset( $this->data[ $class ][ $id ] )
+			|| isset( $this->changes[ $class ][ $id ] );
+	}
+
+	/**
+	 * Gets a model from the data store.
+	 *
+	 * @param int|string $id The model id.
+	 * @param ModelInterface|string $class The model class name.
+	 * @param bool $restore Whether to restore the model including all sub-model or not.
 	 *
 	 * @return ModelInterface|null A new or existing model of the given class.
 	 */
-	public function get( string $id, string $class, bool $create = false ): ?ModelInterface {
-		if ( $create || $this->exists( $id, $class ) ) {
+	public function get( $id, string $class, bool $restore = true ): ?ModelInterface {
+		if ( $this->exists( $id, $class ) ) {
 			$data = array_replace( $this->data[ $class ][ $id ] ?? [], $this->changes[ $class ][ $id ] ?? [] );
 			return new $class( $data );
 		}
@@ -71,62 +84,44 @@ class Store implements StoreInterface {
 	/**
 	 * Retrieves a collection of model from the data store.
 	 *
-	 * @param string[] $ids An array of model ids.
-	 * @param string $class The model class name.
-	 * @param bool $create Whether to create a new model if not found.
+	 * @param int[]|string[] $ids An array of model ids.
+	 * @param ModelInterface|string $class The model class name.
+	 * @param bool $restore Whether to restore the models including all sub-models or not.
 	 *
 	 * @return ModelInterface[] An array of new or existing models of the given class.
 	 */
-	public function collect( array $ids, string $class, bool $create = true ): array {
+	public function collect( array $ids, string $class, bool $restore = true ): array {
 		foreach ( $ids as $id ) {
-			$result[ $id ] = $this->get( $id, $class, $create );
+			$result[ $id ] = $this->get( $id, $class, $restore );
 		}
 		return array_filter( $result ?? [] );
 	}
 
 	/**
-	 * Checks if a model with the given id exists in the data store.
-	 *
-	 * @param string $id The model id.
-	 * @param string $class The model class name.
-	 *
-	 * @return bool True if the model is found in the data store.
-	 */
-	public function exists( string $id, string $class ): bool {
-		return isset( $this->data[ $class ][ $id ] )
-			|| isset( $this->changes[ $class ][ $id ] );
-	}
-
-	/* -------------------------------------------------------------------------
-	 * List and filter models.
-	 * ---------------------------------------------------------------------- */
-
-	/**
 	 * Gets a list of all models of the given class.
 	 *
-	 * @param string $class The model class name.
+	 * @param ModelInterface|string $class The model class name.
+	 * @param bool $restore Whether to restore the models including all sub-models or not.
 	 *
-	 * @return ModelInterface[] An assoc array of models keyed by the model ids.
+	 * @return ModelInterface[] An array of models.
 	 */
-	public function list( string $class ): array {
-		$result = array_map( [ $class, 'create' ], array_replace(
+	public function list( string $class, bool $restore = true ): array {
+		return array_map( [ $class, 'create' ], array_replace(
 			$this->data[ $class ] ?? [],
 			$this->changes[ $class ] ?? []
 		) );
-
-		/** @var ModelInterface $class */
-		return array_column( $result, null, $class::idProperty() );
 	}
 
 	/**
 	 * Gets a filtered list of models of the given class.
 	 *
-	 * @param string $class The model class name.
+	 * @param ModelInterface|string $class The model class name.
 	 * @param array $filter Properties (key/value pairs) to match the stored models.
+	 * @param bool $restore Whether to restore the models including all sub-models or not.
 	 *
-	 * @return ModelInterface[] An assoc array of models keyed by the model ids.
+	 * @return ModelInterface[] An array of models.
 	 */
-	public function filter( string $class, array $filter ): array {
+	public function filter( string $class, array $filter, bool $restore = true ): array {
 		$all = $this->list( $class );
 
 		if ( empty( $filter ) ) {
@@ -162,7 +157,7 @@ class Store implements StoreInterface {
 	 * Deletes a model from the data store.
 	 *
 	 * @param string $id The model id.
-	 * @param string $class The model class name.
+	 * @param ModelInterface|string $class The model class name.
 	 *
 	 * @return bool True if the model existed, false otherwise.
 	 */
@@ -173,6 +168,42 @@ class Store implements StoreInterface {
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Completely restores the given model including all sub-models.
+	 *
+	 * @param ModelInterface $model The model to restore.
+	 *
+	 * @return ModelInterface The completely restored model.
+	 */
+	public function restore( ModelInterface $model ): ModelInterface {
+		return $model;
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Data store handling
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Builds a data store if necessary.
+	 *
+	 * @param array $models The models to add to the data store.
+	 * @param array $options An assoc array of options.
+	 *
+	 * @return bool
+	 */
+	public function build( array $models, array $options = [] ): bool {
+		return true;
+	}
+
+	/**
+	 * Flushes model data to permanent storage if necessary.
+	 *
+	 * @return bool True if data changes exists and were saved, false otherwise.
+	 */
+	public function flush(): bool {
+		return $this->save();
 	}
 
 	/* -------------------------------------------------------------------------
@@ -219,14 +250,11 @@ class Store implements StoreInterface {
 	public function import( $source ): void {
 		if ( is_array( $source ) ) {
 			$data = $source;
-		}
-		elseif ( $source instanceof self ) {
+		} elseif ( $source instanceof self ) {
 			$data = $source->export();
-		}
-		elseif ( is_readable( $source ) ) {
+		} elseif ( is_readable( $source ) ) {
 			$data = $this->read( $source );
-		}
-		elseif ( is_string( $source ) ) {
+		} elseif ( is_string( $source ) ) {
 			if ( $result = json_decode( $source, true ) && JSON_ERROR_NONE == json_last_error() ) {
 				$data = $result;
 			}

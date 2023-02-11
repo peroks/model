@@ -14,28 +14,6 @@ interface StoreInterface {
 	 * ---------------------------------------------------------------------- */
 
 	/**
-	 * Gets a model from the data store.
-	 *
-	 * @param string $id The model id.
-	 * @param ModelInterface|string $class The model class name.
-	 * @param bool $create Whether to create a new model if not found.
-	 *
-	 * @return ModelInterface|null A new or existing model of the given class.
-	 */
-	public function get( string $id, string $class, bool $create = false ): ?ModelInterface;
-
-	/**
-	 * Retrieves a collection of model from the data store.
-	 *
-	 * @param string[] $ids An array of model ids.
-	 * @param ModelInterface|string $class The model class name.
-	 * @param bool $create Whether to create a new model if not found.
-	 *
-	 * @return ModelInterface[] An array of new or existing models of the given class.
-	 */
-	public function collect( array $ids, string $class, bool $create = true ): array;
-
-	/**
 	 * Checks if a model with the given id exists in the data store.
 	 *
 	 * @param string $id The model id.
@@ -45,28 +23,48 @@ interface StoreInterface {
 	 */
 	public function exists( string $id, string $class ): bool;
 
-	/* -------------------------------------------------------------------------
-	 * List and filter models.
-	 * ---------------------------------------------------------------------- */
+	/**
+	 * Gets a model from the data store.
+	 *
+	 * @param int|string $id The model id.
+	 * @param ModelInterface|string $class The model class name.
+	 * @param bool $restore Whether to restore the model including all sub-model or not.
+	 *
+	 * @return ModelInterface|null A new or existing model of the given class.
+	 */
+	public function get( $id, string $class, bool $restore = true ): ?ModelInterface;
+
+	/**
+	 * Retrieves a collection of model from the data store.
+	 *
+	 * @param int[]|string[] $ids An array of model ids.
+	 * @param ModelInterface|string $class The model class name.
+	 * @param bool $restore Whether to restore the models including all sub-models or not.
+	 *
+	 * @return ModelInterface[] An array of new or existing models of the given class.
+	 */
+	public function collect( array $ids, string $class, bool $restore = true ): array;
 
 	/**
 	 * Gets a list of all models of the given class.
 	 *
 	 * @param ModelInterface|string $class The model class name.
+	 * @param bool $restore Whether to restore the models including all sub-models or not.
 	 *
-	 * @return ModelInterface[] An assoc array of models keyed by the model ids.
+	 * @return ModelInterface[] An array of models.
 	 */
-	public function list( string $class ): array;
+	public function list( string $class, bool $restore = true ): array;
 
 	/**
 	 * Gets a filtered list of models of the given class.
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 * @param array $filter Properties (key/value pairs) to match the stored models.
+	 * @param bool $restore Whether to restore the models including all sub-models or not.
 	 *
-	 * @return ModelInterface[] An assoc array of models keyed by the model ids.
+	 * @return ModelInterface[] An array of models.
 	 */
-	public function filter( string $class, array $filter ): array;
+	public function filter( string $class, array $filter, bool $restore = true ): array;
 
 	/* -------------------------------------------------------------------------
 	 * Updating and deleting models
@@ -92,9 +90,32 @@ interface StoreInterface {
 	public function delete( string $id, string $class ): bool;
 
 	/**
-	 * Saves the updated data to a JSON file.
+	 * Completely restores the given model including all sub-models.
+	 *
+	 * @param ModelInterface $model The model to restore.
+	 *
+	 * @return ModelInterface The completely restored model.
+	 */
+	public function restore( ModelInterface $model ): ModelInterface;
+
+	/* -------------------------------------------------------------------------
+	 * Data store handling
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Builds a data store if necessary.
+	 *
+	 * @param array $models The models to add to the data store.
+	 * @param array $options An assoc array of options.
+	 *
+	 * @return bool
+	 */
+	public function build( array $models, array $options = [] ): bool;
+
+	/**
+	 * Flushes model data to permanent storage if necessary.
 	 *
 	 * @return bool True if data changes exists and were saved, false otherwise.
 	 */
-	public function save(): bool;
+	public function flush(): bool;
 }

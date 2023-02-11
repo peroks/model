@@ -106,7 +106,7 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Replaces the model data with given data.
 	 *
-	 * @param array|object|string $data The data to be inserted into the model.
+	 * @param array|object|string|null $data The data to be inserted into the model.
 	 *
 	 * @return static The updated model instance.
 	 */
@@ -176,7 +176,7 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Creates a new model with data from the given array or object.
 	 *
-	 * @param array|object|string $data The model data.
+	 * @param array|object|string|null $data The model data.
 	 *
 	 * @return static A model instance.
 	 */
@@ -242,21 +242,19 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @param string $id The property id.
 	 *
-	 * @return Property|null The property matching the id.
+	 * @return array|null The property array matching the id or null if not existing.
 	 */
-	public static function getProperty( string $id ): ?Property {
-		$property = static::properties()[ $id ] ?? null;
-		return $property ? new Property( $property ) : null;
+	public static function getProperty( string $id ): ?array {
+		return static::properties()[ $id ] ?? null;
 	}
 
 	/**
 	 * Adds a new or overrides an existing model property.
 	 *
-	 * @param Property $property A custom property.
+	 * @param Property|array $property A custom property.
 	 */
-	public static function setProperty( Property $property ): void {
-		$property->validate( true );
-		static::$properties[ $property->id() ] = $property->data( ModelData::COMPACT );
+	public static function setProperty( $property ): void {
+		static::$properties[ $property['id'] ] = $property;
 	}
 
 	/* -------------------------------------------------------------------------
@@ -286,6 +284,17 @@ class Model extends ArrayObject implements ModelInterface {
 	/* -------------------------------------------------------------------------
 	 * ArrayObject overrides
 	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Checks if a property exists and is not null.
+	 *
+	 * @param mixed $key The property id.
+	 *
+	 * @return bool True if the property exists and is not null.
+	 */
+	public function offsetExists( $key ): bool {
+		return parent::offsetExists( $key ) && $this->offsetGet( $key ) !== null;
+	}
 
 	/**
 	 * Assign a value to a model property.
@@ -438,8 +447,8 @@ class Model extends ArrayObject implements ModelInterface {
 					return new $model( $value );
 				}
 			} elseif ( PropertyType::ARRAY === $type && $value ) {
-				if ( is_string( $value ) && is_array( $list = json_decode( $value ) ) ) {
-					$value = $list;
+				if ( is_string( $value ) && is_array( $temp = json_decode( $value ) ) ) {
+					$value = $temp;
 				}
 				if ( is_array( $value ) || $value instanceof Traversable ) {
 					return array_map( function( $item ) use ( $model ) {
@@ -451,9 +460,20 @@ class Model extends ArrayObject implements ModelInterface {
 			if ( is_array( $value ) ) {
 				return (object) $value;
 			}
-		} elseif ( PropertyType::ARRAY === $type ) {
-			if ( is_string( $value ) && is_array( $list = json_decode( $value ) ) ) {
-				return $list;
+			if ( is_string( $value ) && is_object( $temp = json_decode( $value ) ) ) {
+				return $temp;
+			}
+		} elseif ( PropertyType::ARRAY === $type && $value ) {
+			if ( is_string( $value ) && is_array( $temp = json_decode( $value ) ) ) {
+				return $temp;
+			}
+		} elseif ( PropertyType::INTEGER === $type ) {
+			if ( is_string( $value ) && is_numeric( $value ) ) {
+				return (int) $value;
+			}
+		} elseif ( PropertyType::FLOAT === $type ) {
+			if ( is_string( $value ) && is_numeric( $value ) ) {
+				return (float) $value;
 			}
 		} elseif ( PropertyType::BOOL === $type ) {
 			if ( is_int( $value ) ) {

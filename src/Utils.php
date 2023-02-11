@@ -140,9 +140,9 @@ class Utils {
 	/**
 	 * @param ModelInterface|string $model
 	 *
-	 * @return Property|null
+	 * @return array|null
 	 */
-	public static function getModelPrimary( $model ): ?Property {
+	public static function getModelPrimary( $model ): ?array {
 		$primary = $model::idProperty();
 		return $primary ? $model::getProperty( $primary ) : null;
 	}

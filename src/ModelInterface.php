@@ -51,7 +51,7 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	public function patch( $data ): self;
 
 	/**
-	 * Replaces the model date with given data.
+	 * Replaces the model data with given data.
 	 *
 	 * @param array|object|string|null $data The data to be inserted into the model.
 	 *
@@ -107,14 +107,14 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	 *
 	 * @param string $id The property id.
 	 *
-	 * @return Property|null The property matching the id.
+	 * @return array|null The property array matching the id or null if not existing.
 	 */
-	public static function getProperty( string $id ): ?Property;
+	public static function getProperty( string $id ): ?array;
 
 	/**
 	 * Adds a new or overrides an existing model property.
 	 *
-	 * @param Property $property A custom property.
+	 * @param Property|array $property A custom property.
 	 */
-	public static function setProperty( Property $property ): void;
+	public static function setProperty( $property ): void;
 }
