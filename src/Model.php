@@ -19,6 +19,11 @@ class Model extends ArrayObject implements ModelInterface {
 	protected static array $properties = [];
 
 	/**
+	 * @var array An array of cached model properties.
+	 */
+	protected static array $models = [];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param array|object|string|null $data The model data.
@@ -215,17 +220,24 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return array[] An array of property definitions.
 	 */
 	public static function properties(): array {
+		$properties = static::$models[ static::class ] ?? null;
+
+		// Return cached properties.
+		if ( isset( $properties ) ) {
+			return $properties;
+		}
 
 		// Inherit parent properties.
 		if ( $parent = get_parent_class( static::class ) ) {
 			if ( is_a( $parent, ModelInterface::class, true ) ) {
 				if ( $properties = $parent::properties() ) {
-					return array_replace( $properties, static::$properties );
+					$properties = array_replace( $properties, static::$properties );
+					return static::$models[ static::class ] = $properties;
 				}
 			}
 		}
 
-		return static::$properties;
+		return static::$models[ static::class ] = static::$properties;
 	}
 
 	/**
