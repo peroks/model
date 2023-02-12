@@ -14,6 +14,11 @@ use Traversable;
 class Model extends ArrayObject implements ModelInterface {
 
 	/**
+	 * @var string The model's id property.
+	 */
+	protected static string $idProperty = '';
+
+	/**
 	 * @var array An array of model properties.
 	 */
 	protected static array $properties = [];
@@ -40,10 +45,10 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Gets the model's id value.
 	 *
-	 * @return int|string The model id.
+	 * @return int|string|null The model id or null.
 	 */
 	public function id() {
-		return $this[ static::idProperty() ] ?? '';
+		return $this[ static::idProperty() ] ?? null;
 	}
 
 	/**
@@ -222,7 +227,7 @@ class Model extends ArrayObject implements ModelInterface {
 	public static function properties(): array {
 		$properties = static::$models[ static::class ] ?? null;
 
-		// Return cached properties.
+		// Return cached properties if available.
 		if ( isset( $properties ) ) {
 			return $properties;
 		}
@@ -230,14 +235,11 @@ class Model extends ArrayObject implements ModelInterface {
 		// Inherit parent properties.
 		if ( $parent = get_parent_class( static::class ) ) {
 			if ( is_a( $parent, ModelInterface::class, true ) ) {
-				if ( $properties = $parent::properties() ) {
-					$properties = array_replace( $properties, static::$properties );
-					return static::$models[ static::class ] = $properties;
-				}
+				$properties = static::$properties + $parent::properties();
 			}
 		}
 
-		return static::$models[ static::class ] = static::$properties;
+		return static::$models[ static::class ] = $properties ?? static::$properties;
 	}
 
 	/**
@@ -246,7 +248,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return string The model's id property.
 	 */
 	public static function idProperty(): string {
-		return 'id';
+		return static::$idProperty;
 	}
 
 	/**
@@ -257,7 +259,10 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return array|null The property array matching the id or null if not existing.
 	 */
 	public static function getProperty( string $id ): ?array {
-		return static::properties()[ $id ] ?? null;
+		if ( $id ) {
+			return static::properties()[ $id ] ?? null;
+		}
+		return null;
 	}
 
 	/**
@@ -267,6 +272,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 */
 	public static function setProperty( $property ): void {
 		static::$properties[ $property['id'] ] = $property;
+		unset( static::$models[ static::class ] );
 	}
 
 	/* -------------------------------------------------------------------------

@@ -138,16 +138,6 @@ class Utils {
 	}
 
 	/**
-	 * @param ModelInterface|string $model
-	 *
-	 * @return array|null
-	 */
-	public static function getModelPrimary( $model ): ?array {
-		$primary = $model::idProperty();
-		return $primary ? $model::getProperty( $primary ) : null;
-	}
-
-	/**
 	 * Checks if a model property corresponds to a relation table.
 	 *
 	 * @param Property|array $property The property.
@@ -159,7 +149,7 @@ class Utils {
 		$model = $property[ PropertyItem::MODEL ] ?? null;
 
 		if ( PropertyType::ARRAY === $type ) {
-			if ( static::isModel( $model ) && static::getModelPrimary( $model ) ) {
+			if ( static::isModel( $model ) && $model::idProperty() ) {
 				return true;
 			}
 		}
@@ -200,7 +190,7 @@ class Utils {
 		$model   = $property[ PropertyItem::MODEL ] ?? null;
 		$foreign = $property[ PropertyItem::FOREIGN ] ?? $model;
 
-		if ( static::isModel( $foreign ) && static::getModelPrimary( $foreign ) ) {
+		if ( static::isModel( $foreign ) && $foreign::idProperty() ) {
 			$type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
 			return PropertyType::ARRAY !== $type;
 		}

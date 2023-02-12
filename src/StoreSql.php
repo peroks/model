@@ -196,7 +196,7 @@ class StoreSql implements StoreInterface {
 				$value = &$model[ $id ];
 
 				if ( Utils::isColumn( $property ) ) {
-					if ( isset( $value ) && Utils::getModelPrimary( $child ) ) {
+					if ( isset( $value ) && $child::idProperty() ) {
 						$value = $this->get( $value, $child );
 					}
 				} elseif ( Utils::isRelation( $property ) ) {
@@ -665,7 +665,7 @@ class StoreSql implements StoreInterface {
 
 				// Replace sub-models with foreign keys.
 				if ( PropertyType::OBJECT === $type && Utils::isModel( $child ) ) {
-					if ( $primary = Utils::getModelPrimary( $child ) ) {
+					if ( $primary = $child::getProperty( $child::idProperty() ) ) {
 						$result[ $id ]['type'] = $this->getColumnType( $primary );
 					}
 				}
@@ -1098,8 +1098,8 @@ class StoreSql implements StoreInterface {
 			return true;
 		}
 
-		$modelPrimary = Utils::getModelPrimary( $class );
-		$childPrimary = Utils::getModelPrimary( $child );
+		$modelPrimary = $class::getProperty( $class::idProperty() );
+		$childPrimary = $child::getProperty( $child::idProperty() );
 
 		// A valid primary key is required for both sides of the relation table.
 		if ( empty( $modelPrimary ) || empty( $childPrimary ) ) {
@@ -1174,11 +1174,9 @@ class StoreSql implements StoreInterface {
 		$left  = current( array_reverse( explode( '\\', get_class( $model ) ) ) );
 		$right = current( array_reverse( explode( '\\', $child ) ) );
 		$table = $this->getTableName( get_class( $model ) . '\\' . $right );
-		$list  = array_column( $list, null, $child::idProperty() );
 
-		foreach ( $list as $item ) {
-			$this->set( $item );
-		}
+		$list = array_map( [ $this, 'set' ], $list );
+		$list = array_column( $list, null, $child::idProperty() );
 
 		$select   = $this->selectRelationStatement( $table, $left );
 		$existing = $this->select( $select, [ $model->id() ] );
@@ -1210,6 +1208,21 @@ class StoreSql implements StoreInterface {
 	 * ---------------------------------------------------------------------- */
 
 	/**
+	 * Gets a prepared select statement for the given relation table.
+	 *
+	 * @param string $table A relation table name.
+	 *
+	 * @return PDOStatement
+	 */
+	protected function selectRelationStatement( string $table, string $left ): object {
+		if ( empty( $this->queries[ $table ]['select'] ) ) {
+			$query = sprintf( 'SELECT * FROM %s WHERE %s = ?', $this->name( $table ), $this->name( $left ) );;
+			$this->queries[ $table ]['select'] = $this->prepare( $query );
+		}
+		return $this->queries[ $table ]['select'];
+	}
+
+	/**
 	 * Gets a prepared insert statement for the given relation table.
 	 *
 	 * @param string $table A relation table name.
@@ -1218,8 +1231,7 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function insertRelationStatement( string $table ): object {
 		if ( empty( $this->queries[ $table ]['insert'] ) ) {
-			$name  = $this->name( $table );
-			$query = "INSERT INTO {$name} VALUES (?, ?)";;
+			$query = sprintf( 'INSERT INTO %s VALUES (?, ?)', $this->name( $table ) );;
 			$this->queries[ $table ]['insert'] = $this->prepare( $query );
 		}
 		return $this->queries[ $table ]['insert'];
@@ -1234,27 +1246,10 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function deleteRelationStatement( string $table, string $left ): object {
 		if ( empty( $this->queries[ $table ]['delete'] ) ) {
-			$name  = $this->name( $table );
-			$query = "DELETE FROM {$name} WHERE {$left} = ?";;
+			$query = sprintf( 'DELETE FROM %s WHERE %s = ?', $this->name( $table ), $this->name( $left ) );;
 			$this->queries[ $table ]['delete'] = $this->prepare( $query );
 		}
 		return $this->queries[ $table ]['delete'];
-	}
-
-	/**
-	 * Gets a prepared select statement for the given relation table.
-	 *
-	 * @param string $table A relation table name.
-	 *
-	 * @return PDOStatement
-	 */
-	protected function selectRelationStatement( string $table, string $left ): object {
-		if ( empty( $this->queries[ $table ]['select'] ) ) {
-			$name  = $this->name( $table );
-			$query = "SELECT * FROM {$name} WHERE {$left} = ?";;
-			$this->queries[ $table ]['select'] = $this->prepare( $query );
-		}
-		return $this->queries[ $table ]['select'];
 	}
 
 	/**
@@ -1449,12 +1444,8 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function selectFilterStatement( string $class, array $filter ): ?object {
 		$table = $this->getTableName( $class );
-
-		if ( empty( $this->queries[ $table ]['filter'] ) ) {
-			$query = $this->selectFilterQuery( $table, $filter );;
-			$this->queries[ $table ]['filter'] = $this->prepare( $query );
-		}
-		return $this->queries[ $table ]['filter'] ?? null;
+		$query = $this->selectFilterQuery( $table, $filter );
+		return $this->prepare( $query );
 	}
 
 	/**
@@ -1618,7 +1609,7 @@ class StoreSql implements StoreInterface {
 		// Transform objects.
 		if ( PropertyType::OBJECT === $type ) {
 			if ( Utils::isModel( $child ) ) {
-				if ( Utils::getModelPrimary( $child ) ) {
+				if ( $child::idProperty() ) {
 					return $this->set( $value )->id();
 				}
 				return Utils::encode( $value->data( ModelData::COMPACT ) );
@@ -1665,7 +1656,7 @@ class StoreSql implements StoreInterface {
 				$foreign = $property[ PropertyItem::FOREIGN ] ?? null;
 				$model   = $property[ PropertyItem::MODEL ] ?? $foreign;
 
-				if ( Utils::isModel( $model ) && Utils::getModelPrimary( $model ) ) {
+				if ( Utils::isModel( $model ) && $model::idProperty() ) {
 					if ( empty( in_array( $model, $result, true ) ) ) {
 						$result[] = $model;
 						$this->getAllModels( [ $model ], $result );
@@ -1692,7 +1683,7 @@ class StoreSql implements StoreInterface {
 			$foreign = $property[ PropertyItem::FOREIGN ] ?? null;
 			$model   = $property[ PropertyItem::MODEL ] ?? $foreign;
 
-			if ( Utils::isModel( $model ) && Utils::getModelPrimary( $model ) ) {
+			if ( Utils::isModel( $model ) && $model::idProperty() ) {
 				if ( empty( in_array( $model, $result, true ) ) ) {
 					$result = array_merge( $result, $this->getSubModels( $model ) );
 				}

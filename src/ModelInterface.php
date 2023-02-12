@@ -18,7 +18,7 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	/**
 	 * Gets the model's id value.
 	 *
-	 * @return int|string The model id.
+	 * @return int|string|null The model id or null.
 	 */
 	public function id();
 
