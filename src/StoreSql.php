@@ -64,12 +64,12 @@ class StoreSql implements StoreInterface {
 	 * @return ModelInterface|null A new or existing model of the given class.
 	 */
 	public function get( $id, string $class, bool $restore = true ): ?ModelInterface {
-		$query  = $this->selectRowStatement( $class );
-		$result = $this->select( $query, [ $id ] );
-		$result = array_map( fn( $row ) => new $class( $row ), $result );
+		$query = $this->selectRowStatement( $class );
+		$rows  = $this->select( $query, [ $id ] );
 
-		if ( $result ) {
-			return $restore ? $this->restore( $result[0] ) : $result[0];
+		if ( $rows ) {
+			$model = new $class( $rows[0] );
+			return $restore ? $this->restore( $model ) : $model;
 		}
 
 		return null;
@@ -85,15 +85,17 @@ class StoreSql implements StoreInterface {
 	 * @return ModelInterface[] An array of new or existing models of the given class.
 	 */
 	public function collect( array $ids, string $class, bool $restore = true ): array {
-		$query  = $this->collectRowsStatement( $class, count( $ids ) );
-		$result = $this->select( $query, array_values( $ids ) );
-		$result = array_map( fn( $row ) => new $class( $row ), $result );
+		$query = $this->collectRowsStatement( $class, count( $ids ) );
+		$rows  = $this->select( $query, array_values( $ids ) );
+
+		// Convert table rows to models.
+		array_walk( $rows, fn( &$row ) => $row = new $class( $row ) );
 
 		if ( $restore ) {
-			array_walk( $result, [ $this, 'restore' ] );
+			array_walk( $rows, [ $this, 'restore' ] );
 		}
 
-		return $result;
+		return $rows;
 	}
 
 	/**
@@ -105,15 +107,17 @@ class StoreSql implements StoreInterface {
 	 * @return ModelInterface[] An array of models.
 	 */
 	public function list( string $class, bool $restore = true ): array {
-		$query  = $this->selectListStatement( $class );
-		$result = $this->select( $query );
-		$result = array_map( fn( $row ) => new $class( $row ), $result );
+		$query = $this->selectListStatement( $class );
+		$rows  = $this->select( $query );
+
+		// Convert table rows to models.
+		array_walk( $rows, fn( &$row ) => $row = new $class( $row ) );
 
 		if ( $restore ) {
-			array_walk( $result, [ $this, 'restore' ] );
+			array_walk( $rows, [ $this, 'restore' ] );
 		}
 
-		return $result;
+		return $rows;
 	}
 
 	/**
@@ -126,15 +130,17 @@ class StoreSql implements StoreInterface {
 	 * @return ModelInterface[] An array of models.
 	 */
 	public function filter( string $class, array $filter, bool $restore = true ): array {
-		$query  = $this->selectFilterStatement( $class, $filter );
-		$result = $this->select( $query, $filter );
-		$result = array_map( fn( $row ) => new $class( $row ), $result );
+		$query = $this->selectFilterStatement( $class, $filter );
+		$rows  = $this->select( $query, $filter );
+
+		// Convert table rows to models.
+		array_walk( $rows, fn( &$row ) => $row = new $class( $row ) );
 
 		if ( $restore ) {
-			array_walk( $result, [ $this, 'restore' ] );
+			array_walk( $rows, [ $this, 'restore' ] );
 		}
 
-		return $result;
+		return $rows;
 	}
 
 	/* -------------------------------------------------------------------------
