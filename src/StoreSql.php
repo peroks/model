@@ -195,19 +195,18 @@ class StoreSql implements StoreInterface {
 	 * @return ModelInterface The completely restored model.
 	 */
 	public function restore( ModelInterface $model ): ModelInterface {
-		foreach ( $model::properties() as $id => $property ) {
-			if ( $child = $property[ PropertyItem::MODEL ] ?? null ) {
-				$value = &$model[ $id ];
+		$properties = static::getForeignProperties( $model::properties() );
 
-				if ( Utils::isColumn( $property ) ) {
-					if ( isset( $value ) && $child::idProperty() ) {
-						$value = $this->get( $value, $child );
-					}
-				} elseif ( Utils::isRelation( $property ) ) {
-					$select = $this->selectChildrenStatement( get_class( $model ), $child );
-					$result = $this->select( $select, (array) $model->id() );
-					$value  = array_map( fn( $row ) => $this->restore( new $child( $row ) ), $result );
-				}
+		foreach ( $properties as $id => $property ) {
+			$child = $property[ PropertyItem::MODEL ];
+			$value = &$model[ $id ];
+
+			if ( PropertyType::ARRAY === $property[ PropertyItem::TYPE ] ) {
+				$select = $this->selectChildrenStatement( get_class( $model ), $child );
+				$rows   = $this->select( $select, (array) $model->id() );
+				$value  = array_map( fn( $row ) => $this->restore( new $child( $row ) ), $rows );
+			} elseif ( $value ) {
+				$value = $this->get( $value, $child );
 			}
 		}
 
@@ -1694,5 +1693,19 @@ class StoreSql implements StoreInterface {
 		}
 
 		return $result;
+	}
+
+	protected static function getForeignProperties( array $properties ): array {
+		return array_filter( $properties, function( array $property ): bool {
+			$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
+			$model = $property[ PropertyItem::MODEL ] ?? null;
+
+			if ( PropertyType::OBJECT === $type || PropertyType::ARRAY === $type ) {
+				if ( Utils::isModel( $model ) && $model::idProperty() ) {
+					return true;
+				}
+			}
+			return false;
+		} );
 	}
 }

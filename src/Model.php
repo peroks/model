@@ -462,6 +462,9 @@ class Model extends ArrayObject implements ModelInterface {
 		if ( $model = $property[ PropertyItem::MODEL ] ?? null ) {
 			if ( PropertyType::OBJECT === $type ) {
 				if ( isset( $value ) && empty( $value instanceof $model ) ) {
+					if ( is_string( $value ) && is_array( $temp = json_decode( $value, true ) ) ) {
+						return new $model( $temp );
+					}
 					return new $model( $value );
 				}
 			} elseif ( PropertyType::ARRAY === $type && $value ) {
@@ -651,7 +654,7 @@ class Model extends ArrayObject implements ModelInterface {
 		} // Check all other types.
 		elseif ( $type !== gettype( $value ) ) {
 			$name  = $property[ PropertyItem::NAME ];
-			$error = sprintf( '%s must be of type %s, found %s in %s', $name, $type, $value, static::class );
+			$error = sprintf( '%s must be of type %s, found %s in %s', $name, $type, var_export( $value, true ), static::class );
 			throw new ModelException( $error, 400 );
 		}
 	}
