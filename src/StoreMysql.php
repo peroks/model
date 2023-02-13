@@ -1,6 +1,6 @@
 <?php namespace Peroks\Model;
 
-use PDO, PDOException, PDOStatement;
+use mysqli, mysqli_sql_exception;
 
 /**
  * Class for storing and retrieving models from a SQL database.
@@ -9,10 +9,10 @@ use PDO, PDOException, PDOStatement;
  * @copyright Per Egil Roksvaag
  * @license MIT
  */
-class StoreSql implements StoreInterface {
+class StoreMysql implements StoreInterface {
 
 	/**
-	 * @var PDO|object $db The database object.
+	 * @var object $db The database object.
 	 */
 	protected object $db;
 
@@ -140,6 +140,37 @@ class StoreSql implements StoreInterface {
 			array_walk( $rows, [ $this, 'restore' ] );
 		}
 
+		$properties = static::getForeignProperties( $class::properties() );
+		$queries    = [];
+		$values     = [];
+
+		foreach ( $this->select( $query, $filter ) as &$row ) {
+			$model = $row = new $class( $row );
+
+			foreach ( $properties as $id => $property ) {
+				$child = $property[ PropertyItem::MODEL ];
+				$value = &$model[ $id ];
+
+				if ( PropertyType::ARRAY === $property[ PropertyItem::TYPE ] ) {
+					//	$select = $this->selectChildrenStatement( get_class( $model ), $child );
+					//	$rows   = $this->select( $select, (array) $model->id() );
+					//	$value  = array_map( fn( $row ) => $this->restore( new $child( $row ) ), $rows );
+				} elseif ( $value ) {
+					$queries[] = vsprintf( 'SELECT * FROM %s WHERE %s = %s', [
+						$this->name( $child ),
+						$this->name( $child::idProperty() ),
+						$this->quote( $value ),
+					] );
+					$values[]  = $value;
+				}
+			}
+		}
+
+		if ( $queries ) {
+			$query = join( ";\n", $queries );
+			//	$x     = $this->query( $query );
+		}
+
 		return $rows;
 	}
 
@@ -157,14 +188,14 @@ class StoreSql implements StoreInterface {
 	public function set( ModelInterface $model ): ModelInterface {
 		$model->validate( true );
 
-		$class = get_class( $model );
-		$query = $this->exists( $model->id(), $class )
+		$class    = get_class( $model );
+		$prepared = $this->exists( $model->id(), $class )
 			? $this->updateRowStatement( $class )
 			: $this->insertRowStatement( $class );
 
 		$values    = $this->getModelValues( $model );
 		$relations = $this->getModelRelations( $model );
-		$rows      = $this->update( $query, $values );
+		$rows      = $this->update( $prepared, $values );
 
 		foreach ( $relations as $child => $list ) {
 			$this->updateRelation( $model, $child, $list );
@@ -251,28 +282,22 @@ class StoreSql implements StoreInterface {
 	 * @return bool True on success, null on failure to create a connection.
 	 */
 	protected function connect( object $connect ): bool {
-		$args = [
-			PDO::ATTR_ERRMODE          => PDO::ERRMODE_EXCEPTION,
-			PDO::ATTR_PERSISTENT       => true,
-			PDO::ATTR_EMULATE_PREPARES => false,
-		];
 
 		// Delete database.
+		mysqli_report( MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT );
+		$db = new mysqli( $connect->host, $connect->user, $connect->pass );
+		$db->set_charset( 'utf8mb4' );
+
 		if ( false ) {
-			$dsn = "mysql:charset=utf8mb4;host={$connect->host}";
-			$db  = new PDO( $dsn, $connect->user, $connect->pass, $args );
-			$db->exec( $this->dropDatabaseQuery( $connect->name ) );
+			$db->real_query( $this->dropDatabaseQuery( $connect->name ) );
 		}
 
 		try {
-			$dsn = "mysql:charset=utf8mb4;host={$connect->host};dbname={$connect->name}";
-			$db  = new PDO( $dsn, $connect->user, $connect->pass, $args );
-		} catch ( PDOException $e ) {
-			$dsn = "mysql:charset=utf8mb4;host={$connect->host}";
-			$db  = new PDO( $dsn, $connect->user, $connect->pass, $args );
-
-			$db->exec( $this->createDatabaseQuery( $connect->name ) );
-			$db->exec( "USE {$connect->name}" );
+			$db->select_db( $connect->name );
+		} catch ( mysqli_sql_exception $e ) {
+			$db = new mysqli( $connect->host, $connect->user, $connect->pass );
+			$db->real_query( $this->createDatabaseQuery( $connect->name ) );
+			$db->select_db( $connect->name );
 		}
 
 		$this->db = $db;
@@ -287,7 +312,7 @@ class StoreSql implements StoreInterface {
 	 * @return int
 	 */
 	protected function exec( string $query ): int {
-		return $this->db->exec( $query );
+		return $this->db->real_query( $query );
 	}
 
 	/**
@@ -300,7 +325,7 @@ class StoreSql implements StoreInterface {
 	protected function query( string $query, array $params = [] ): array {
 		$prepared = $this->db->prepare( $query );
 		$prepared->execute( $params );
-		return $prepared->fetchAll( PDO::FETCH_ASSOC );
+		return $prepared->get_result()->fetch_all( MYSQLI_ASSOC );
 	}
 
 	/**
@@ -308,28 +333,35 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param string $query A valid sql statement template.
 	 *
-	 * @return PDOStatement|object
+	 * @return object
 	 */
 	protected function prepare( string $query ): object {
-		return $this->db->prepare( $query );
+		$params = static::stripQueryParams( $query );
+
+		return (object) [
+			'query'  => $this->db->prepare( $query ),
+			'params' => $params,
+		];
 	}
 
 	protected function select( object $prepared, array $params = [] ): array {
-		$prepared->execute( $params );
-		return $prepared->fetchAll( PDO::FETCH_ASSOC );
+		static::bindParams( $prepared, $params );
+		$prepared->query->execute();
+		return $prepared->query->get_result()->fetch_all( MYSQLI_ASSOC );
 	}
 
 	/**
 	 * Inserts, updates or deletes a row.
 	 *
-	 * @param PDOStatement|object $prepared A prepared update query.
+	 * @param object $prepared A prepared update query.
 	 * @param array $params An array of values for the prepared sql statement being executed.
 	 *
 	 * @return int The number of updated rows.
 	 */
 	protected function update( object $prepared, array $params = [] ): int {
-		$prepared->execute( $params );
-		return $prepared->rowCount();
+		static::bindParams( $prepared, $params );
+		$prepared->query->execute();
+		return $prepared->query->affected_rows;
 	}
 
 	/**
@@ -351,7 +383,7 @@ class StoreSql implements StoreInterface {
 	 * @return string The quoted string.
 	 */
 	protected function quote( string $value ): string {
-		return $this->db->quote( $value );
+		return $this->db->real_escape_string( $value );
 	}
 
 	/* -------------------------------------------------------------------------
@@ -1215,7 +1247,7 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param string $table A relation table name.
 	 *
-	 * @return PDOStatement
+	 * @return object
 	 */
 	protected function selectRelationStatement( string $table, string $left ): object {
 		if ( empty( $this->queries[ $table ]['select'] ) ) {
@@ -1230,7 +1262,7 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param string $table A relation table name.
 	 *
-	 * @return PDOStatement
+	 * @return object
 	 */
 	protected function insertRelationStatement( string $table ): object {
 		if ( empty( $this->queries[ $table ]['insert'] ) ) {
@@ -1245,7 +1277,7 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param string $table A relation table name.
 	 *
-	 * @return PDOStatement
+	 * @return object
 	 */
 	protected function deleteRelationStatement( string $table, string $left ): object {
 		if ( empty( $this->queries[ $table ]['delete'] ) ) {
@@ -1261,7 +1293,7 @@ class StoreSql implements StoreInterface {
 	 * @param ModelInterface|string $class A relation table name.
 	 * @param ModelInterface|string $child A relation table name.
 	 *
-	 * @return PDOStatement
+	 * @return object
 	 */
 	protected function selectChildrenStatement( string $class, string $child ): object {
 		$left  = current( array_reverse( explode( '\\', $class ) ) );
@@ -1311,7 +1343,7 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return PDOStatement|null
+	 * @return object|null
 	 */
 	protected function existsRowStatement( string $class ): ?object {
 		$table = $this->getTableName( $class );
@@ -1343,7 +1375,7 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return PDOStatement|null
+	 * @return object|null
 	 */
 	protected function selectRowStatement( string $class ): ?object {
 		$table = $this->getTableName( $class );
@@ -1378,7 +1410,7 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return PDOStatement|null
+	 * @return object|null
 	 */
 	protected function collectRowsStatement( string $class, int $count ): ?object {
 		$table   = $this->getTableName( $class );
@@ -1405,7 +1437,7 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return PDOStatement|null
+	 * @return object|null
 	 */
 	protected function selectListStatement( string $class ): ?object {
 		$table = $this->getTableName( $class );
@@ -1442,7 +1474,7 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return PDOStatement|null
+	 * @return object|null
 	 */
 	protected function selectFilterStatement( string $class, array $filter ): ?object {
 		$table = $this->getTableName( $class );
@@ -1481,7 +1513,7 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return PDOStatement
+	 * @return object
 	 */
 	protected function insertRowStatement( string $class ): object {
 		$table = $this->getTableName( $class );
@@ -1525,7 +1557,7 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return PDOStatement
+	 * @return object
 	 */
 	protected function updateRowStatement( string $class ): object {
 		$table = $this->getTableName( $class );
@@ -1560,7 +1592,7 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return PDOStatement
+	 * @return object
 	 */
 	protected function deleteRowStatement( string $class ): object {
 		$table = $this->getTableName( $class );
@@ -1707,5 +1739,43 @@ class StoreSql implements StoreInterface {
 			}
 			return false;
 		} );
+	}
+
+	protected static function stripQueryParams( string &$query ): array {
+		$pattern = '/:(\\w+)/';
+		$search  = [];
+		$params  = [];
+
+		if ( preg_match_all( $pattern, $query, $matches, PREG_SET_ORDER ) ) {
+			foreach ( $matches as $match ) {
+				$search[] = $match[0];
+				$params[] = $match[1];
+			}
+		}
+
+		$query = str_replace( $search, '?', $query );
+		return $params;
+	}
+
+	protected static function bindParams( object $prepared, array $params ): void {
+		if ( $params ) {
+			$params = array_merge( array_flip( $prepared->params ), $params );
+			$params = array_values( $params );
+			$types  = '';
+
+			foreach ( $params as $value ) {
+				if ( is_string( $value ) ) {
+					$types .= 's';
+				} elseif ( is_int( $value ) ) {
+					$types .= 'i';
+				} elseif ( is_float( $value ) ) {
+					$types .= 'd';
+				} else {
+					$types .= 'b';
+				}
+			}
+
+			$prepared->query->bind_param( $types, ...$params );
+		}
 	}
 }

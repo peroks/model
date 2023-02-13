@@ -463,9 +463,11 @@ class Model extends ArrayObject implements ModelInterface {
 			if ( PropertyType::OBJECT === $type ) {
 				if ( isset( $value ) && empty( $value instanceof $model ) ) {
 					if ( is_string( $value ) && is_array( $temp = json_decode( $value, true ) ) ) {
-						return new $model( $temp );
+						$value = $temp;
 					}
-					return new $model( $value );
+					if ( is_array( $value ) || is_object( $value ) ) {
+						return new $model( $value );
+					}
 				}
 			} elseif ( PropertyType::ARRAY === $type && $value ) {
 				if ( is_string( $value ) && is_array( $temp = json_decode( $value ) ) ) {
