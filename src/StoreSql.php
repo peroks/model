@@ -157,16 +157,14 @@ class StoreSql implements StoreInterface {
 	public function set( ModelInterface $model ): ModelInterface {
 		$model->validate( true );
 
+		$class = get_class( $model );
+		$query = $this->exists( $model->id(), $class )
+			? $this->updateRowStatement( $class )
+			: $this->insertRowStatement( $class );
+
 		$values    = $this->getModelValues( $model );
 		$relations = $this->getModelRelations( $model );
-
-		try {
-			$query = $this->insertRowStatement( get_class( $model ) );
-			$rows  = $this->update( $query, $values );
-		} catch ( PDOException $e ) {
-			$query = $this->updateRowStatement( get_class( $model ) );
-			$rows  = $this->update( $query, $values );
-		}
+		$rows      = $this->update( $query, $values );
 
 		foreach ( $relations as $child => $list ) {
 			$this->updateRelation( $model, $child, $list );
@@ -185,7 +183,7 @@ class StoreSql implements StoreInterface {
 	 */
 	public function delete( string $id, string $class ): bool {
 		$query  = $this->deleteRowStatement( $class );
-		$result = $this->select( $query, [ $id ] );
+		$result = $this->update( $query, [ $id ] );
 		return (bool) $result;
 	}
 
@@ -1303,10 +1301,10 @@ class StoreSql implements StoreInterface {
 	 * @return string
 	 */
 	protected function existsRowQuery( string $table, string $primary ): string {
-		$table   = $this->name( $table );
-		$primary = $this->name( $primary );
-
-		return "SELECT {$primary} FROM {$table} WHERE {$primary} = ?";
+		return vsprintf( 'SELECT %1$s FROM %2$s WHERE %1$s = ?', [
+			$this->name( $primary ),
+			$this->name( $table ),
+		] );
 	}
 
 	/**
@@ -1320,8 +1318,7 @@ class StoreSql implements StoreInterface {
 		$table = $this->getTableName( $class );
 
 		if ( empty( $this->queries[ $table ]['exists'] ) ) {
-			$primary = $class::idProperty();
-			$query   = $this->existsRowQuery( $table, $primary );;
+			$query = $this->existsRowQuery( $table, $class::idProperty() );;
 			$this->queries[ $table ]['exists'] = $this->prepare( $query );
 		}
 		return $this->queries[ $table ]['exists'];
