@@ -298,9 +298,8 @@ class StoreSql implements StoreInterface {
 	 * @return array[] The query result.
 	 */
 	protected function query( string $query, array $params = [] ): array {
-		$prepared = $this->db->prepare( $query );
-		$prepared->execute( $params );
-		return $prepared->fetchAll( PDO::FETCH_ASSOC );
+		$prepared = $this->prepare( $query );
+		return $this->select( $prepared, $params );
 	}
 
 	/**
