@@ -161,17 +161,15 @@ class StoreMysql extends StoreSql implements StoreInterface {
 
 	protected static function stripQueryParams( string &$query ): array {
 		$pattern = '/:(\\w+)/';
-		$search  = [];
 		$params  = [];
 
 		if ( preg_match_all( $pattern, $query, $matches, PREG_SET_ORDER ) ) {
 			foreach ( $matches as $match ) {
-				$search[] = $match[0];
 				$params[] = $match[1];
 			}
 		}
 
-		$query = str_replace( $search, '?', $query );
+		$query = preg_replace( $pattern, '?', $query );
 		return $params;
 	}
 
