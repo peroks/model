@@ -90,10 +90,7 @@ class StoreSql implements StoreInterface {
 
 		// Convert table rows to models.
 		array_walk( $rows, fn( &$row ) => $row = new $class( $row ) );
-
-		if ( $restore ) {
-			array_walk( $rows, [ $this, 'restore' ] );
-		}
+		$restore && static::restoreCollection( $class, $rows );
 
 		return $rows;
 	}
@@ -112,10 +109,7 @@ class StoreSql implements StoreInterface {
 
 		// Convert table rows to models.
 		array_walk( $rows, fn( &$row ) => $row = new $class( $row ) );
-
-		if ( $restore ) {
-			array_walk( $rows, [ $this, 'restore' ] );
-		}
+		$restore && static::restoreCollection( $class, $rows );
 
 		return $rows;
 	}
@@ -135,10 +129,7 @@ class StoreSql implements StoreInterface {
 
 		// Convert table rows to models.
 		array_walk( $rows, fn( &$row ) => $row = new $class( $row ) );
-
-		if ( $restore ) {
-			array_walk( $rows, [ $this, 'restore' ] );
-		}
+		$restore && static::restoreCollection( $class, $rows );
 
 		return $rows;
 	}
@@ -198,19 +189,21 @@ class StoreSql implements StoreInterface {
 		$properties = static::getForeignProperties( $model::properties() );
 
 		foreach ( $properties as $id => $property ) {
+			$type  = $property[ PropertyItem::TYPE ];
 			$child = $property[ PropertyItem::MODEL ];
 			$value = &$model[ $id ];
 
-			if ( PropertyType::ARRAY === $property[ PropertyItem::TYPE ] ) {
+			if ( PropertyType::ARRAY === $type ) {
 				$select = $this->selectChildrenStatement( get_class( $model ), $child );
 				$rows   = $this->select( $select, (array) $model->id() );
-				$value  = array_map( fn( $row ) => $this->restore( new $child( $row ) ), $rows );
-			} elseif ( $value ) {
+				$value  = array_map( [ $child, 'create' ], $rows );
+				static::restoreCollection( $child, $value );
+			} elseif ( PropertyType::OBJECT === $type && isset( $value ) ) {
 				$value = $this->get( $value, $child );
 			}
 		}
 
-		return $model->validate( true );
+		return $model;
 	}
 
 	/* -------------------------------------------------------------------------
@@ -1254,6 +1247,27 @@ class StoreSql implements StoreInterface {
 		return $this->queries[ $table ]['delete'];
 	}
 
+	protected function selectChildrenQuery( string $class, string $child, $value ): string {
+		$left  = current( array_reverse( explode( '\\', $class ) ) );
+		$right = current( array_reverse( explode( '\\', $child ) ) );
+		$table = $this->getTableName( $class . '\\' . $right );
+
+		$name    = $this->name( $table );
+		$source  = $this->name( $this->getTableName( $child ) );
+		$primary = $this->name( $child::idProperty() );
+		$left    = $this->name( $left );
+		$right   = $this->name( $right );
+		$value   = $this->quote( $value );
+
+		$sql[] = "SELECT C.*";
+		$sql[] = "FROM   {$name} as R";
+		$sql[] = "JOIN   {$source} as C";
+		$sql[] = "ON     R.{$right} = C.{$primary}";
+		$sql[] = "WHERE  R.{$left} = {$value}";
+
+		return join( ' ', $sql );
+	}
+
 	/**
 	 * Gets a prepared select statement for the given relation table.
 	 *
@@ -1706,5 +1720,15 @@ class StoreSql implements StoreInterface {
 			}
 			return false;
 		} );
+	}
+
+	/**
+	 * Completely restores an array of models including all sub-models.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 * @param ModelInterface[] $collection An array of models of the given class.
+	 */
+	protected function restoreCollection( string $class, array $collection ): void {
+		array_walk( $collection, [ $this, 'restore' ] );
 	}
 }

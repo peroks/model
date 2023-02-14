@@ -1,5 +1,6 @@
 <?php namespace Peroks\Model;
 
+use Generator;
 use mysqli, mysqli_sql_exception;
 
 /**
@@ -17,66 +18,6 @@ class StoreMysql extends StoreSql implements StoreInterface {
 	protected object $db;
 
 	/* -------------------------------------------------------------------------
-	 * Retrieving models.
-	 * ---------------------------------------------------------------------- */
-
-	/**
-	 * Gets a filtered list of models of the given class.
-	 *
-	 * @param ModelInterface|string $class The model class name.
-	 * @param array $filter Properties (key/value pairs) to match the stored models.
-	 * @param bool $restore Whether to restore the models including all sub-models or not.
-	 *
-	 * @return ModelInterface[] An array of models.
-	 */
-	public function filter( string $class, array $filter, bool $restore = true ): array {
-		$query = $this->selectFilterStatement( $class, $filter );
-		$rows  = $this->select( $query, $filter );
-
-		// Convert table rows to models.
-		array_walk( $rows, fn( &$row ) => $row = new $class( $row ) );
-
-		if ( $restore ) {
-			array_walk( $rows, [ $this, 'restore' ] );
-		}
-
-		return $rows;
-
-		$properties = static::getForeignProperties( $class::properties() );
-		$queries    = [];
-		$values     = [];
-
-		foreach ( $this->select( $query, $filter ) as &$row ) {
-			$model = $row = new $class( $row );
-
-			foreach ( $properties as $id => $property ) {
-				$child = $property[ PropertyItem::MODEL ];
-				$value = &$model[ $id ];
-
-				if ( PropertyType::ARRAY === $property[ PropertyItem::TYPE ] ) {
-					//	$select = $this->selectChildrenStatement( get_class( $model ), $child );
-					//	$rows   = $this->select( $select, (array) $model->id() );
-					//	$value  = array_map( fn( $row ) => $this->restore( new $child( $row ) ), $rows );
-				} elseif ( $value ) {
-					$queries[] = vsprintf( 'SELECT * FROM %s WHERE %s = %s', [
-						$this->name( $child ),
-						$this->name( $child::idProperty() ),
-						$this->quote( $value ),
-					] );
-					$values[]  = $value;
-				}
-			}
-		}
-
-		if ( $queries ) {
-			$query = join( ";\n", $queries );
-			//	$x     = $this->query( $query );
-		}
-
-		return $rows;
-	}
-
-	/* -------------------------------------------------------------------------
 	 * Database abstraction layer
 	 * ---------------------------------------------------------------------- */
 
@@ -89,19 +30,19 @@ class StoreMysql extends StoreSql implements StoreInterface {
 	 */
 	protected function connect( object $connect ): bool {
 
-		// Delete database.
 		mysqli_report( MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT );
-		$db = new mysqli( $connect->host, $connect->user, $connect->pass );
-		$db->set_charset( 'utf8mb4' );
 
+		// Delete database.
 		if ( false ) {
 			$db->real_query( $this->dropDatabaseQuery( $connect->name ) );
 		}
 
 		try {
-			$db->select_db( $connect->name );
+			$db = new mysqli( $connect->host, $connect->user, $connect->pass, $connect->name );
+			$db->set_charset( 'utf8mb4' );
 		} catch ( mysqli_sql_exception $e ) {
 			$db = new mysqli( $connect->host, $connect->user, $connect->pass );
+			$db->set_charset( 'utf8mb4' );
 			$db->real_query( $this->createDatabaseQuery( $connect->name ) );
 			$db->select_db( $connect->name );
 		}
@@ -134,6 +75,26 @@ class StoreMysql extends StoreSql implements StoreInterface {
 	protected function query( string $query, array $params = [] ): array {
 		$prepared = $this->prepare( $query );
 		return $this->select( $prepared, $params );
+	}
+
+	/**
+	 * @param string $query
+	 *
+	 * @return Generator
+	 */
+	protected function multi( string $query ): Generator {
+		$this->db->multi_query( $query );
+
+		do {
+			if ( $result = $this->db->use_result() ) {
+				yield $result;
+				$result->free();
+			}
+		} while ( $this->db->next_result() );
+	}
+
+	protected function fetch( object $result ): ?array {
+		return $result->fetch_assoc() ?: null;
 	}
 
 	/**
@@ -233,6 +194,70 @@ class StoreMysql extends StoreSql implements StoreInterface {
 			}
 
 			$prepared->query->bind_param( $types, ...$params );
+		}
+	}
+
+	/**
+	 * Completely restores an array of models including all sub-models.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 * @param ModelInterface[] $collection An array of models of the given class.
+	 */
+	protected function restoreCollection( string $class, array $collection ): void {
+		$properties = static::getForeignProperties( $class::properties() );
+
+		if ( empty( $collection && $properties ) ) {
+			return;
+		}
+
+		// Temp variables.
+		$targets  = [];
+		$queries  = [];
+		$children = [];
+
+		// Loop over all models and their sub-model properties.
+		foreach ( $collection as $model ) {
+			foreach ( $properties as $id => $property ) {
+				$type  = $property[ PropertyItem::TYPE ];
+				$child = $property[ PropertyItem::MODEL ];
+				$value = $model[ $id ];
+
+				// Create queries to fetch sub-models.
+				if ( PropertyType::ARRAY === $type ) {
+					$targets[] = (object) compact( 'model', 'child', 'id', 'type' );
+					$queries[] = $this->selectChildrenQuery( $class, $child, $model->id() );
+				} elseif ( PropertyType::OBJECT === $type && isset( $value ) ) {
+					$targets[] = (object) compact( 'model', 'child', 'id', 'type' );
+					$queries[] = vsprintf( 'SELECT * FROM %s WHERE %s = %s', [
+						$this->name( $this->getTableName( $child ) ),
+						$this->name( $child::idProperty() ),
+						$this->quote( $value ),
+					] );
+				}
+			}
+		}
+
+		// Execute the queries and fetch the sub-model data from the db.
+		if ( $queries ) {
+			foreach ( $this->multi( join( ";\n", $queries ) ) as $result ) {
+				$target = array_shift( $targets );
+
+				while ( $row = $this->fetch( $result ) ) {
+					$children[ $target->child ][] = $child = new $target->child( $row );
+
+					// Assign sub-models to the parent model.
+					if ( PropertyType::OBJECT === $target->type ) {
+						$target->model[ $target->id ] = $child;
+					} elseif ( PropertyType::ARRAY === $target->type ) {
+						$target->model[ $target->id ][] = $child;
+					}
+				}
+			}
+		}
+
+		// Recursively restore sub-models.
+		foreach ( $children as $class => $collection ) {
+			static::restoreCollection( $class, $collection );
 		}
 	}
 }

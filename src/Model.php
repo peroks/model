@@ -499,6 +499,9 @@ class Model extends ArrayObject implements ModelInterface {
 				return (float) $value;
 			}
 		} elseif ( PropertyType::BOOL === $type ) {
+			if ( is_string( $value ) && is_numeric( $value ) ) {
+				$value = (int) $value;
+			}
 			if ( is_int( $value ) ) {
 				return (bool) $value;
 			}
