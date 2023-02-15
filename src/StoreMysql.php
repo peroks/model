@@ -69,12 +69,71 @@ class StoreMysql extends StoreSql implements StoreInterface {
 	 * Executes a single query against the database.
 	 *
 	 * @param string $query A sql query.
+	 * @param array $values
 	 *
 	 * @return array[] The query result.
 	 */
-	protected function query( string $query, array $params = [] ): array {
+	protected function query( string $query, array $values = [] ): array {
 		$prepared = $this->prepare( $query );
-		return $this->select( $prepared, $params );
+		return $this->select( $prepared, $values );
+	}
+
+	/**
+	 * Prepares a statement for execution and returns a statement object.
+	 *
+	 * @param string $query A valid sql statement template.
+	 *
+	 * @return object
+	 */
+	protected function prepare( string $query ): object {
+		$params = static::stripQueryParams( $query );
+
+		return (object) [
+			'query'  => $this->db->prepare( $query ),
+			'params' => $params,
+		];
+	}
+
+	protected function select( object $prepared, array $values = [] ): array {
+		static::bindParams( $prepared, $values );
+		$prepared->query->execute();
+		return $prepared->query->get_result()->fetch_all( MYSQLI_ASSOC );
+	}
+
+	/**
+	 * Inserts, updates or deletes a row.
+	 *
+	 * @param object $prepared A prepared update query.
+	 * @param array $values An array of values for the prepared sql statement being executed.
+	 *
+	 * @return int The number of updated rows.
+	 */
+	protected function update( object $prepared, array $values = [] ): int {
+		static::bindParams( $prepared, $values );
+		$prepared->query->execute();
+		return $prepared->query->affected_rows;
+	}
+
+	/**
+	 * Quotes db, table, column and index names.
+	 *
+	 * @param string $name The name to quote.
+	 *
+	 * @return string The quoted name.
+	 */
+	protected function name( string $name ): string {
+		return '`' . trim( trim( $name ), '`' ) . '`';
+	}
+
+	/**
+	 * If necessary, escapes and quotes a variable before use in a sql statement.
+	 *
+	 * @param mixed $value The variable to be used in a sql statement.
+	 *
+	 * @return mixed A safe variable to be used in a sql statement.
+	 */
+	protected function escape( $value ) {
+		return is_string( $value ) ? "'" . $this->db->real_escape_string( $value ) . "'" : $value;
 	}
 
 	/**
@@ -95,64 +154,6 @@ class StoreMysql extends StoreSql implements StoreInterface {
 
 	protected function fetch( object $result ): ?array {
 		return $result->fetch_assoc() ?: null;
-	}
-
-	/**
-	 * Prepares a statement for execution and returns a statement object.
-	 *
-	 * @param string $query A valid sql statement template.
-	 *
-	 * @return object
-	 */
-	protected function prepare( string $query ): object {
-		$params = static::stripQueryParams( $query );
-
-		return (object) [
-			'query'  => $this->db->prepare( $query ),
-			'params' => $params,
-		];
-	}
-
-	protected function select( object $prepared, array $params = [] ): array {
-		static::bindParams( $prepared, $params );
-		$prepared->query->execute();
-		return $prepared->query->get_result()->fetch_all( MYSQLI_ASSOC );
-	}
-
-	/**
-	 * Inserts, updates or deletes a row.
-	 *
-	 * @param object $prepared A prepared update query.
-	 * @param array $params An array of values for the prepared sql statement being executed.
-	 *
-	 * @return int The number of updated rows.
-	 */
-	protected function update( object $prepared, array $params = [] ): int {
-		static::bindParams( $prepared, $params );
-		$prepared->query->execute();
-		return $prepared->query->affected_rows;
-	}
-
-	/**
-	 * Quotes db, table, column and index names.
-	 *
-	 * @param string $name The name to quote.
-	 *
-	 * @return string The quoted name.
-	 */
-	protected function name( string $name ): string {
-		return '`' . trim( trim( $name ), '`' ) . '`';
-	}
-
-	/**
-	 * Quotes a string for use in a query.
-	 *
-	 * @param string $value The string to be quoted.
-	 *
-	 * @return string The quoted string.
-	 */
-	protected function quote( string $value ): string {
-		return "'" . $this->db->real_escape_string( $value ) . "'";
 	}
 
 	/* -------------------------------------------------------------------------
@@ -202,9 +203,11 @@ class StoreMysql extends StoreSql implements StoreInterface {
 	 * @param ModelInterface[] $collection An array of models of the given class.
 	 */
 	protected function restoreCollection( string $class, array $collection ): void {
-		$properties = static::getForeignProperties( $class::properties() );
+		if ( empty( $collection ) ) {
+			return;
+		}
 
-		if ( empty( $collection && $properties ) ) {
+		if ( empty( $properties = static::getForeignProperties( $class::properties() ) ) ) {
 			return;
 		}
 
@@ -225,12 +228,9 @@ class StoreMysql extends StoreSql implements StoreInterface {
 					$targets[] = (object) compact( 'model', 'child', 'id', 'type' );
 					$queries[] = $this->selectChildrenQuery( $class, $child, $model->id() );
 				} elseif ( PropertyType::OBJECT === $type && isset( $value ) ) {
+					$table     = $this->getTableName( $child );
 					$targets[] = (object) compact( 'model', 'child', 'id', 'type' );
-					$queries[] = vsprintf( 'SELECT * FROM %s WHERE %s = %s', [
-						$this->name( $this->getTableName( $child ) ),
-						$this->name( $child::idProperty() ),
-						$this->quote( $value ),
-					] );
+					$queries[] = $this->selectRowQuery( $table, $child::idProperty(), $value );
 				}
 			}
 		}

@@ -85,7 +85,7 @@ class StoreSql implements StoreInterface {
 	 * @return ModelInterface[] An array of new or existing models of the given class.
 	 */
 	public function collect( array $ids, string $class, bool $restore = true ): array {
-		$query = $this->collectRowsStatement( $class, count( $ids ) );
+		$query = $this->collectRowsStatement( $class, $ids );
 		$rows  = $this->select( $query, array_values( $ids ) );
 
 		// Convert table rows to models.
@@ -287,12 +287,13 @@ class StoreSql implements StoreInterface {
 	 * Executes a single query against the database.
 	 *
 	 * @param string $query A sql query.
+	 * @param array $values
 	 *
 	 * @return array[] The query result.
 	 */
-	protected function query( string $query, array $params = [] ): array {
+	protected function query( string $query, array $values = [] ): array {
 		$prepared = $this->prepare( $query );
-		return $this->select( $prepared, $params );
+		return $this->select( $prepared, $values );
 	}
 
 	/**
@@ -306,8 +307,8 @@ class StoreSql implements StoreInterface {
 		return $this->db->prepare( $query );
 	}
 
-	protected function select( object $prepared, array $params = [] ): array {
-		$prepared->execute( $params );
+	protected function select( object $prepared, array $values = [] ): array {
+		$prepared->execute( $values );
 		return $prepared->fetchAll( PDO::FETCH_ASSOC );
 	}
 
@@ -315,12 +316,12 @@ class StoreSql implements StoreInterface {
 	 * Inserts, updates or deletes a row.
 	 *
 	 * @param PDOStatement|object $prepared A prepared update query.
-	 * @param array $params An array of values for the prepared sql statement being executed.
+	 * @param array $values An array of values for the prepared sql statement being executed.
 	 *
 	 * @return int The number of updated rows.
 	 */
-	protected function update( object $prepared, array $params = [] ): int {
-		$prepared->execute( $params );
+	protected function update( object $prepared, array $values = [] ): int {
+		$prepared->execute( $values );
 		return $prepared->rowCount();
 	}
 
@@ -336,14 +337,14 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Quotes a string for use in a query.
+	 * If necessary, escapes and quotes a variable before use in a sql statement.
 	 *
-	 * @param string $value The string to be quoted.
+	 * @param mixed $value The variable to be used in a sql statement.
 	 *
-	 * @return string The quoted string.
+	 * @return mixed A safe variable to be used in a sql statement.
 	 */
-	protected function quote( string $value ): string {
-		return $this->db->quote( $value );
+	protected function escape( $value ) {
+		return is_string( $value ) ? $this->db->quote( $value ) : $value;
 	}
 
 	/* -------------------------------------------------------------------------
@@ -581,9 +582,7 @@ class StoreSql implements StoreInterface {
 
 		// Cast default value.
 		if ( isset( $default ) ) {
-			if ( is_string( $default ) ) {
-				$default = $this->quote( $default );
-			}
+			$default = $this->escape( $default );
 		} elseif ( empty( $required ) && 'TEXT' !== $type ) {
 			$default = 'NULL';
 		}
@@ -762,9 +761,7 @@ class StoreSql implements StoreInterface {
 	 * ---------------------------------------------------------------------- */
 
 	protected function showIndexesQuery( string $table ): string {
-		return vsprintf( 'SHOW INDEXES FROM %s', [
-			$this->name( $table ),
-		] );
+		return sprintf( 'SHOW INDEXES FROM %s', $this->name( $table ) );
 	}
 
 	protected function showIndexes( string $table ): array {
@@ -894,21 +891,22 @@ class StoreSql implements StoreInterface {
 	 * Show and define foreign keys
 	 * ---------------------------------------------------------------------- */
 
-	protected function showForeignQuery( string $table ): string {
+	protected function showForeignQuery( string $table = '' ): string {
+		$schema = $this->escape( $this->dbname );
+		$table  = $table ? $this->escape( $table ) : '?';
+
 		$sql[] = 'SELECT * FROM information_schema.KEY_COLUMN_USAGE as kcu';
 		$sql[] = 'JOIN   information_schema.REFERENTIAL_CONSTRAINTS as rc';
 		$sql[] = 'ON     kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME';
-		$sql[] = 'WHERE  kcu.TABLE_SCHEMA = ? AND rc.CONSTRAINT_SCHEMA = ?';
-		$sql[] = 'AND    kcu.TABLE_NAME = ? AND rc.TABLE_NAME = ?';
+		$sql[] = "WHERE  kcu.TABLE_SCHEMA = {$schema} AND rc.CONSTRAINT_SCHEMA = {$schema}";
+		$sql[] = "AND    kcu.TABLE_NAME = {$table} AND rc.TABLE_NAME = {$table}";
 
 		return join( "\n", $sql );
 	}
 
 	protected function showForeign( string $table ): array {
-		$query  = $this->prepare( $this->showForeignQuery( $table ) );
-		$values = [ $this->dbname, $this->dbname, $table, $table ];
-
-		return $this->select( $query, $values );
+		$query = $this->prepare( $this->showForeignQuery() );
+		return $this->select( $query, [ $table, $table ] );
 	}
 
 	protected function alterForeignQuery( string $class ): array {
@@ -1211,7 +1209,7 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function selectRelationStatement( string $table, string $left ): object {
 		if ( empty( $this->queries[ $table ]['select'] ) ) {
-			$query = sprintf( 'SELECT * FROM %s WHERE %s = ?', $this->name( $table ), $this->name( $left ) );;
+			$query = $this->selectRowQuery( $table, $left );;
 			$this->queries[ $table ]['select'] = $this->prepare( $query );
 		}
 		return $this->queries[ $table ]['select'];
@@ -1241,13 +1239,20 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function deleteRelationStatement( string $table, string $left ): object {
 		if ( empty( $this->queries[ $table ]['delete'] ) ) {
-			$query = sprintf( 'DELETE FROM %s WHERE %s = ?', $this->name( $table ), $this->name( $left ) );;
+			$query = $this->deleteRowQuery( $table, $left );;
 			$this->queries[ $table ]['delete'] = $this->prepare( $query );
 		}
 		return $this->queries[ $table ]['delete'];
 	}
 
-	protected function selectChildrenQuery( string $class, string $child, $value ): string {
+	/**
+	 * @param ModelInterface|string $class
+	 * @param ModelInterface|string $child
+	 * @param mixed $value
+	 *
+	 * @return string
+	 */
+	protected function selectChildrenQuery( string $class, string $child, $value = null ): string {
 		$left  = current( array_reverse( explode( '\\', $class ) ) );
 		$right = current( array_reverse( explode( '\\', $child ) ) );
 		$table = $this->getTableName( $class . '\\' . $right );
@@ -1257,13 +1262,10 @@ class StoreSql implements StoreInterface {
 		$primary = $this->name( $child::idProperty() );
 		$left    = $this->name( $left );
 		$right   = $this->name( $right );
-		$value   = $this->quote( $value );
+		$value   = isset( $value ) ? $this->escape( $value ) : '?';
 
-		$sql[] = "SELECT C.*";
-		$sql[] = "FROM   {$name} as R";
-		$sql[] = "JOIN   {$source} as C";
-		$sql[] = "ON     R.{$right} = C.{$primary}";
-		$sql[] = "WHERE  R.{$left} = {$value}";
+		$sql[] = "SELECT C.* FROM {$source} as C JOIN {$name} as R";
+		$sql[] = "WHERE R.{$left} = {$value} AND R.{$right} = C.{$primary}";
 
 		return join( ' ', $sql );
 	}
@@ -1282,20 +1284,8 @@ class StoreSql implements StoreInterface {
 		$table = $this->getTableName( $class . '\\' . $right );
 
 		if ( empty( $this->queries[ $table ]['children'] ) ) {
-			$name    = $this->name( $table );
-			$source  = $this->name( $this->getTableName( $child ) );
-			$primary = $this->name( $child::idProperty() );
-			$left    = $this->name( $left );
-			$right   = $this->name( $right );
-
-			$sql[] = "SELECT C.*";
-			$sql[] = "FROM   {$name} as R";
-			$sql[] = "JOIN   {$source} as C";
-			$sql[] = "ON     R.{$right} = C.{$primary}";
-			$sql[] = "WHERE  R.{$left} = ?";
-
-			$sql = join( "\n", $sql );;
-			$this->queries[ $table ]['children'] = $this->prepare( $sql );
+			$query = $this->selectChildrenQuery( $class, $child );;
+			$this->queries[ $table ]['children'] = $this->prepare( $query );
 		}
 		return $this->queries[ $table ]['children'];
 	}
@@ -1309,13 +1299,15 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param string $table
 	 * @param string $primary
+	 * @param mixed $value
 	 *
 	 * @return string
 	 */
-	protected function existsRowQuery( string $table, string $primary ): string {
-		return vsprintf( 'SELECT %1$s FROM %2$s WHERE %1$s = ?', [
-			$this->name( $primary ),
+	protected function existsRowQuery( string $table, string $primary, $value = null ): string {
+		return vsprintf( 'SELECT 1 FROM %s WHERE %s = %s LIMIT 1', [
 			$this->name( $table ),
+			$this->name( $primary ),
+			isset( $value ) ? $this->escape( $value ) : '?',
 		] );
 	}
 
@@ -1341,14 +1333,16 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param string $table
 	 * @param string $primary
+	 * @param mixed $value
 	 *
 	 * @return string
 	 */
-	protected function selectRowQuery( string $table, string $primary ): string {
-		$table   = $this->name( $table );
-		$primary = $this->name( $primary );
-
-		return "SELECT * FROM {$table} WHERE {$primary} = ?";
+	protected function selectRowQuery( string $table, string $primary, $value = null ): string {
+		return vsprintf( 'SELECT * FROM %s WHERE %s = %s', [
+			$this->name( $table ),
+			$this->name( $primary ),
+			isset( $value ) ? $this->escape( $value ) : '?',
+		] );
 	}
 
 	/**
@@ -1374,29 +1368,34 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param string $table
 	 * @param string $primary
-	 * @param int $count
+	 * @param array $values
 	 *
 	 * @return string
 	 */
-	protected function collectRowsQuery( string $table, string $primary, int $count ): string {
+	protected function collectRowsQuery( string $table, string $primary, array $values ): string {
 		$table   = $this->name( $table );
 		$primary = $this->name( $primary );
-		$ids     = join( ', ', array_fill( 0, $count, '?' ) );
 
-		return "SELECT * FROM {$table} WHERE {$primary} IN ({$ids})";
+		foreach ( $values as &$value ) {
+			$value = isset( $value ) ? $this->escape( $value ) : '?';
+		};
+
+		$values = join( ', ', $values );
+		return "SELECT * FROM {$table} WHERE {$primary} IN ({$values})";
 	}
 
 	/**
 	 * Gets a prepared statement to check if a model exists.
 	 *
 	 * @param ModelInterface|string $class The model class name.
+	 * @param array $values
 	 *
 	 * @return PDOStatement|null
 	 */
-	protected function collectRowsStatement( string $class, int $count ): ?object {
+	protected function collectRowsStatement( string $class, array $values ): ?object {
 		$table   = $this->getTableName( $class );
 		$primary = $class::idProperty();
-		$query   = $this->collectRowsQuery( $table, $primary, $count );
+		$query   = $this->collectRowsQuery( $table, $primary, $values );
 
 		return $this->prepare( $query );
 	}
@@ -1434,20 +1433,19 @@ class StoreSql implements StoreInterface {
 	 * Generates an exists query template.
 	 *
 	 * @param string $table
-	 * @param string $primary
+	 * @param array $filter
 	 *
 	 * @return string
 	 */
 	protected function selectFilterQuery( string $table, array $filter ): string {
-		$table = $this->name( $table );
-		$sql   = [];
-
-		foreach ( array_keys( $filter ) as $column ) {
-			$sql[] = sprintf( '(%s = :%s)', $this->name( $column ), $column );
+		foreach ( $filter as $key => &$value ) {
+			$value = sprintf( '(%s = :%s)', $this->name( $key ), $key );
 		}
 
-		$sql = join( "\nAND ", $sql );
-		return "SELECT * FROM {$table} \nWHERE {$sql}";
+		$table = $this->name( $table );
+		$sql   = join( ' AND ', $filter );
+
+		return "SELECT * FROM {$table} WHERE {$sql}";
 	}
 
 	/**
@@ -1468,17 +1466,18 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param string $table
 	 * @param array $properties
+	 * @param array $values
 	 *
 	 * @return string
 	 */
-	protected function insertRowQuery( string $table, array $properties ): string {
+	protected function insertRowQuery( string $table, array $properties, array $values = [] ): string {
 		$columns = [];
-		$values  = [];
 
 		foreach ( $properties as $id => $property ) {
 			if ( Utils::isColumn( $property ) ) {
-				$columns[] = $this->name( $id );
-				$values[]  = ':' . $id;
+				$value          = $values[ $id ] ?? null;
+				$columns[ $id ] = $this->name( $id );
+				$values[ $id ]  = isset( $value ) ? $this->escape( $value ) : ':' . $id;
 			}
 		}
 
@@ -1513,24 +1512,30 @@ class StoreSql implements StoreInterface {
 	 * @param string $table
 	 * @param array $properties
 	 * @param string $primary
+	 * @param array $values
 	 *
 	 * @return string
 	 */
-	protected function updateRowQuery( string $table, array $properties, string $primary ): string {
+	protected function updateRowQuery( string $table, array $properties, string $primary, array $values = [] ): string {
 		$sql = [];
 
 		foreach ( $properties as $id => $property ) {
 			if ( Utils::isColumn( $property ) && $id !== $primary ) {
+				$value = $values[ $id ] ?? null;
+				$value = isset( $value ) ? $this->escape( $value ) : ':' . $id;
 				$name  = $this->name( $id );
-				$sql[] = "{$name} = :{$id}";
+				$sql[] = "{$name} = {$value}";
 			}
 		}
 
-		$table = $this->name( $table );
-		$where = $this->name( $primary );
-		$sql   = "\n\t" . join( ",\n\t", $sql ) . "\n";
+		$value = $values[ $primary ] ?? null;
+		$key   = isset( $value ) ? $this->escape( $value ) : ':' . $primary;
 
-		return "UPDATE {$table} SET {$sql}WHERE {$where} = :{$primary}";
+		$table   = $this->name( $table );
+		$primary = $this->name( $primary );
+		$sql     = "\n\t" . join( ",\n\t", $sql ) . "\n";
+
+		return "UPDATE {$table} SET {$sql}WHERE {$primary} = {$key}";
 	}
 
 	/**
@@ -1558,14 +1563,16 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param string $table
 	 * @param string $primary
+	 * @param mixed $value
 	 *
 	 * @return string
 	 */
-	protected function deleteRowQuery( string $table, string $primary ): string {
-		$table   = $this->name( $table );
-		$primary = $this->name( $primary );
-
-		return "DELETE FROM {$table} WHERE {$primary} = ?";
+	protected function deleteRowQuery( string $table, string $primary, $value = null ): string {
+		return vsprintf( 'DELETE FROM %s WHERE %s = %s', [
+			$this->name( $table ),
+			$this->name( $primary ),
+			isset( $value ) ? $this->escape( $value ) : '?',
+		] );
 	}
 
 	/**
