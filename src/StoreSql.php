@@ -153,15 +153,10 @@ class StoreSql implements StoreInterface {
 			? $this->updateRowStatement( $class )
 			: $this->insertRowStatement( $class );
 
-		$values    = $this->getModelValues( $model );
-		$relations = $this->getModelRelations( $model );
-		$rows      = $this->update( $query, $values );
+		$values = $this->getModelValues( $model );
+		$rows   = $this->update( $query, $values );
 
-		foreach ( $relations as $child => $list ) {
-			$this->updateRelation( $model, $child, $list );
-		}
-
-		return $model;
+		return $this->updateRelations( $model );
 	}
 
 	/**
@@ -194,7 +189,7 @@ class StoreSql implements StoreInterface {
 			$value = &$model[ $id ];
 
 			if ( PropertyType::ARRAY === $type ) {
-				$select = $this->selectChildrenStatement( get_class( $model ), $child );
+				$select = $this->selectChildrenStatement( get_class( $model ), $child, $id );
 				$rows   = $this->select( $select, (array) $model->id() );
 				$value  = array_map( [ $child, 'create' ], $rows );
 				static::restoreCollection( $child, $value );
@@ -664,7 +659,7 @@ class StoreSql implements StoreInterface {
 					}
 				}
 			} elseif ( Utils::isRelation( $property ) ) {
-				$this->addRelation( $class, $property[ PropertyItem::MODEL ] );
+				$this->addRelation( $class, $property[ PropertyItem::MODEL ], $id );
 			}
 		}
 
@@ -1057,9 +1052,8 @@ class StoreSql implements StoreInterface {
 	 * Model relations
 	 * ---------------------------------------------------------------------- */
 
-	protected function getRelationName( string $class, string $child ): string {
-		$right = current( array_reverse( explode( '\\', $child ) ) );
-		return $class . '\\' . $right;
+	protected function getRelationName( string $parent, string $id ): string {
+		return $parent . '\\' . $id;
 	}
 
 	protected function getRelationColumns( string $relation ): array {
@@ -1075,75 +1069,75 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Adds a model relation table to the processing stack.
+	 * Adds a model relation table to the database.
 	 *
-	 * @param ModelInterface|string $class
+	 * @param ModelInterface|string $parent
 	 * @param ModelInterface|string $child
+	 * @param string $id The property id containing the child models.
+	 *
+	 * @return bool
 	 */
-	protected function addRelation( string $class, string $child ): bool {
-		$left     = current( array_reverse( explode( '\\', $class ) ) );
-		$right    = current( array_reverse( explode( '\\', $child ) ) );
-		$relation = $class . '\\' . $right;
-		$reverse  = $child . '\\' . $left;
+	protected function addRelation( string $parent, string $child, string $id ): bool {
+		$relation = $this->getRelationName( $parent, $id );
 
 		// No need to continue when the relation already exists.
 		if ( array_key_exists( $relation, $this->relations ) ) {
 			return true;
 		}
 
-		$modelPrimary = $class::getProperty( $class::idProperty() );
-		$childPrimary = $child::getProperty( $child::idProperty() );
+		// Primary keys.
+		$parentPrimary = $parent::getProperty( $parent::idProperty() );
+		$childPrimary  = $child::getProperty( $child::idProperty() );
 
 		// A valid primary key is required for both sides of the relation table.
-		if ( empty( $modelPrimary ) || empty( $childPrimary ) ) {
+		if ( empty( $parentPrimary && $childPrimary ) ) {
 			return false;
 		}
 
-		$leftColumn   = $left;
-		$rightColumn  = $right;
-		$leftForeign  = $this->getTableName( $relation );
-		$rightForeign = $this->getTableName( $reverse );
+		// Foreign key names.
+		$parentForeign = $this->getTableName( $relation . '\\parent' );
+		$childForeign  = $this->getTableName( $relation . '\\child' );
 
-		$columns[ $leftColumn ] = [
-			'name'     => $leftColumn,
-			'type'     => $this->getColumnType( $modelPrimary ),
+		$columns['parent'] = [
+			'name'     => 'parent',
+			'type'     => $this->getColumnType( $parentPrimary ),
 			'required' => true,
 			'default'  => null,
 		];
 
-		$columns[ $rightColumn ] = [
-			'name'     => $rightColumn,
+		$columns['child'] = [
+			'name'     => 'child',
 			'type'     => $this->getColumnType( $childPrimary ),
 			'required' => true,
 			'default'  => null,
 		];
 
-		$indexes[ $leftColumn ] = [
-			'name'    => $leftColumn,
+		$indexes['parent'] = [
+			'name'    => 'parent',
 			'type'    => 'INDEX',
-			'columns' => [ $leftColumn ],
+			'columns' => [ 'parent' ],
 		];
 
-		$indexes[ $rightColumn ] = [
-			'name'    => $rightColumn,
+		$indexes['child'] = [
+			'name'    => 'child',
 			'type'    => 'INDEX',
-			'columns' => [ $rightColumn ],
+			'columns' => [ 'child' ],
 		];
 
-		$foreign[ $leftForeign ] = [
-			'name'    => $leftForeign,
+		$foreign[ $parentForeign ] = [
+			'name'    => $parentForeign,
 			'type'    => 'FOREIGN',
-			'columns' => [ $leftColumn ],
-			'table'   => $this->getTableName( $class ),
-			'fields'  => [ $class::idProperty() ],
+			'columns' => [ 'parent' ],
+			'table'   => $this->getTableName( $parent ),
+			'fields'  => [ $parent::idProperty() ],
 			'update'  => 'CASCADE',
 			'delete'  => 'CASCADE',
 		];
 
-		$foreign[ $rightForeign ] = [
-			'name'    => $rightForeign,
+		$foreign[ $childForeign ] = [
+			'name'    => $childForeign,
 			'type'    => 'FOREIGN',
-			'columns' => [ $rightColumn ],
+			'columns' => [ 'child' ],
 			'table'   => $this->getTableName( $child ),
 			'fields'  => [ $child::idProperty() ],
 			'update'  => 'CASCADE',
@@ -1157,43 +1151,53 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Updates a relation between parent and child.
 	 *
-	 * @param ModelInterface $model
+	 * @param ModelInterface $parent
 	 * @param ModelInterface|string $child
-	 * @param ModelInterface[] $list
+	 * @param string $id
 	 *
 	 * @return bool
 	 */
-	protected function updateRelation( ModelInterface $model, string $child, array $list ): bool {
-		$left  = current( array_reverse( explode( '\\', get_class( $model ) ) ) );
-		$right = current( array_reverse( explode( '\\', $child ) ) );
-		$table = $this->getTableName( get_class( $model ) . '\\' . $right );
+	protected function updateRelation( ModelInterface $parent, string $child, string $id ): bool {
+		$relation = $this->getRelationName( get_class( $parent ), $id );
+		$table    = $this->getTableName( $relation );
 
-		$list = array_map( [ $this, 'set' ], $list );
+		$list = array_map( [ $this, 'set' ], $parent[ $id ] ?? [] );
 		$list = array_column( $list, null, $child::idProperty() );
 
-		$select   = $this->selectRelationStatement( $table, $left );
-		$existing = $this->select( $select, [ $model->id() ] );
-		$existing = array_column( $existing, null, $model::idProperty() );
+		$select   = $this->selectRelationStatement( $table, 'parent' );
+		$existing = $this->select( $select, [ $parent->id() ] );
+		$existing = array_column( $existing, null, $parent::idProperty() );
 		$common   = array_intersect_key( $list, $existing );
 
 		if ( count( $common ) < count( $existing ) ) {
-			$delete = $this->deleteRelationStatement( $table, $left );
+			$delete = $this->deleteRelationStatement( $table, 'parent' );
 			$insert = $this->insertRelationStatement( $table );
-			$rows   = $this->update( $delete, [ $model->id() ] );
+			$rows   = $this->update( $delete, [ $parent->id() ] );
 
 			foreach ( $list as $item ) {
-				$rows = $this->update( $insert, [ $model->id(), $item->id() ] );
+				$rows = $this->update( $insert, [ $parent->id(), $item->id() ] );
 			}
 		} elseif ( count( $common ) < count( $list ) ) {
 			$insert = $this->insertRelationStatement( $table );
 			$added  = array_diff_key( $list, $existing );
 
 			foreach ( $added as $item ) {
-				$rows = $this->update( $insert, [ $model->id(), $item->id() ] );
+				$rows = $this->update( $insert, [ $parent->id(), $item->id() ] );
 			}
 		}
 
 		return true;
+	}
+
+	protected function updateRelations( ModelInterface $model ): ModelInterface {
+		$relations = static::getRelationProperties( $model::properties() );
+
+		foreach ( $relations as $id => $property ) {
+			$child = $property[ PropertyItem::MODEL ];
+			$this->updateRelation( $model, $child, $id );
+		}
+
+		return $model;
 	}
 
 	/* -------------------------------------------------------------------------
@@ -1204,12 +1208,13 @@ class StoreSql implements StoreInterface {
 	 * Gets a prepared select statement for the given relation table.
 	 *
 	 * @param string $table A relation table name.
+	 * @param string $column
 	 *
 	 * @return PDOStatement
 	 */
-	protected function selectRelationStatement( string $table, string $left ): object {
+	protected function selectRelationStatement( string $table, string $column ): object {
 		if ( empty( $this->queries[ $table ]['select'] ) ) {
-			$query = $this->selectRowQuery( $table, $left );;
+			$query = $this->selectRowQuery( $table, $column );;
 			$this->queries[ $table ]['select'] = $this->prepare( $query );
 		}
 		return $this->queries[ $table ]['select'];
@@ -1246,26 +1251,24 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * @param ModelInterface|string $class
+	 * @param ModelInterface|string $parent
 	 * @param ModelInterface|string $child
+	 * @param string $id
 	 * @param mixed $value
 	 *
 	 * @return string
 	 */
-	protected function selectChildrenQuery( string $class, string $child, $value = null ): string {
-		$left  = current( array_reverse( explode( '\\', $class ) ) );
-		$right = current( array_reverse( explode( '\\', $child ) ) );
-		$table = $this->getTableName( $class . '\\' . $right );
+	protected function selectChildrenQuery( string $parent, string $child, string $id, $value = null ): string {
+		$relation = $this->getRelationName( $parent, $id );
+		$table    = $this->getTableName( $relation );
 
 		$name    = $this->name( $table );
 		$source  = $this->name( $this->getTableName( $child ) );
 		$primary = $this->name( $child::idProperty() );
-		$left    = $this->name( $left );
-		$right   = $this->name( $right );
 		$value   = isset( $value ) ? $this->escape( $value ) : '?';
 
 		$sql[] = "SELECT C.* FROM {$source} as C JOIN {$name} as R";
-		$sql[] = "WHERE R.{$left} = {$value} AND R.{$right} = C.{$primary}";
+		$sql[] = "WHERE R.parent = {$value} AND R.child = C.{$primary}";
 
 		return join( ' ', $sql );
 	}
@@ -1273,18 +1276,17 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Gets a prepared select statement for the given relation table.
 	 *
-	 * @param ModelInterface|string $class A relation table name.
+	 * @param ModelInterface|string $parent A relation table name.
 	 * @param ModelInterface|string $child A relation table name.
 	 *
-	 * @return PDOStatement
+	 * @return PDOStatement|object
 	 */
-	protected function selectChildrenStatement( string $class, string $child ): object {
-		$left  = current( array_reverse( explode( '\\', $class ) ) );
-		$right = current( array_reverse( explode( '\\', $child ) ) );
-		$table = $this->getTableName( $class . '\\' . $right );
+	protected function selectChildrenStatement( string $parent, string $child, string $id ): object {
+		$relation = $this->getRelationName( $parent, $id );
+		$table    = $this->getTableName( $relation );
 
 		if ( empty( $this->queries[ $table ]['children'] ) ) {
-			$query = $this->selectChildrenQuery( $class, $child );;
+			$query = $this->selectChildrenQuery( $parent, $child, $id );;
 			$this->queries[ $table ]['children'] = $this->prepare( $query );
 		}
 		return $this->queries[ $table ]['children'];
@@ -1713,6 +1715,10 @@ class StoreSql implements StoreInterface {
 		}
 
 		return $result;
+	}
+
+	protected static function getRelationProperties( array $properties ): array {
+		return array_filter( $properties, [ Utils::class, 'isRelation' ] );
 	}
 
 	protected static function getForeignProperties( array $properties ): array {

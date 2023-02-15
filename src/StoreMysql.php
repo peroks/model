@@ -34,6 +34,7 @@ class StoreMysql extends StoreSql implements StoreInterface {
 
 		// Delete database.
 		if ( false ) {
+			$db = new mysqli( $connect->host, $connect->user, $connect->pass );
 			$db->real_query( $this->dropDatabaseQuery( $connect->name ) );
 		}
 
@@ -226,7 +227,7 @@ class StoreMysql extends StoreSql implements StoreInterface {
 				// Create queries to fetch sub-models.
 				if ( PropertyType::ARRAY === $type ) {
 					$targets[] = (object) compact( 'model', 'child', 'id', 'type' );
-					$queries[] = $this->selectChildrenQuery( $class, $child, $model->id() );
+					$queries[] = $this->selectChildrenQuery( $class, $child, $id, $model->id() );
 				} elseif ( PropertyType::OBJECT === $type && isset( $value ) ) {
 					$table     = $this->getTableName( $child );
 					$targets[] = (object) compact( 'model', 'child', 'id', 'type' );
