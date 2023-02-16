@@ -60,23 +60,8 @@ class StoreMysql extends StoreSql implements StoreInterface {
 	 * @return int
 	 */
 	protected function exec( string $query ): int {
-		if ( $this->db->real_query( $query ) ) {
-			return $this->db->affected_rows;
-		}
-		return 0;
-	}
-
-	/**
-	 * Executes a single query against the database.
-	 *
-	 * @param string $query A sql query.
-	 * @param array $values
-	 *
-	 * @return array[] The query result.
-	 */
-	protected function query( string $query, array $values = [] ): array {
-		$prepared = $this->prepare( $query );
-		return $this->select( $prepared, $values );
+		$this->db->real_query( $query );
+		return $this->db->affected_rows;
 	}
 
 	/**
@@ -201,15 +186,15 @@ class StoreMysql extends StoreSql implements StoreInterface {
 	 * Completely restores an array of models including all sub-models.
 	 *
 	 * @param ModelInterface|string $class The model class name.
-	 * @param ModelInterface[] $collection An array of models of the given class.
+	 * @param ModelInterface[] $models An array of models of the given class.
 	 */
-	protected function restoreCollection( string $class, array $collection ): void {
-		if ( empty( $collection ) ) {
-			return;
+	protected function restoreMulti( string $class, array $models ): array {
+		if ( empty( $models ) ) {
+			return $models;
 		}
 
 		if ( empty( $properties = static::getForeignProperties( $class::properties() ) ) ) {
-			return;
+			return $models;
 		}
 
 		// Temp variables.
@@ -218,7 +203,7 @@ class StoreMysql extends StoreSql implements StoreInterface {
 		$children = [];
 
 		// Loop over all models and their sub-model properties.
-		foreach ( $collection as $model ) {
+		foreach ( $models as $model ) {
 			foreach ( $properties as $id => $property ) {
 				$type  = $property[ PropertyItem::TYPE ];
 				$child = $property[ PropertyItem::MODEL ];
@@ -256,7 +241,9 @@ class StoreMysql extends StoreSql implements StoreInterface {
 
 		// Recursively restore sub-models.
 		foreach ( $children as $class => $collection ) {
-			static::restoreCollection( $class, $collection );
+			static::restoreMulti( $class, $collection );
 		}
+
+		return $models;
 	}
 }

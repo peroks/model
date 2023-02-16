@@ -1,7 +1,7 @@
 <?php namespace Peroks\Model;
 
 /**
- * Simple class for storing and retrieving models from a JSON data store.
+ * Class for storing and retrieving models from a JSON data store.
  *
  * @author Per Egil Roksvaag
  * @copyright Per Egil Roksvaag
@@ -54,10 +54,10 @@ class Store implements StoreInterface {
 	/**
 	 * Checks if a model with the given id exists in the data store.
 	 *
-	 * @param string $id The model id.
+	 * @param int|string $id The model id.
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return bool True if the model is found in the data store.
+	 * @return bool True if the model exists, false otherwise.
 	 */
 	public function exists( string $id, string $class ): bool {
 		return isset( $this->data[ $class ][ $id ] )
@@ -65,15 +65,14 @@ class Store implements StoreInterface {
 	}
 
 	/**
-	 * Gets a model from the data store.
+	 * Gets a model matching the given id from the data store.
 	 *
 	 * @param int|string $id The model id.
 	 * @param ModelInterface|string $class The model class name.
-	 * @param bool $restore Whether to restore the model including all sub-model or not.
 	 *
-	 * @return ModelInterface|null A new or existing model of the given class.
+	 * @return ModelInterface|null The matching model or null if not found.
 	 */
-	public function get( $id, string $class, bool $restore = true ): ?ModelInterface {
+	public function get( $id, string $class ): ?ModelInterface {
 		if ( $this->exists( $id, $class ) ) {
 			$data = array_replace( $this->data[ $class ][ $id ] ?? [], $this->changes[ $class ][ $id ] ?? [] );
 			return new $class( $data );
@@ -82,47 +81,30 @@ class Store implements StoreInterface {
 	}
 
 	/**
-	 * Retrieves a collection of model from the data store.
+	 * Gets a list of models matching the given ids from the data store.
 	 *
 	 * @param int[]|string[] $ids An array of model ids.
 	 * @param ModelInterface|string $class The model class name.
-	 * @param bool $restore Whether to restore the models including all sub-models or not.
 	 *
-	 * @return ModelInterface[] An array of new or existing models of the given class.
+	 * @return ModelInterface[] An array of matching models.
 	 */
-	public function collect( array $ids, string $class, bool $restore = true ): array {
+	public function list( array $ids, string $class ): array {
 		foreach ( $ids as $id ) {
-			$result[ $id ] = $this->get( $id, $class, $restore );
+			$result[ $id ] = $this->get( $id, $class );
 		}
 		return array_filter( $result ?? [] );
 	}
 
 	/**
-	 * Gets a list of all models of the given class.
-	 *
-	 * @param ModelInterface|string $class The model class name.
-	 * @param bool $restore Whether to restore the models including all sub-models or not.
-	 *
-	 * @return ModelInterface[] An array of models.
-	 */
-	public function list( string $class, bool $restore = true ): array {
-		return array_map( [ $class, 'create' ], array_replace(
-			$this->data[ $class ] ?? [],
-			$this->changes[ $class ] ?? []
-		) );
-	}
-
-	/**
-	 * Gets a filtered list of models of the given class.
+	 * Gets a filtered list of models from the data store.
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 * @param array $filter Properties (key/value pairs) to match the stored models.
-	 * @param bool $restore Whether to restore the models including all sub-models or not.
 	 *
 	 * @return ModelInterface[] An array of models.
 	 */
-	public function filter( string $class, array $filter, bool $restore = true ): array {
-		$all = $this->list( $class );
+	public function filter( string $class, array $filter = [] ): array {
+		$all = $this->all( $class );
 
 		if ( empty( $filter ) ) {
 			return $all;
@@ -131,6 +113,20 @@ class Store implements StoreInterface {
 		return array_filter( $all, function( ModelInterface $model ) use ( $filter ): bool {
 			return array_intersect_assoc( $filter, $model->data() ) === $filter;
 		} );
+	}
+
+	/**
+	 * Gets all models of the given class in the data store.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return ModelInterface[] An array of models.
+	 */
+	public function all( string $class ): array {
+		return array_map( [ $class, 'create' ], array_replace(
+			$this->data[ $class ] ?? [],
+			$this->changes[ $class ] ?? []
+		) );
 	}
 
 	/* -------------------------------------------------------------------------
@@ -177,7 +173,7 @@ class Store implements StoreInterface {
 	 *
 	 * @return ModelInterface The completely restored model.
 	 */
-	public function restore( ModelInterface $model ): ModelInterface {
+	public function restoreSingle( ModelInterface $model ): ModelInterface {
 		return $model;
 	}
 

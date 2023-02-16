@@ -31,200 +31,14 @@ class StoreSql implements StoreInterface {
 	 */
 	protected array $relations = [];
 
+	/**
+	 * Constructor.
+	 *
+	 * @param object $connect Connections parameters: host, user, pass, name, port, socket.
+	 */
 	public function __construct( object $connect ) {
 		$this->dbname = $connect->name;
 		$this->connect( $connect );
-	}
-
-	/* -------------------------------------------------------------------------
-	 * Retrieving models.
-	 * ---------------------------------------------------------------------- */
-
-	/**
-	 * Checks if a model with the given id exists in the data store.
-	 *
-	 * @param string $id The model id.
-	 * @param ModelInterface|string $class The model class name.
-	 *
-	 * @return bool True if the model is found in the data store.
-	 */
-	public function exists( string $id, string $class ): bool {
-		$query  = $this->existsRowStatement( $class );
-		$result = $this->select( $query, [ $id ] );
-		return (bool) $result;
-	}
-
-	/**
-	 * Gets a model from the data store.
-	 *
-	 * @param int|string $id The model id.
-	 * @param ModelInterface|string $class The model class name.
-	 * @param bool $restore Whether to restore the model including all sub-model or not.
-	 *
-	 * @return ModelInterface|null A new or existing model of the given class.
-	 */
-	public function get( $id, string $class, bool $restore = true ): ?ModelInterface {
-		$query = $this->selectRowStatement( $class );
-		$rows  = $this->select( $query, [ $id ] );
-
-		if ( $rows ) {
-			$model = new $class( $rows[0] );
-			return $restore ? $this->restore( $model ) : $model;
-		}
-
-		return null;
-	}
-
-	/**
-	 * Retrieves a collection of model from the data store.
-	 *
-	 * @param int[]|string[] $ids An array of model ids.
-	 * @param ModelInterface|string $class The model class name.
-	 * @param bool $restore Whether to restore the models including all sub-models or not.
-	 *
-	 * @return ModelInterface[] An array of new or existing models of the given class.
-	 */
-	public function collect( array $ids, string $class, bool $restore = true ): array {
-		$query = $this->collectRowsStatement( $class, $ids );
-		$rows  = $this->select( $query, array_values( $ids ) );
-
-		// Convert table rows to models.
-		array_walk( $rows, fn( &$row ) => $row = new $class( $row ) );
-		$restore && static::restoreCollection( $class, $rows );
-
-		return $rows;
-	}
-
-	/**
-	 * Gets a list of all models of the given class.
-	 *
-	 * @param ModelInterface|string $class The model class name.
-	 * @param bool $restore Whether to restore the models including all sub-models or not.
-	 *
-	 * @return ModelInterface[] An array of models.
-	 */
-	public function list( string $class, bool $restore = true ): array {
-		$query = $this->selectListStatement( $class );
-		$rows  = $this->select( $query );
-
-		// Convert table rows to models.
-		array_walk( $rows, fn( &$row ) => $row = new $class( $row ) );
-		$restore && static::restoreCollection( $class, $rows );
-
-		return $rows;
-	}
-
-	/**
-	 * Gets a filtered list of models of the given class.
-	 *
-	 * @param ModelInterface|string $class The model class name.
-	 * @param array $filter Properties (key/value pairs) to match the stored models.
-	 * @param bool $restore Whether to restore the models including all sub-models or not.
-	 *
-	 * @return ModelInterface[] An array of models.
-	 */
-	public function filter( string $class, array $filter, bool $restore = true ): array {
-		$query = $this->selectFilterStatement( $class, $filter );
-		$rows  = $this->select( $query, $filter );
-
-		// Convert table rows to models.
-		array_walk( $rows, fn( &$row ) => $row = new $class( $row ) );
-		$restore && static::restoreCollection( $class, $rows );
-
-		return $rows;
-	}
-
-	/* -------------------------------------------------------------------------
-	 * Updating and deleting models
-	 * ---------------------------------------------------------------------- */
-
-	/**
-	 * Saves and validates a model in the data store.
-	 *
-	 * @param ModelInterface $model The model to store.
-	 *
-	 * @return ModelInterface The stored model.
-	 */
-	public function set( ModelInterface $model ): ModelInterface {
-		$model->validate( true );
-
-		$class = get_class( $model );
-		$query = $this->exists( $model->id(), $class )
-			? $this->updateRowStatement( $class )
-			: $this->insertRowStatement( $class );
-
-		$values = $this->getModelValues( $model );
-		$rows   = $this->update( $query, $values );
-
-		return $this->updateRelations( $model );
-	}
-
-	/**
-	 * Deletes a model from the data store.
-	 *
-	 * @param string $id The model id.
-	 * @param ModelInterface|string $class The model class name.
-	 *
-	 * @return bool True if the model existed, false otherwise.
-	 */
-	public function delete( string $id, string $class ): bool {
-		$query  = $this->deleteRowStatement( $class );
-		$result = $this->update( $query, [ $id ] );
-		return (bool) $result;
-	}
-
-	/**
-	 * Completely restores the given model including all sub-models.
-	 *
-	 * @param ModelInterface $model The model to restore.
-	 *
-	 * @return ModelInterface The completely restored model.
-	 */
-	public function restore( ModelInterface $model ): ModelInterface {
-		$properties = static::getForeignProperties( $model::properties() );
-
-		foreach ( $properties as $id => $property ) {
-			$type  = $property[ PropertyItem::TYPE ];
-			$child = $property[ PropertyItem::MODEL ];
-			$value = &$model[ $id ];
-
-			if ( PropertyType::ARRAY === $type ) {
-				$select = $this->selectChildrenStatement( get_class( $model ), $child, $id );
-				$rows   = $this->select( $select, (array) $model->id() );
-				$value  = array_map( [ $child, 'create' ], $rows );
-				static::restoreCollection( $child, $value );
-			} elseif ( PropertyType::OBJECT === $type && isset( $value ) ) {
-				$value = $this->get( $value, $child );
-			}
-		}
-
-		return $model;
-	}
-
-	/* -------------------------------------------------------------------------
-	 * Data store handling
-	 * ---------------------------------------------------------------------- */
-
-	/**
-	 * Builds a data store is necessary.
-	 *
-	 * @param array $models The models to add to the data store.
-	 * @param array $options An assoc array of options.
-	 *
-	 * @return bool
-	 */
-	public function build( array $models, array $options = [] ): bool {
-		$models = $this->getAllModels( $models );
-		return (bool) $this->buildDatabase( $models );
-	}
-
-	/**
-	 * Flushes model data to permanent storage is necessary.
-	 *
-	 * @return bool True if data changes exists and were saved, false otherwise.
-	 */
-	public function flush(): bool {
-		return true;
 	}
 
 	/* -------------------------------------------------------------------------
@@ -268,21 +82,21 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Executes a single query against the database.
+	 * Executes a single query and returns the number of affected rows.
 	 *
-	 * @param string $query An sql statement.
+	 * @param string $query A sql query.
 	 *
-	 * @return int
+	 * @return int The number of affected rows.
 	 */
 	protected function exec( string $query ): int {
 		return $this->db->exec( $query );
 	}
 
 	/**
-	 * Executes a single query against the database.
+	 * Executes a single query and returns the result.
 	 *
 	 * @param string $query A sql query.
-	 * @param array $values
+	 * @param array $values The values of a prepared query statement.
 	 *
 	 * @return array[] The query result.
 	 */
@@ -292,26 +106,34 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Prepares a statement for execution and returns a statement object.
+	 * Prepares a statement for execution and returns a prepared query object.
 	 *
 	 * @param string $query A valid sql statement template.
 	 *
-	 * @return PDOStatement|object
+	 * @return PDOStatement|object A prepared query object.
 	 */
 	protected function prepare( string $query ): object {
 		return $this->db->prepare( $query );
 	}
 
+	/**
+	 * Executes a prepared select query and returns the result.
+	 *
+	 * @param PDOStatement|object $prepared A prepared query object.
+	 * @param array $values Query parameter values.
+	 *
+	 * @return array[] An array of database rows.
+	 */
 	protected function select( object $prepared, array $values = [] ): array {
 		$prepared->execute( $values );
 		return $prepared->fetchAll( PDO::FETCH_ASSOC );
 	}
 
 	/**
-	 * Inserts, updates or deletes a row.
+	 * Executes a prepared insert, update or delete query and returns the number of affected rows.
 	 *
-	 * @param PDOStatement|object $prepared A prepared update query.
-	 * @param array $values An array of values for the prepared sql statement being executed.
+	 * @param PDOStatement|object $prepared A prepared query object.
+	 * @param array $values Query parameter values.
 	 *
 	 * @return int The number of updated rows.
 	 */
@@ -343,11 +165,167 @@ class StoreSql implements StoreInterface {
 	}
 
 	/* -------------------------------------------------------------------------
+	 * Retrieving models.
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Checks if a model with the given id exists in the data store.
+	 *
+	 * @param int|string $id The model id.
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return bool True if the model exists, false otherwise.
+	 */
+	public function exists( string $id, string $class ): bool {
+		$query  = $this->existsRowStatement( $class );
+		$result = $this->select( $query, [ $id ] );
+		return (bool) $result;
+	}
+
+	/**
+	 * Gets a model matching the given id from the data store.
+	 *
+	 * @param int|string $id The model id.
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return ModelInterface|null The matching model or null if not found.
+	 */
+	public function get( $id, string $class ): ?ModelInterface {
+		$query = $this->selectRowStatement( $class );
+		$rows  = $this->select( $query, [ $id ] );
+
+		if ( $rows ) {
+			$model = new $class( $rows[0] );
+			return $this->restoreSingle( $model );
+		}
+
+		return null;
+	}
+
+	/**
+	 * Gets a list of models matching the given ids from the data store.
+	 *
+	 * @param int[]|string[] $ids An array of model ids.
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return ModelInterface[] An array of matching models.
+	 */
+	public function list( array $ids, string $class ): array {
+		$query = $this->collectRowsStatement( $class, $ids );
+		$rows  = $this->select( $query, array_values( $ids ) );
+
+		// Convert table rows to models.
+		array_walk( $rows, fn( &$row ) => $row = new $class( $row ) );
+		return static::restoreMulti( $class, $rows );
+	}
+
+	/**
+	 * Gets a filtered list of models from the data store.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 * @param array $filter Properties (key/value pairs) to match the stored models.
+	 *
+	 * @return ModelInterface[] An array of models.
+	 */
+	public function filter( string $class, array $filter = [] ): array {
+		$query = $filter
+			? $this->selectFilterStatement( $class, $filter )
+			: $this->selectAllStatement( $class );
+
+		$rows = $this->select( $query, $filter );
+
+		// Convert table rows to models.
+		array_walk( $rows, fn( &$row ) => $row = new $class( $row ) );
+		return static::restoreMulti( $class, $rows );
+	}
+
+	/**
+	 * Gets all models of the given class in the data store.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return ModelInterface[] An array of models.
+	 */
+	public function all( string $class ): array {
+		$query = $this->selectAllStatement( $class );
+		$rows  = $this->select( $query );
+
+		// Convert table rows to models.
+		array_walk( $rows, fn( &$row ) => $row = new $class( $row ) );
+		return static::restoreMulti( $class, $rows );
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Updating and deleting models
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Saves and validates a model in the data store.
+	 *
+	 * @param ModelInterface $model The model to store.
+	 *
+	 * @return ModelInterface The stored model.
+	 */
+	public function set( ModelInterface $model ): ModelInterface {
+		$model->validate( true );
+
+		$class = get_class( $model );
+		$query = $this->exists( $model->id(), $class )
+			? $this->updateRowStatement( $class )
+			: $this->insertRowStatement( $class );
+
+		$values = $this->getModelValues( $model );
+		$rows   = $this->update( $query, $values );
+
+		return $this->updateRelations( $model );
+	}
+
+	/**
+	 * Deletes a model from the data store.
+	 *
+	 * @param string $id The model id.
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return bool True if the model existed, false otherwise.
+	 */
+	public function delete( string $id, string $class ): bool {
+		$query  = $this->deleteRowStatement( $class );
+		$result = $this->update( $query, [ $id ] );
+		return (bool) $result;
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Data store handling
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Builds a data store if necessary.
+	 *
+	 * @param array $models The models to add to the data store.
+	 * @param array $options An assoc array of options.
+	 *
+	 * @return bool
+	 */
+	public function build( array $models, array $options = [] ): bool {
+		$models = $this->getAllModels( $models );
+		return (bool) $this->buildDatabase( $models );
+	}
+
+	/**
+	 * Flushes model data to permanent storage if necessary.
+	 *
+	 * @return bool True if data changes exists and were saved, false otherwise.
+	 */
+	public function flush(): bool {
+		return true;
+	}
+
+	/* -------------------------------------------------------------------------
 	 * Create and drop databases
 	 * ---------------------------------------------------------------------- */
 
 	/**
-	 * Generates a query to create a database with the given name.
+	 * Generates a query to create a database of the given name.
 	 *
 	 * @param string $name The database name.
 	 *
@@ -357,15 +335,16 @@ class StoreSql implements StoreInterface {
 		$name  = $this->name( $name );
 		$sql[] = "CREATE DATABASE IF NOT EXISTS {$name}";
 		$sql[] = 'DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
+
 		return join( "\n", $sql );
 	}
 
 	/**
-	 * Creates a new database with the given name.
+	 * Creates a database with the given name.
 	 *
 	 * @param string $name The database name.
 	 *
-	 * @return int True on success or if the database already exists, false otherwise.
+	 * @return int The number affected databases.
 	 */
 	protected function createDatabase( string $name ): int {
 		$query = $this->createDatabaseQuery( $name );
@@ -373,9 +352,9 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Generates a query to delete a database with the given name.
+	 * Generates a query to delete the database with the given name.
 	 *
-	 * @param string $name The database name.
+	 * @param string $name The name of the database to delete.
 	 *
 	 * @return string Sql query to delete a database.
 	 */
@@ -386,9 +365,9 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Deletes the database with the given name.
 	 *
-	 * @param string $name The database name.
+	 * @param string $name The name of the database to delete.
 	 *
-	 * @return int True on success or if the database doesn't exist, false otherwise.
+	 * @return int The number affected databases.
 	 */
 	protected function dropDatabase( string $name ): int {
 		$query = $this->dropDatabaseQuery( $name );
@@ -396,17 +375,17 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Creates or update tables for the given models and their sub-models.
+	 * Creates or updates database tables for the given models and their sub-models.
 	 *
-	 * @param ModelInterface[]|string[] $models An array of models to update tables for.
+	 * @param ModelInterface[]|string[] $classes An array of model class names.
 	 *
-	 * @return int The number of created or altered tables.
+	 * @return int The number of created or updated tables.
 	 */
-	protected function buildDatabase( array $models ): int {
+	protected function buildDatabase( array $classes ): int {
 		$count = 0;
 
 		// Create or alter model tables (columns + indexes).
-		foreach ( $models as $name ) {
+		foreach ( $classes as $name ) {
 			$count += $this->createTable( $name ) ?: $this->alterTable( $name );
 		}
 
@@ -416,7 +395,7 @@ class StoreSql implements StoreInterface {
 		}
 
 		// Merge all model class names and relation table names.
-		$all = array_merge( $models, array_keys( $this->relations ) );
+		$all = array_merge( $classes, array_keys( $this->relations ) );
 
 		// Set foreign keys after all tables, columns and indexes are in place.
 		foreach ( $all as $name ) {
@@ -430,15 +409,30 @@ class StoreSql implements StoreInterface {
 	 * Show, create and alter tables
 	 * ---------------------------------------------------------------------- */
 
+	/**
+	 * Gets a query to show all tables in the current database.
+	 *
+	 * @return string A query to show all database tables.
+	 */
 	protected function showTablesQuery(): string {
 		return 'SHOW TABLES';
 	}
 
+	/**
+	 * Gets all tables in the current database.
+	 *
+	 * @return array[] An array of all database tables.
+	 */
 	protected function showTables(): array {
 		$query = $this->showTablesQuery();
 		return $this->query( $query );
 	}
 
+	/**
+	 * Gets all tables names in the current database.
+	 *
+	 * @return string[] An array of all database table names.
+	 */
 	protected function showTableNames(): array {
 		foreach ( $this->showTables() as $table ) {
 			$result[] = current( $table );
@@ -449,11 +443,9 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Generates a query to create a database table for the given model.
 	 *
-	 * This method only creates table columns, not indexes.
-	 *
 	 * @param ModelInterface|string $class The model to create a database table for.
 	 *
-	 * @return string Sql query to create a database table.
+	 * @return string A query to create a database table.
 	 */
 	protected function createTableQuery( string $class ): string {
 		if ( Utils::isModel( $class ) ) {
@@ -485,11 +477,11 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Generates a query to create a table for the given model.
+	 * Creates a database table for the given model.
 	 *
-	 * @param ModelInterface|string $class The model to create a table for.
+	 * @param ModelInterface|string $class The model to create a database table for.
 	 *
-	 * @return int True if the table was created or already exists, false otherwise.
+	 * @return int The number of created database tables.
 	 */
 	protected function createTable( string $class ): int {
 		$query = $this->createTableQuery( $class );
@@ -497,15 +489,15 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Generates a query to alter a database table to match the given model.
+	 * Generates a query to alter a database table to fit the given model.
 	 *
-	 * @param ModelInterface|string $class The model to create a database table for.
+	 * @param ModelInterface|string $class The model to alter a database table for.
 	 *
-	 * @return string Sql query to update a database table.
+	 * @return string A query to alter a database table.
 	 */
 	protected function alterTableQuery( string $class ): string {
-		$columns = $this->getDeltaColumns( $class );
-		$indexes = $this->getDeltaIndexes( $class );
+		$columns = $this->calcDeltaColumns( $class );
+		$indexes = $this->calcDeltaIndexes( $class );
 
 		// Drop indexes.
 		foreach ( array_keys( $indexes['drop'] ) as $name ) {
@@ -544,11 +536,11 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Creates a table for the given model.
+	 * Alters a database table to match the given model.
 	 *
-	 * @param ModelInterface|string $class The model to update a table for.
+	 * @param ModelInterface|string $class The model to alter a database table for.
 	 *
-	 * @return int True if the table was successfully updated, false otherwise.
+	 * @return int The number of altered database tables.
 	 */
 	protected function alterTable( string $class ): int {
 		if ( $query = $this->alterTableQuery( $class ) ) {
@@ -561,19 +553,40 @@ class StoreSql implements StoreInterface {
 	 * Show and define table columns.
 	 * ---------------------------------------------------------------------- */
 
+	/**
+	 * Generates a query to show all columns in the given table.
+	 *
+	 * @param string $table The table name.
+	 *
+	 * @return string A query to show all columns in the given table.
+	 */
 	protected function showColumnsQuery( string $table ): string {
 		return sprintf( 'SHOW COLUMNS FROM %s', $this->name( $table ) );
 	}
 
+	/**
+	 * Gets all columns in the given table.
+	 *
+	 * @param string $table The table name.
+	 *
+	 * @return array[] An array of column definitions.
+	 */
 	protected function showColumns( string $table ): array {
 		$query = $this->showColumnsQuery( $table );
 		return $this->query( $query );
 	}
 
-	protected function defineColumnQuery( array $column ): string {
-		$type     = $column['type'];
-		$required = $column['required'] ?? null;
-		$default  = $column['default'] ?? null;
+	/**
+	 * Generates a column definition query for the given model property.
+	 *
+	 * @param Property|array $property A model property.
+	 *
+	 * @return string A column definition query.
+	 */
+	protected function defineColumnQuery( array $property ): string {
+		$type     = $property['type'];
+		$required = $property['required'] ?? null;
+		$default  = $property['default'] ?? null;
 
 		// Cast default value.
 		if ( isset( $default ) ) {
@@ -583,13 +596,20 @@ class StoreSql implements StoreInterface {
 		}
 
 		return join( ' ', array_filter( [
-			$this->name( $column['name'] ),
+			$this->name( $property['name'] ),
 			$type,
 			$required ? 'NOT NULL' : null,
 			isset( $default ) ? "DEFAULT {$default}" : null,
 		] ) );
 	}
 
+	/**
+	 * Gets column definitions for the given table.
+	 *
+	 * @param string $table The table name.
+	 *
+	 * @return array[] An array of column definitions.
+	 */
 	protected function getTableColumns( string $table ): array {
 		$columns = $this->showColumns( $table );
 		$result  = [];
@@ -617,11 +637,11 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Get model columns.
+	 * Gets column definitions for the given model.
 	 *
-	 * @param ModelInterface|string $class
+	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return array
+	 * @return array[] An array of column definition.
 	 */
 	protected function getModelColumns( string $class ): array {
 		$properties = $class::properties();
@@ -667,11 +687,11 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Gets the column data type.
+	 * Gets the correct column data type for the given model property.
 	 *
-	 * @param Property|array $property A model property.
+	 * @param Property|array $property The model property.
 	 *
-	 * @return string The sql data type.
+	 * @return string The column data type.
 	 */
 	protected function getColumnType( $property ): string {
 		$type = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
@@ -712,11 +732,13 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * @param ModelInterface|string $class
+	 * Calculates the delta between old and new columns for the given model.
 	 *
-	 * @return array
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return array[] An array of column deltas: drop, alter and create.
 	 */
-	protected function getDeltaColumns( string $class ): array {
+	protected function calcDeltaColumns( string $class ): array {
 		$tableColumns = $this->getTableColumns( $this->getTableName( $class ) );
 		$modelColumns = Utils::isModel( $class )
 			? $this->getModelColumns( $class )
@@ -755,15 +777,36 @@ class StoreSql implements StoreInterface {
 	 * Show and define table indexes
 	 * ---------------------------------------------------------------------- */
 
+	/**
+	 * Generates a query to show all indexes on the given table.
+	 *
+	 * @param string $table The table name.
+	 *
+	 * @return string A query to show all indexes on the given table.
+	 */
 	protected function showIndexesQuery( string $table ): string {
 		return sprintf( 'SHOW INDEXES FROM %s', $this->name( $table ) );
 	}
 
+	/**
+	 * Gets all indexes on the given table.
+	 *
+	 * @param string $table The table name.
+	 *
+	 * @return array[] An array of index definitions.
+	 */
 	protected function showIndexes( string $table ): array {
 		$query = $this->showIndexesQuery( $table );
 		return $this->query( $query );
 	}
 
+	/**
+	 * Generates an index definition query for the given index.
+	 *
+	 * @param array $index An index definition.
+	 *
+	 * @return string An index definition query.
+	 */
 	protected function defineIndexQuery( array $index ): string {
 		$name    = $this->name( $index['name'] );
 		$columns = join( ', ', array_map( [ $this, 'name' ], $index['columns'] ) );
@@ -778,6 +821,13 @@ class StoreSql implements StoreInterface {
 		}
 	}
 
+	/**
+	 * Gets index definitions for the given table.
+	 *
+	 * @param string $table The table name.
+	 *
+	 * @return array[] An array of index definitions.
+	 */
 	protected function getTableIndexes( string $table ): array {
 		$indexes = $this->showIndexes( $table );
 		$indexes = Utils::group( $indexes, 'Key_name' );
@@ -801,11 +851,11 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Get model indexes.
+	 * Gets index definitions for the given model.
 	 *
-	 * @param ModelInterface|string $class
+	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return array
+	 * @return array[] An array of index definitions.
 	 */
 	protected function getModelIndexes( string $class ): array {
 		$properties = $class::properties();
@@ -853,11 +903,13 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * @param ModelInterface|string $class
+	 * Calculates the delta between old and new indexes for the given model.
 	 *
-	 * @return array
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return array[] An array of index deltas: drop, alter and create.
 	 */
-	protected function getDeltaIndexes( string $class ): array {
+	protected function calcDeltaIndexes( string $class ): array {
 		$tableIndexes = $this->getTableIndexes( $this->getTableName( $class ) );
 		$modelIndexes = Utils::isModel( $class )
 			? $this->getModelIndexes( $class )
@@ -886,6 +938,13 @@ class StoreSql implements StoreInterface {
 	 * Show and define foreign keys
 	 * ---------------------------------------------------------------------- */
 
+	/**
+	 * Generates a query to show all foreign keys on the given table.
+	 *
+	 * @param string $table The table name.
+	 *
+	 * @return string A query to show all foreign keys on the given table.
+	 */
 	protected function showForeignQuery( string $table = '' ): string {
 		$schema = $this->escape( $this->dbname );
 		$table  = $table ? $this->escape( $table ) : '?';
@@ -899,13 +958,27 @@ class StoreSql implements StoreInterface {
 		return join( "\n", $sql );
 	}
 
+	/**
+	 * Gets all foreign keys on the given table.
+	 *
+	 * @param string $table The table name.
+	 *
+	 * @return array[] An array of foreign key definitions.
+	 */
 	protected function showForeign( string $table ): array {
 		$query = $this->prepare( $this->showForeignQuery() );
 		return $this->select( $query, [ $table, $table ] );
 	}
 
+	/**
+	 * Generates queries to alter foreign keys to fit the given model.
+	 *
+	 * @param ModelInterface|string $class The model alter foreign keys for.
+	 *
+	 * @return string[] Queries to alter foreign keys.
+	 */
 	protected function alterForeignQuery( string $class ): array {
-		$foreign = $this->getDeltaForeign( $class );
+		$foreign = $this->calcDeltaForeign( $class );
 
 		// Drop foreign keys.
 		foreach ( array_keys( $foreign['drop'] ) as $name ) {
@@ -932,14 +1005,30 @@ class StoreSql implements StoreInterface {
 		return $sql ?? [];
 	}
 
+	/**
+	 * Alters foreign keys to fit the given model.
+	 *
+	 * @param ModelInterface|string $class The model alter foreign keys for.
+	 *
+	 * @return bool True if any foreign keys were altered, false otherwise..
+	 */
 	protected function alterForeign( string $class ): bool {
+		$count = 0;
+
 		foreach ( $this->alterForeignQuery( $class ) as $query ) {
-			$this->exec( $query );
+			$count += $this->exec( $query );
 		}
 
-		return isset( $query );
+		return (bool) $count;
 	}
 
+	/**
+	 * Generates a foreign key definition query for the given index.
+	 *
+	 * @param array $index A foreign key definition.
+	 *
+	 * @return string A foreign key definition query.
+	 */
 	protected function defineForeignQuery( array $index ): string {
 
 		// Index name and columns.
@@ -968,6 +1057,13 @@ class StoreSql implements StoreInterface {
 		return join( ' ', $sql );
 	}
 
+	/**
+	 * Gets foreign key definitions for the given table.
+	 *
+	 * @param string $table The table name.
+	 *
+	 * @return array[] An array of foreign key definitions.
+	 */
 	protected function getTableForeign( string $table ): array {
 		$constraints = $this->showForeign( $table );
 		$constraints = array_column( $constraints, null, 'CONSTRAINT_NAME' );
@@ -989,11 +1085,11 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Get model constraints.
+	 * Gets foreign key definitions for the given model.
 	 *
-	 * @param ModelInterface|string $class
+	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return array
+	 * @return array[] An array of foreign key definitions.
 	 */
 	protected function getModelForeign( string $class ): array {
 		foreach ( $class::properties() as $id => $property ) {
@@ -1019,11 +1115,13 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * @param ModelInterface|string $class
+	 * Calculates the delta between old and new foreign keys for the given model.
 	 *
-	 * @return array
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return array[] An array of index deltas: drop and create.
 	 */
-	protected function getDeltaForeign( string $class ): array {
+	protected function calcDeltaForeign( string $class ): array {
 		$tableConstraints = $this->getTableForeign( $this->getTableName( $class ) );
 		$modelConstraints = Utils::isModel( $class )
 			? $this->getModelForeign( $class )
@@ -1052,30 +1150,59 @@ class StoreSql implements StoreInterface {
 	 * Model relations
 	 * ---------------------------------------------------------------------- */
 
-	protected function getRelationName( string $parent, string $id ): string {
-		return $parent . '\\' . $id;
+	/**
+	 * Gets the relation name for a model property.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 * @param string $id The model property id.
+	 *
+	 * @return string A pseudo-class name for the relation.
+	 */
+	protected function getRelationName( string $class, string $id ): string {
+		return $class . '\\' . $id;
 	}
 
+	/**
+	 * Gets column definitions for the given relation.
+	 *
+	 * @param string $relation The relation pseudo-class name.
+	 *
+	 * @return array[] An array of column definitions.
+	 */
 	protected function getRelationColumns( string $relation ): array {
 		return $this->relations[ $relation ]['columns'] ?? [];
 	}
 
+	/**
+	 * Gets index definitions for the given relation.
+	 *
+	 * @param string $relation The relation pseudo-class name.
+	 *
+	 * @return array[] An array of index definitions.
+	 */
 	protected function getRelationIndexes( string $relation ): array {
 		return $this->relations[ $relation ]['indexes'] ?? [];
 	}
 
+	/**
+	 * Gets foreign key definitions for the given relation.
+	 *
+	 * @param string $relation The relation pseudo-class name.
+	 *
+	 * @return array[] An array of foreign key definitions.
+	 */
 	protected function getRelationForeign( string $relation ): array {
 		return $this->relations[ $relation ]['foreign'] ?? [];
 	}
 
 	/**
-	 * Adds a model relation table to the database.
+	 * Enqueues a relation table to be created.
 	 *
-	 * @param ModelInterface|string $parent
-	 * @param ModelInterface|string $child
+	 * @param ModelInterface|string $parent The parent model class name.
+	 * @param ModelInterface|string $child The child model class name.
 	 * @param string $id The property id containing the child models.
 	 *
-	 * @return bool
+	 * @return bool True if the relation table can be created, false otherwise.
 	 */
 	protected function addRelation( string $parent, string $child, string $id ): bool {
 		$relation = $this->getRelationName( $parent, $id );
@@ -1148,115 +1275,19 @@ class StoreSql implements StoreInterface {
 		return true;
 	}
 
-	/**
-	 * Updates a relation between parent and child.
-	 *
-	 * @param ModelInterface $parent
-	 * @param ModelInterface|string $child
-	 * @param string $id
-	 *
-	 * @return bool
-	 */
-	protected function updateRelation( ModelInterface $parent, string $child, string $id ): bool {
-		$relation = $this->getRelationName( get_class( $parent ), $id );
-		$table    = $this->getTableName( $relation );
-
-		$list = array_map( [ $this, 'set' ], $parent[ $id ] ?? [] );
-		$list = array_column( $list, null, $child::idProperty() );
-
-		$select   = $this->selectRelationStatement( $table, 'parent' );
-		$existing = $this->select( $select, [ $parent->id() ] );
-		$existing = array_column( $existing, null, $parent::idProperty() );
-		$common   = array_intersect_key( $list, $existing );
-
-		if ( count( $common ) < count( $existing ) ) {
-			$delete = $this->deleteRelationStatement( $table, 'parent' );
-			$insert = $this->insertRelationStatement( $table );
-			$rows   = $this->update( $delete, [ $parent->id() ] );
-
-			foreach ( $list as $item ) {
-				$rows = $this->update( $insert, [ $parent->id(), $item->id() ] );
-			}
-		} elseif ( count( $common ) < count( $list ) ) {
-			$insert = $this->insertRelationStatement( $table );
-			$added  = array_diff_key( $list, $existing );
-
-			foreach ( $added as $item ) {
-				$rows = $this->update( $insert, [ $parent->id(), $item->id() ] );
-			}
-		}
-
-		return true;
-	}
-
-	protected function updateRelations( ModelInterface $model ): ModelInterface {
-		$relations = static::getRelationProperties( $model::properties() );
-
-		foreach ( $relations as $id => $property ) {
-			$child = $property[ PropertyItem::MODEL ];
-			$this->updateRelation( $model, $child, $id );
-		}
-
-		return $model;
-	}
-
 	/* -------------------------------------------------------------------------
-	 * Select, insert and delete relations.
+	 * Select, update, insert and delete relations.
 	 * ---------------------------------------------------------------------- */
 
 	/**
-	 * Gets a prepared select statement for the given relation table.
+	 * Generates a query for selecting child models.
 	 *
-	 * @param string $table A relation table name.
-	 * @param string $column
+	 * @param ModelInterface|string $parent The parent model class name.
+	 * @param ModelInterface|string $child The child model class name.
+	 * @param string $id The property id containing the child models.
+	 * @param string|int $value The parent model id.
 	 *
-	 * @return PDOStatement
-	 */
-	protected function selectRelationStatement( string $table, string $column ): object {
-		if ( empty( $this->queries[ $table ]['select'] ) ) {
-			$query = $this->selectRowQuery( $table, $column );;
-			$this->queries[ $table ]['select'] = $this->prepare( $query );
-		}
-		return $this->queries[ $table ]['select'];
-	}
-
-	/**
-	 * Gets a prepared insert statement for the given relation table.
-	 *
-	 * @param string $table A relation table name.
-	 *
-	 * @return PDOStatement
-	 */
-	protected function insertRelationStatement( string $table ): object {
-		if ( empty( $this->queries[ $table ]['insert'] ) ) {
-			$query = sprintf( 'INSERT INTO %s VALUES (?, ?)', $this->name( $table ) );;
-			$this->queries[ $table ]['insert'] = $this->prepare( $query );
-		}
-		return $this->queries[ $table ]['insert'];
-	}
-
-	/**
-	 * Gets a prepared delete statement for the given relation table.
-	 *
-	 * @param string $table A relation table name.
-	 *
-	 * @return PDOStatement
-	 */
-	protected function deleteRelationStatement( string $table, string $left ): object {
-		if ( empty( $this->queries[ $table ]['delete'] ) ) {
-			$query = $this->deleteRowQuery( $table, $left );;
-			$this->queries[ $table ]['delete'] = $this->prepare( $query );
-		}
-		return $this->queries[ $table ]['delete'];
-	}
-
-	/**
-	 * @param ModelInterface|string $parent
-	 * @param ModelInterface|string $child
-	 * @param string $id
-	 * @param mixed $value
-	 *
-	 * @return string
+	 * @return string A query for selecting child models.
 	 */
 	protected function selectChildrenQuery( string $parent, string $child, string $id, $value = null ): string {
 		$relation = $this->getRelationName( $parent, $id );
@@ -1274,12 +1305,13 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Gets a prepared select statement for the given relation table.
+	 * Gets a prepared query for selecting child models.
 	 *
-	 * @param ModelInterface|string $parent A relation table name.
-	 * @param ModelInterface|string $child A relation table name.
+	 * @param ModelInterface|string $parent The parent model class name.
+	 * @param ModelInterface|string $child The child model class name.
+	 * @param string $id The property id containing the child models.
 	 *
-	 * @return PDOStatement|object
+	 * @return PDOStatement|object A prepared query object.
 	 */
 	protected function selectChildrenStatement( string $parent, string $child, string $id ): object {
 		$relation = $this->getRelationName( $parent, $id );
@@ -1290,6 +1322,108 @@ class StoreSql implements StoreInterface {
 			$this->queries[ $table ]['children'] = $this->prepare( $query );
 		}
 		return $this->queries[ $table ]['children'];
+	}
+
+	/**
+	 * Gets a prepared query for selecting rows from the given relation table.
+	 *
+	 * @param string $table The relation table name.
+	 * @param string $column The column name: 'parent' or 'child'.
+	 *
+	 * @return PDOStatement|object A prepared query object.
+	 */
+	protected function selectRelationStatement( string $table, string $column = 'parent' ): object {
+		if ( empty( $this->queries[ $table ]['select'] ) ) {
+			$query = $this->selectRowQuery( $table, $column );;
+			$this->queries[ $table ]['select'] = $this->prepare( $query );
+		}
+		return $this->queries[ $table ]['select'];
+	}
+
+	/**
+	 * Gets a prepared query for deleting rows from the given relation table.
+	 *
+	 * @param string $table The relation table name.
+	 * @param string $column The column name: 'parent' or 'child'.
+	 *
+	 * @return PDOStatement|object A prepared query object.
+	 */
+	protected function deleteRelationStatement( string $table, string $column = 'parent' ): object {
+		if ( empty( $this->queries[ $table ]['delete'] ) ) {
+			$query = $this->deleteRowQuery( $table, $column );;
+			$this->queries[ $table ]['delete'] = $this->prepare( $query );
+		}
+		return $this->queries[ $table ]['delete'];
+	}
+
+	/**
+	 * Gets a prepared query for inserting rows into the given relation table.
+	 *
+	 * @param string $table The relation table name.
+	 *
+	 * @return PDOStatement|object A prepared query object.
+	 */
+	protected function insertRelationStatement( string $table ): object {
+		if ( empty( $this->queries[ $table ]['insert'] ) ) {
+			$query = sprintf( 'INSERT INTO %s VALUES (?, ?)', $this->name( $table ) );;
+			$this->queries[ $table ]['insert'] = $this->prepare( $query );
+		}
+		return $this->queries[ $table ]['insert'];
+	}
+
+	/**
+	 * Updates a relation between parent and child models.
+	 *
+	 * @param ModelInterface $parent The parent model instance.
+	 * @param ModelInterface|string $child The child model class name.
+	 * @param string $id The property id containing the child models.
+	 */
+	protected function updateRelation( ModelInterface $parent, string $child, string $id ): void {
+		$relation = $this->getRelationName( get_class( $parent ), $id );
+		$table    = $this->getTableName( $relation );
+
+		$list = array_map( [ $this, 'set' ], $parent[ $id ] ?? [] );
+		$list = array_column( $list, null, $child::idProperty() );
+
+		$select   = $this->selectRelationStatement( $table );
+		$existing = $this->select( $select, [ $parent->id() ] );
+		$existing = array_column( $existing, null, $parent::idProperty() );
+		$common   = array_intersect_key( $list, $existing );
+
+		if ( count( $common ) < count( $existing ) ) {
+			$delete = $this->deleteRelationStatement( $table );
+			$insert = $this->insertRelationStatement( $table );
+			$rows   = $this->update( $delete, [ $parent->id() ] );
+
+			foreach ( $list as $item ) {
+				$rows = $this->update( $insert, [ $parent->id(), $item->id() ] );
+			}
+		} elseif ( count( $common ) < count( $list ) ) {
+			$insert = $this->insertRelationStatement( $table );
+			$added  = array_diff_key( $list, $existing );
+
+			foreach ( $added as $item ) {
+				$rows = $this->update( $insert, [ $parent->id(), $item->id() ] );
+			}
+		}
+	}
+
+	/**
+	 * Updates all relations for the given model.
+	 *
+	 * @param ModelInterface $model The model instance to update relations for.
+	 *
+	 * @return ModelInterface The same model instance for chaining.
+	 */
+	protected function updateRelations( ModelInterface $model ): ModelInterface {
+		$relations = static::getRelationProperties( $model::properties() );
+
+		foreach ( $relations as $id => $property ) {
+			$child = $property[ PropertyItem::MODEL ];
+			$this->updateRelation( $model, $child, $id );
+		}
+
+		return $model;
 	}
 
 	/* -------------------------------------------------------------------------
@@ -1409,7 +1543,7 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @return string
 	 */
-	protected function selectListQuery( string $table ): string {
+	protected function selectAllQuery( string $table ): string {
 		$table = $this->name( $table );
 		return "SELECT * FROM {$table}";
 	}
@@ -1421,11 +1555,11 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @return PDOStatement|null
 	 */
-	protected function selectListStatement( string $class ): ?object {
+	protected function selectAllStatement( string $class ): ?object {
 		$table = $this->getTableName( $class );
 
 		if ( empty( $this->queries[ $table ]['list'] ) ) {
-			$query = $this->selectListQuery( $table );;
+			$query = $this->selectAllQuery( $table );;
 			$this->queries[ $table ]['list'] = $this->prepare( $query );
 		}
 		return $this->queries[ $table ]['list'] ?? null;
@@ -1736,12 +1870,41 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
+	 * Completely restores the given model including all sub-models.
+	 *
+	 * @param ModelInterface $model The model to restore.
+	 *
+	 * @return ModelInterface The completely restored model.
+	 */
+	public function restoreSingle( ModelInterface $model ): ModelInterface {
+		$properties = static::getForeignProperties( $model::properties() );
+
+		foreach ( $properties as $id => $property ) {
+			$type  = $property[ PropertyItem::TYPE ];
+			$child = $property[ PropertyItem::MODEL ];
+			$value = &$model[ $id ];
+
+			if ( PropertyType::ARRAY === $type ) {
+				$select = $this->selectChildrenStatement( get_class( $model ), $child, $id );
+				$rows   = $this->select( $select, (array) $model->id() );
+				$value  = array_map( [ $child, 'create' ], $rows );
+				static::restoreMulti( $child, $value );
+			} elseif ( PropertyType::OBJECT === $type && isset( $value ) ) {
+				$value = $this->get( $value, $child );
+			}
+		}
+
+		return $model;
+	}
+
+	/**
 	 * Completely restores an array of models including all sub-models.
 	 *
 	 * @param ModelInterface|string $class The model class name.
-	 * @param ModelInterface[] $collection An array of models of the given class.
+	 * @param ModelInterface[]|array $models An array of models of the given class.
 	 */
-	protected function restoreCollection( string $class, array $collection ): void {
-		array_walk( $collection, [ $this, 'restore' ] );
+	protected function restoreMulti( string $class, array $models ): array {
+		array_walk( $models, [ $this, 'restoreSingle' ] );
+		return $models;
 	}
 }
