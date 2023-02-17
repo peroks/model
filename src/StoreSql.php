@@ -84,7 +84,7 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Executes a single query and returns the number of affected rows.
 	 *
-	 * @param string $query A sql query.
+	 * @param string $query A query statement.
 	 *
 	 * @return int The number of affected rows.
 	 */
@@ -95,7 +95,7 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Executes a single query and returns the result.
 	 *
-	 * @param string $query A sql query.
+	 * @param string $query A query statement.
 	 * @param array $values The values of a prepared query statement.
 	 *
 	 * @return array[] The query result.
@@ -211,7 +211,7 @@ class StoreSql implements StoreInterface {
 	 * @return ModelInterface[] An array of matching models.
 	 */
 	public function list( array $ids, string $class ): array {
-		$query = $this->collectRowsStatement( $class, $ids );
+		$query = $this->listRowsStatement( $class, $ids );
 		$rows  = $this->select( $query, array_values( $ids ) );
 
 		// Convert table rows to models.
@@ -223,14 +223,14 @@ class StoreSql implements StoreInterface {
 	 * Gets a filtered list of models from the data store.
 	 *
 	 * @param ModelInterface|string $class The model class name.
-	 * @param array $filter Properties (key/value pairs) to match the stored models.
+	 * @param array $filter Key/value pairs to match model property values.
 	 *
 	 * @return ModelInterface[] An array of models.
 	 */
 	public function filter( string $class, array $filter = [] ): array {
 		$query = $filter
-			? $this->selectFilterStatement( $class, $filter )
-			: $this->selectAllStatement( $class );
+			? $this->filterRowsStatement( $class, $filter )
+			: $this->allRowsStatement( $class );
 
 		$rows = $this->select( $query, $filter );
 
@@ -247,7 +247,7 @@ class StoreSql implements StoreInterface {
 	 * @return ModelInterface[] An array of models.
 	 */
 	public function all( string $class ): array {
-		$query = $this->selectAllStatement( $class );
+		$query = $this->allRowsStatement( $class );
 		$rows  = $this->select( $query );
 
 		// Convert table rows to models.
@@ -1431,13 +1431,13 @@ class StoreSql implements StoreInterface {
 	 * ---------------------------------------------------------------------- */
 
 	/**
-	 * Generates an exists query template.
+	 * Generates a query to check if a model exists in the data store.
 	 *
-	 * @param string $table
-	 * @param string $primary
-	 * @param mixed $value
+	 * @param string $table The table name.
+	 * @param string $primary The name of the primary key column.
+	 * @param string|int $value The model id to check for.
 	 *
-	 * @return string
+	 * @return string A query to check if a model exists.
 	 */
 	protected function existsRowQuery( string $table, string $primary, $value = null ): string {
 		return vsprintf( 'SELECT 1 FROM %s WHERE %s = %s LIMIT 1', [
@@ -1452,9 +1452,9 @@ class StoreSql implements StoreInterface {
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return PDOStatement|null
+	 * @return PDOStatement|object A prepared query object.
 	 */
-	protected function existsRowStatement( string $class ): ?object {
+	protected function existsRowStatement( string $class ): object {
 		$table = $this->getTableName( $class );
 
 		if ( empty( $this->queries[ $table ]['exists'] ) ) {
@@ -1465,13 +1465,13 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Generates a select query template.
+	 * Generates a query for selecting a single model from the data store.
 	 *
-	 * @param string $table
-	 * @param string $primary
-	 * @param mixed $value
+	 * @param string $table The table name.
+	 * @param string $primary The name of the primary key column.
+	 * @param string|int $value The model id to select.
 	 *
-	 * @return string
+	 * @return string A query for selecting a single model.
 	 */
 	protected function selectRowQuery( string $table, string $primary, $value = null ): string {
 		return vsprintf( 'SELECT * FROM %s WHERE %s = %s', [
@@ -1482,13 +1482,13 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Gets a prepared select statement for the given model.
+	 * Gets a prepared query for selecting a single model from the data store.
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return PDOStatement|null
+	 * @return PDOStatement|object A prepared query object.
 	 */
-	protected function selectRowStatement( string $class ): ?object {
+	protected function selectRowStatement( string $class ): object {
 		$table = $this->getTableName( $class );
 
 		if ( empty( $this->queries[ $table ]['select'] ) ) {
@@ -1500,15 +1500,15 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Generates a select query template.
+	 * Generates a query for selecting a list of models from the data store.
 	 *
-	 * @param string $table
-	 * @param string $primary
-	 * @param array $values
+	 * @param string $table The table name.
+	 * @param string $primary The name of the primary key column.
+	 * @param string[]|int[] $values An array of model ids to select.
 	 *
-	 * @return string
+	 * @return string A query for selecting a list of models.
 	 */
-	protected function collectRowsQuery( string $table, string $primary, array $values ): string {
+	protected function listRowsQuery( string $table, string $primary, array $values ): string {
 		$table   = $this->name( $table );
 		$primary = $this->name( $primary );
 
@@ -1521,59 +1521,30 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Gets a prepared statement to check if a model exists.
+	 * Gets a prepared query for selecting a list of models from the data store.
 	 *
 	 * @param ModelInterface|string $class The model class name.
-	 * @param array $values
+	 * @param string[]|int[] $values An array of model ids to select.
 	 *
-	 * @return PDOStatement|null
+	 * @return PDOStatement|object A prepared query object.
 	 */
-	protected function collectRowsStatement( string $class, array $values ): ?object {
+	protected function listRowsStatement( string $class, array $values ): object {
 		$table   = $this->getTableName( $class );
 		$primary = $class::idProperty();
-		$query   = $this->collectRowsQuery( $table, $primary, $values );
+		$query   = $this->listRowsQuery( $table, $primary, $values );
 
 		return $this->prepare( $query );
 	}
 
 	/**
-	 * Generates an exists query template.
+	 * Generates a query for a filtered list of models from the data store.
 	 *
-	 * @param string $table
+	 * @param string $table The table name.
+	 * @param array $filter Key/value pairs to match model property values.
 	 *
-	 * @return string
+	 * @return string A query for a filtered list of models.
 	 */
-	protected function selectAllQuery( string $table ): string {
-		$table = $this->name( $table );
-		return "SELECT * FROM {$table}";
-	}
-
-	/**
-	 * Gets a prepared statement to check if a model exists.
-	 *
-	 * @param ModelInterface|string $class The model class name.
-	 *
-	 * @return PDOStatement|null
-	 */
-	protected function selectAllStatement( string $class ): ?object {
-		$table = $this->getTableName( $class );
-
-		if ( empty( $this->queries[ $table ]['list'] ) ) {
-			$query = $this->selectAllQuery( $table );;
-			$this->queries[ $table ]['list'] = $this->prepare( $query );
-		}
-		return $this->queries[ $table ]['list'] ?? null;
-	}
-
-	/**
-	 * Generates an exists query template.
-	 *
-	 * @param string $table
-	 * @param array $filter
-	 *
-	 * @return string
-	 */
-	protected function selectFilterQuery( string $table, array $filter ): string {
+	protected function filterRowsQuery( string $table, array $filter ): string {
 		foreach ( $filter as $key => &$value ) {
 			$value = sprintf( '(%s = :%s)', $this->name( $key ), $key );
 		}
@@ -1585,26 +1556,56 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Gets a prepared statement to check if a model exists.
+	 * Gets a prepared query for a filtered list of models from the data store.
 	 *
 	 * @param ModelInterface|string $class The model class name.
+	 * @param array $filter Key/value pairs to match model property values.
 	 *
-	 * @return PDOStatement|null
+	 * @return PDOStatement|object A prepared query object.
 	 */
-	protected function selectFilterStatement( string $class, array $filter ): ?object {
+	protected function filterRowsStatement( string $class, array $filter ): object {
 		$table = $this->getTableName( $class );
-		$query = $this->selectFilterQuery( $table, $filter );
+		$query = $this->filterRowsQuery( $table, $filter );
 		return $this->prepare( $query );
 	}
 
 	/**
-	 * Generates an update query template.
+	 * Generates a query for selecting all models from the given table name.
 	 *
-	 * @param string $table
-	 * @param array $properties
-	 * @param array $values
+	 * @param string $table The table name.
 	 *
-	 * @return string
+	 * @return string A query for selecting all models.
+	 */
+	protected function allRowsQuery( string $table ): string {
+		$table = $this->name( $table );
+		return "SELECT * FROM {$table}";
+	}
+
+	/**
+	 * Gets a prepared query for selecting all models of the given class name.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return PDOStatement|object A prepared query object.
+	 */
+	protected function allRowsStatement( string $class ): object {
+		$table = $this->getTableName( $class );
+
+		if ( empty( $this->queries[ $table ]['all'] ) ) {
+			$query = $this->allRowsQuery( $table );;
+			$this->queries[ $table ]['all'] = $this->prepare( $query );
+		}
+		return $this->queries[ $table ]['all'];
+	}
+
+	/**
+	 * Generates a query for inserting a model into the given table.
+	 *
+	 * @param string $table The table name.
+	 * @param Property[]|array[] $properties An array of model properties.
+	 * @param array $values The model property values as key/value pairs.
+	 *
+	 * @return string A query for inserting a model into the given table.
 	 */
 	protected function insertRowQuery( string $table, array $properties, array $values = [] ): string {
 		$columns = [];
@@ -1625,11 +1626,11 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Gets a prepared update statement for the given model.
+	 * Gets a prepared query for adding a model to the data store.
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return PDOStatement
+	 * @return PDOStatement|object A prepared query object.
 	 */
 	protected function insertRowStatement( string $class ): object {
 		$table = $this->getTableName( $class );
@@ -1643,14 +1644,14 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Generates an update query template.
+	 * Generates a query for updating a model.
 	 *
-	 * @param string $table
-	 * @param array $properties
-	 * @param string $primary
-	 * @param array $values
+	 * @param string $table The table name.
+	 * @param Property[]|array[] $properties An array of model properties.
+	 * @param string $primary The name of the primary key column.
+	 * @param array $values The model property values as key/value pairs.
 	 *
-	 * @return string
+	 * @return string A query for updating a model.
 	 */
 	protected function updateRowQuery( string $table, array $properties, string $primary, array $values = [] ): string {
 		$sql = [];
@@ -1675,11 +1676,11 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Gets a prepared update statement for the given model.
+	 * Gets a prepared a query for updating a model.
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return PDOStatement
+	 * @return PDOStatement|object A prepared query object.
 	 */
 	protected function updateRowStatement( string $class ): object {
 		$table = $this->getTableName( $class );
@@ -1695,13 +1696,13 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Generates an delete query template.
+	 * Generates a query for deleting a model from the given table.
 	 *
-	 * @param string $table
-	 * @param string $primary
-	 * @param mixed $value
+	 * @param string $table The table name.
+	 * @param string $primary The name of the primary key column.
+	 * @param string|int $value The model id to delete.
 	 *
-	 * @return string
+	 * @return string A query for inserting a model into the given table.
 	 */
 	protected function deleteRowQuery( string $table, string $primary, $value = null ): string {
 		return vsprintf( 'DELETE FROM %s WHERE %s = %s', [
@@ -1712,11 +1713,11 @@ class StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Gets a prepared update statement for the given model.
+	 * Gets a prepared query for deleting a model from the data store.
 	 *
 	 * @param ModelInterface|string $class The model class name.
 	 *
-	 * @return PDOStatement
+	 * @return PDOStatement|object A prepared query object.
 	 */
 	protected function deleteRowStatement( string $class ): object {
 		$table = $this->getTableName( $class );
@@ -1735,12 +1736,23 @@ class StoreSql implements StoreInterface {
 
 	/**
 	 * Gets the table name corresponding to the given model.
+	 *
+	 * @param ModelInterface|string $class The model class name.
+	 *
+	 * @return string The corresponding table name.
 	 */
 	protected function getTableName( string $class ): string {
 		$class = str_replace( 'Silverscreen\\', '', $class );
 		return str_replace( '\\', '_', $class );
 	}
 
+	/**
+	 * Gets the model values to be inserted or updated.
+	 *
+	 * @param ModelInterface $model The model instance to be stored.
+	 *
+	 * @return array The model property values as key/value pairs.
+	 */
 	protected function getModelValues( ModelInterface $model ): array {
 		foreach ( $model::properties() as $id => $property ) {
 			if ( Utils::isColumn( $property ) ) {
@@ -1750,6 +1762,14 @@ class StoreSql implements StoreInterface {
 		return $result ?? [];
 	}
 
+	/**
+	 * Gets the value of the given property to be store in a database column.
+	 *
+	 * @param mixed $value The property value.
+	 * @param Property|array $property The model property.
+	 *
+	 * @return mixed A value to be store in a database column.
+	 */
 	protected function getPropertyValue( $value, array $property ) {
 		$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
 		$child = $property[ PropertyItem::MODEL ] ?? null;
@@ -1787,74 +1807,13 @@ class StoreSql implements StoreInterface {
 		return $value;
 	}
 
-	protected function getModelRelations( ModelInterface $model ): array {
-		foreach ( $model::properties() as $id => $property ) {
-			if ( Utils::isRelation( $property ) ) {
-				$child            = $property[ PropertyItem::MODEL ];
-				$result[ $child ] = $model[ $id ] ?? [];
-			}
-		}
-
-		return $result ?? [];
-	}
-
 	/**
-	 * Extract all sub-models from the given models.
+	 * Filters out model properties that are stored in a separate table.
 	 *
-	 * @param ModelInterface[]|string[] $models An array of model class names.
-	 * @param ModelInterface[]|string[] $result An array of all model and sub-model class names.
+	 * @param Property[]|array[] $properties The model properties.
 	 *
-	 * @return ModelInterface[]|string[] An array of all model and sub-model class names.
+	 * @return Property[]|array[] Properties that are stored in a separate table.
 	 */
-	protected function getAllModels( array $models, array &$result = [] ): array {
-		$result = $result ?: $models;
-
-		foreach ( $models as $class ) {
-			foreach ( $class::properties() as $property ) {
-				$foreign = $property[ PropertyItem::FOREIGN ] ?? null;
-				$model   = $property[ PropertyItem::MODEL ] ?? $foreign;
-
-				if ( Utils::isModel( $model ) && $model::idProperty() ) {
-					if ( empty( in_array( $model, $result, true ) ) ) {
-						$result[] = $model;
-						$this->getAllModels( [ $model ], $result );
-					}
-				}
-			}
-		}
-
-		return $result;
-	}
-
-	/**
-	 * Extract all sub-models from the given model.
-	 *
-	 * @param ModelInterface|string $class A model class name.
-	 * @param bool $include Whether to include the given model in the result or not.
-	 *
-	 * @return ModelInterface|string[] An array of sub-model classes of the given model class.
-	 */
-	protected function getSubModels( string $class, bool $include = true ): array {
-		$result = $include ? [ $class ] : [];
-
-		foreach ( $class::properties() as $property ) {
-			$foreign = $property[ PropertyItem::FOREIGN ] ?? null;
-			$model   = $property[ PropertyItem::MODEL ] ?? $foreign;
-
-			if ( Utils::isModel( $model ) && $model::idProperty() ) {
-				if ( empty( in_array( $model, $result, true ) ) ) {
-					$result = array_merge( $result, $this->getSubModels( $model ) );
-				}
-			}
-		}
-
-		return $result;
-	}
-
-	protected static function getRelationProperties( array $properties ): array {
-		return array_filter( $properties, [ Utils::class, 'isRelation' ] );
-	}
-
 	protected static function getForeignProperties( array $properties ): array {
 		return array_filter( $properties, function( array $property ): bool {
 			$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
@@ -1867,6 +1826,17 @@ class StoreSql implements StoreInterface {
 			}
 			return false;
 		} );
+	}
+
+	/**
+	 * Filters out model properties that are stored in a separate relation table.
+	 *
+	 * @param Property[]|array[] $properties The model properties.
+	 *
+	 * @return Property[]|array[] Properties that are stored in a separate relation table.
+	 */
+	protected static function getRelationProperties( array $properties ): array {
+		return array_filter( $properties, [ Utils::class, 'isRelation' ] );
 	}
 
 	/**
@@ -1901,10 +1871,40 @@ class StoreSql implements StoreInterface {
 	 * Completely restores an array of models including all sub-models.
 	 *
 	 * @param ModelInterface|string $class The model class name.
-	 * @param ModelInterface[]|array $models An array of models of the given class.
+	 * @param ModelInterface[]|array[] $models An array of models of the given class.
+	 *
+	 * @return array An array of completely restored models.
 	 */
 	protected function restoreMulti( string $class, array $models ): array {
 		array_walk( $models, [ $this, 'restoreSingle' ] );
 		return $models;
+	}
+
+	/**
+	 * Extract all sub-models from the given models.
+	 *
+	 * @param ModelInterface[]|string[] $models An array of model class names.
+	 * @param ModelInterface[]|string[] $result An array of all model and sub-model class names.
+	 *
+	 * @return ModelInterface[]|string[] An array of all model and sub-model class names.
+	 */
+	protected function getAllModels( array $models, array &$result = [] ): array {
+		$result = $result ?: $models;
+
+		foreach ( $models as $class ) {
+			foreach ( $class::properties() as $property ) {
+				$foreign = $property[ PropertyItem::FOREIGN ] ?? null;
+				$model   = $property[ PropertyItem::MODEL ] ?? $foreign;
+
+				if ( Utils::isModel( $model ) && $model::idProperty() ) {
+					if ( empty( in_array( $model, $result, true ) ) ) {
+						$result[] = $model;
+						$this->getAllModels( [ $model ], $result );
+					}
+				}
+			}
+		}
+
+		return $result;
 	}
 }

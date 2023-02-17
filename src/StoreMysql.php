@@ -4,7 +4,7 @@ use Generator;
 use mysqli, mysqli_sql_exception;
 
 /**
- * Class for storing and retrieving models from a SQL database.
+ * Class for storing and retrieving models from a Mysql database.
  *
  * @author Per Egil Roksvaag
  * @copyright Per Egil Roksvaag
@@ -53,11 +53,11 @@ class StoreMysql extends StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Executes a single query against the database.
+	 * Executes a single query and returns the number of affected rows.
 	 *
-	 * @param string $query An sql statement.
+	 * @param string $query A query statement.
 	 *
-	 * @return int
+	 * @return int The number of affected rows.
 	 */
 	protected function exec( string $query ): int {
 		$this->db->real_query( $query );
@@ -65,11 +65,24 @@ class StoreMysql extends StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Prepares a statement for execution and returns a statement object.
+	 * Executes a single query and returns the result.
+	 *
+	 * @param string $query A query statement.
+	 * @param array $values The values of a prepared query statement.
+	 *
+	 * @return array[] The query result.
+	 */
+	protected function query( string $query, array $values = [] ): array {
+		$prepared = $this->prepare( $query );
+		return $this->select( $prepared, $values );
+	}
+
+	/**
+	 * Prepares a statement for execution and returns a prepared query object.
 	 *
 	 * @param string $query A valid sql statement template.
 	 *
-	 * @return object
+	 * @return object A prepared query object.
 	 */
 	protected function prepare( string $query ): object {
 		$params = static::stripQueryParams( $query );
@@ -80,6 +93,14 @@ class StoreMysql extends StoreSql implements StoreInterface {
 		];
 	}
 
+	/**
+	 * Executes a prepared select query and returns the result.
+	 *
+	 * @param object $prepared A prepared query object.
+	 * @param array $values Query parameter values.
+	 *
+	 * @return array[] An array of database rows.
+	 */
 	protected function select( object $prepared, array $values = [] ): array {
 		static::bindParams( $prepared, $values );
 		$prepared->query->execute();
@@ -87,10 +108,10 @@ class StoreMysql extends StoreSql implements StoreInterface {
 	}
 
 	/**
-	 * Inserts, updates or deletes a row.
+	 * Executes a prepared insert, update or delete query and returns the number of affected rows.
 	 *
-	 * @param object $prepared A prepared update query.
-	 * @param array $values An array of values for the prepared sql statement being executed.
+	 * @param object $prepared A prepared query object.
+	 * @param array $values Query parameter values.
 	 *
 	 * @return int The number of updated rows.
 	 */
@@ -146,6 +167,13 @@ class StoreMysql extends StoreSql implements StoreInterface {
 	 * Helpers
 	 * ---------------------------------------------------------------------- */
 
+	/**
+	 * Replaces named PDO placeholders with question mark placeholders in a query.
+	 *
+	 * @param string $query The query to modify.
+	 *
+	 * @return array The parameter names (array keys) in correct order for the placeholders.
+	 */
 	protected static function stripQueryParams( string &$query ): array {
 		$pattern = '/:(\\w+)/';
 		$params  = [];
@@ -160,6 +188,12 @@ class StoreMysql extends StoreSql implements StoreInterface {
 		return $params;
 	}
 
+	/**
+	 * Binds parameter values to a prepared query object.
+	 *
+	 * @param object $prepared A prepared query object.
+	 * @param array $params Key/value pairs of query parameters.
+	 */
 	protected static function bindParams( object $prepared, array $params ): void {
 		if ( $params ) {
 			$params = array_merge( array_flip( $prepared->params ), $params );
@@ -186,7 +220,9 @@ class StoreMysql extends StoreSql implements StoreInterface {
 	 * Completely restores an array of models including all sub-models.
 	 *
 	 * @param ModelInterface|string $class The model class name.
-	 * @param ModelInterface[] $models An array of models of the given class.
+	 * @param ModelInterface[]|array[] $models An array of models of the given class.
+	 *
+	 * @return array An array of completely restored models.
 	 */
 	protected function restoreMulti( string $class, array $models ): array {
 		if ( empty( $models ) ) {
