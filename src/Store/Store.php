@@ -1,4 +1,7 @@
-<?php namespace Peroks\Model;
+<?php namespace Peroks\Model\Store;
+
+use Peroks\Model\ModelData;
+use Peroks\Model\ModelInterface;
 
 /**
  * Class for storing and retrieving models from a JSON data store.

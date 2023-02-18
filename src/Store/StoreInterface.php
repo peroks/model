@@ -1,4 +1,6 @@
-<?php namespace Peroks\Model;
+<?php namespace Peroks\Model\Store;
+
+use Peroks\Model\ModelInterface;
 
 /**
  * Interface for storing and retrieving models from a data store.

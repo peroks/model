@@ -1,6 +1,11 @@
-<?php namespace Peroks\Model;
+<?php namespace Peroks\Model\Store;
 
 use PDO, PDOException, PDOStatement;
+use Peroks\Model\ModelData;
+use Peroks\Model\ModelInterface;
+use Peroks\Model\Property;
+use Peroks\Model\PropertyItem;
+use Peroks\Model\PropertyType;
 
 /**
  * Class for storing and retrieving models from a SQL database.

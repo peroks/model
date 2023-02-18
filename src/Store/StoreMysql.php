@@ -1,7 +1,10 @@
-<?php namespace Peroks\Model;
+<?php namespace Peroks\Model\Store;
 
 use Generator;
 use mysqli, mysqli_sql_exception;
+use Peroks\Model\ModelInterface;
+use Peroks\Model\PropertyItem;
+use Peroks\Model\PropertyType;
 
 /**
  * Class for storing and retrieving models from a Mysql database.
