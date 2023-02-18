@@ -827,7 +827,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param string $class The object class or interface name.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateClass( object $value, string $class, array $property ): void {
+	protected static function validateClass( object $value, string $class, $property ): void {
 		if ( empty( is_a( $value, $class ) ) ) {
 			$name  = $property[ PropertyItem::NAME ];
 			$error = sprintf( '%s must be an instance of %s, found %s in %s', $name, $class, get_class( $value ), static::class );
@@ -862,5 +862,5 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param string $id The property id.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateProperty( $value, string $id, array $property ): void {}
+	protected static function validateProperty( $value, string $id, $property ): void {}
 }
