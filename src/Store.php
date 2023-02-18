@@ -54,12 +54,12 @@ class Store implements StoreInterface {
 	/**
 	 * Checks if a model with the given id exists in the data store.
 	 *
-	 * @param int|string $id The model id.
 	 * @param ModelInterface|string $class The model class name.
+	 * @param int|string $id The model id.
 	 *
 	 * @return bool True if the model exists, false otherwise.
 	 */
-	public function exists( string $id, string $class ): bool {
+	public function exists( string $class, string $id ): bool {
 		return isset( $this->data[ $class ][ $id ] )
 			|| isset( $this->changes[ $class ][ $id ] );
 	}
@@ -67,13 +67,13 @@ class Store implements StoreInterface {
 	/**
 	 * Gets a model matching the given id from the data store.
 	 *
-	 * @param int|string $id The model id.
 	 * @param ModelInterface|string $class The model class name.
+	 * @param int|string $id The model id.
 	 *
 	 * @return ModelInterface|null The matching model or null if not found.
 	 */
-	public function get( $id, string $class ): ?ModelInterface {
-		if ( $this->exists( $id, $class ) ) {
+	public function get( string $class, string $id ): ?ModelInterface {
+		if ( $this->exists( $class, $id ) ) {
 			$data = array_replace( $this->data[ $class ][ $id ] ?? [], $this->changes[ $class ][ $id ] ?? [] );
 			return new $class( $data );
 		}
@@ -83,12 +83,12 @@ class Store implements StoreInterface {
 	/**
 	 * Gets a list of models matching the given ids from the data store.
 	 *
-	 * @param int[]|string[] $ids An array of model ids.
 	 * @param ModelInterface|string $class The model class name.
+	 * @param int[]|string[] $ids An array of model ids.
 	 *
 	 * @return ModelInterface[] An array of matching models.
 	 */
-	public function list( array $ids, string $class ): array {
+	public function list( string $class, array $ids ): array {
 		foreach ( $ids as $id ) {
 			$result[ $id ] = $this->get( $id, $class );
 		}
@@ -152,29 +152,18 @@ class Store implements StoreInterface {
 	/**
 	 * Deletes a model from the data store.
 	 *
-	 * @param string $id The model id.
 	 * @param ModelInterface|string $class The model class name.
+	 * @param string $id The model id.
 	 *
 	 * @return bool True if the model existed, false otherwise.
 	 */
-	public function delete( string $id, string $class ): bool {
-		if ( $this->exists( $id, $class ) ) {
+	public function delete( string $class, string $id ): bool {
+		if ( $this->exists( $class, $id ) ) {
 			$this->data[ $class ][ $id ]    = null;
 			$this->changes[ $class ][ $id ] = null;
 			return true;
 		}
 		return false;
-	}
-
-	/**
-	 * Completely restores the given model including all sub-models.
-	 *
-	 * @param ModelInterface $model The model to restore.
-	 *
-	 * @return ModelInterface The completely restored model.
-	 */
-	public function restoreSingle( ModelInterface $model ): ModelInterface {
-		return $model;
 	}
 
 	/* -------------------------------------------------------------------------

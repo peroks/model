@@ -171,12 +171,12 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Checks if a model with the given id exists in the data store.
 	 *
-	 * @param int|string $id The model id.
 	 * @param ModelInterface|string $class The model class name.
+	 * @param int|string $id The model id.
 	 *
 	 * @return bool True if the model exists, false otherwise.
 	 */
-	public function exists( string $id, string $class ): bool {
+	public function exists( string $class, string $id ): bool {
 		$query  = $this->existsRowStatement( $class );
 		$result = $this->select( $query, [ $id ] );
 		return (bool) $result;
@@ -185,12 +185,12 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Gets a model matching the given id from the data store.
 	 *
-	 * @param int|string $id The model id.
 	 * @param ModelInterface|string $class The model class name.
+	 * @param int|string $id The model id.
 	 *
 	 * @return ModelInterface|null The matching model or null if not found.
 	 */
-	public function get( $id, string $class ): ?ModelInterface {
+	public function get( string $class, string $id ): ?ModelInterface {
 		$query = $this->selectRowStatement( $class );
 		$rows  = $this->select( $query, [ $id ] );
 
@@ -205,12 +205,12 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Gets a list of models matching the given ids from the data store.
 	 *
-	 * @param int[]|string[] $ids An array of model ids.
 	 * @param ModelInterface|string $class The model class name.
+	 * @param int[]|string[] $ids An array of model ids.
 	 *
 	 * @return ModelInterface[] An array of matching models.
 	 */
-	public function list( array $ids, string $class ): array {
+	public function list( string $class, array $ids ): array {
 		$query = $this->listRowsStatement( $class, $ids );
 		$rows  = $this->select( $query, array_values( $ids ) );
 
@@ -270,7 +270,7 @@ class StoreSql implements StoreInterface {
 		$model->validate( true );
 
 		$class = get_class( $model );
-		$query = $this->exists( $model->id(), $class )
+		$query = $this->exists( $class, $model->id() )
 			? $this->updateRowStatement( $class )
 			: $this->insertRowStatement( $class );
 
@@ -283,12 +283,12 @@ class StoreSql implements StoreInterface {
 	/**
 	 * Deletes a model from the data store.
 	 *
-	 * @param string $id The model id.
 	 * @param ModelInterface|string $class The model class name.
+	 * @param string $id The model id.
 	 *
 	 * @return bool True if the model existed, false otherwise.
 	 */
-	public function delete( string $id, string $class ): bool {
+	public function delete( string $class, string $id ): bool {
 		$query  = $this->deleteRowStatement( $class );
 		$result = $this->update( $query, [ $id ] );
 		return (bool) $result;
@@ -889,7 +889,7 @@ class StoreSql implements StoreInterface {
 				}
 
 				// Set indexes for foreign keys.
-				if ( Utils::isForeign( $property ) ) {
+				if ( Utils::needsForeignKey( $property ) ) {
 					$result[ $id ] = $result[ $id ] ?? [
 						'name'    => $id,
 						'type'    => 'INDEX',
@@ -1093,11 +1093,12 @@ class StoreSql implements StoreInterface {
 	 */
 	protected function getModelForeign( string $class ): array {
 		foreach ( $class::properties() as $id => $property ) {
-			if ( Utils::isForeign( $property ) ) {
+			if ( Utils::needsForeignKey( $property ) ) {
 				$model    = $property[ PropertyItem::MODEL ] ?? null;
 				$foreign  = $property[ PropertyItem::FOREIGN ] ?? $model;
 				$required = $property[ PropertyItem::REQUIRED ] ?? false;
-				$name     = $this->getTableName( $class ) . '_' . $id;
+				$relation = $this->getRelationName( $class, $id );
+				$name     = $this->getTableName( $relation );
 
 				$result[ $name ] = [
 					'name'    => $name,
@@ -1860,7 +1861,7 @@ class StoreSql implements StoreInterface {
 				$value  = array_map( [ $child, 'create' ], $rows );
 				static::restoreMulti( $child, $value );
 			} elseif ( PropertyType::OBJECT === $type && isset( $value ) ) {
-				$value = $this->get( $value, $child );
+				$value = $this->get( $child, $value );
 			}
 		}
 

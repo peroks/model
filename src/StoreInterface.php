@@ -16,32 +16,32 @@ interface StoreInterface {
 	/**
 	 * Checks if a model with the given id exists in the data store.
 	 *
-	 * @param int|string $id The model id.
 	 * @param ModelInterface|string $class The model class name.
+	 * @param int|string $id The model id.
 	 *
 	 * @return bool True if the model exists, false otherwise.
 	 */
-	public function exists( string $id, string $class ): bool;
+	public function exists( string $class, string $id ): bool;
 
 	/**
 	 * Gets a model matching the given id from the data store.
 	 *
-	 * @param int|string $id The model id.
 	 * @param ModelInterface|string $class The model class name.
+	 * @param int|string $id The model id.
 	 *
 	 * @return ModelInterface|null The matching model or null if not found.
 	 */
-	public function get( $id, string $class ): ?ModelInterface;
+	public function get( string $class, string $id ): ?ModelInterface;
 
 	/**
 	 * Gets a list of models matching the given ids from the data store.
 	 *
-	 * @param int[]|string[] $ids An array of model ids.
 	 * @param ModelInterface|string $class The model class name.
+	 * @param int[]|string[] $ids An array of model ids.
 	 *
 	 * @return ModelInterface[] An array of matching models.
 	 */
-	public function list( array $ids, string $class ): array;
+	public function list( string $class, array $ids ): array;
 
 	/**
 	 * Gets a filtered list of models from the data store.
@@ -78,12 +78,12 @@ interface StoreInterface {
 	/**
 	 * Deletes a model from the data store.
 	 *
-	 * @param string $id The model id.
 	 * @param ModelInterface|string $class The model class name.
+	 * @param string $id The model id.
 	 *
 	 * @return bool True if the model existed, false otherwise.
 	 */
-	public function delete( string $id, string $class ): bool;
+	public function delete( string $class, string $id ): bool;
 
 	/* -------------------------------------------------------------------------
 	 * Data store handling

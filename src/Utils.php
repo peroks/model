@@ -119,6 +119,24 @@ class Utils {
 	}
 
 	/**
+	 * Checks if the given key or index exists in the data.
+	 *
+	 * @param int|string $key The key to check for.
+	 * @param array|ArrayAccess $data An array or object keys to check.
+	 *
+	 * @return bool True if the key exists in the data.
+	 */
+	public static function keyExists( string $key, $data ): bool {
+		if ( is_array( $data ) ) {
+			return array_key_exists( $key, $data );
+		}
+		if ( $data instanceof ArrayAccess ) {
+			return $data->offsetExists( $key );
+		}
+		return false;
+	}
+
+	/**
 	 * Checks if the given object or class name is a model.
 	 *
 	 * @param mixed $model The object or class name to check.
@@ -132,25 +150,6 @@ class Utils {
 			}
 			if ( is_string( $model ) ) {
 				return is_a( $model, ModelInterface::class, true );
-			}
-		}
-		return false;
-	}
-
-	/**
-	 * Checks if a model property corresponds to a relation table.
-	 *
-	 * @param Property|array $property The property.
-	 *
-	 * @return bool
-	 */
-	public static function isRelation( $property ): bool {
-		$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
-		$model = $property[ PropertyItem::MODEL ] ?? null;
-
-		if ( PropertyType::ARRAY === $type ) {
-			if ( static::isModel( $model ) && $model::idProperty() ) {
-				return true;
 			}
 		}
 		return false;
@@ -186,7 +185,7 @@ class Utils {
 	 *
 	 * @return bool
 	 */
-	public static function isForeign( $property ): bool {
+	public static function needsForeignKey( $property ): bool {
 		$model   = $property[ PropertyItem::MODEL ] ?? null;
 		$foreign = $property[ PropertyItem::FOREIGN ] ?? $model;
 
@@ -199,19 +198,20 @@ class Utils {
 	}
 
 	/**
-	 * Checks if the given key or index exists in the data.
+	 * Checks if a model property corresponds to a relation table.
 	 *
-	 * @param int|string $key The key to check for.
-	 * @param array|ArrayAccess $data An array or object keys to check.
+	 * @param Property|array $property The property.
 	 *
-	 * @return bool True if the key exists in the data.
+	 * @return bool
 	 */
-	public static function keyExists( string $key, $data ): bool {
-		if ( is_array( $data ) ) {
-			return array_key_exists( $key, $data );
-		}
-		if ( $data instanceof ArrayAccess ) {
-			return $data->offsetExists( $key );
+	public static function isRelation( $property ): bool {
+		$type  = $property[ PropertyItem::TYPE ] ?? PropertyType::MIXED;
+		$model = $property[ PropertyItem::MODEL ] ?? null;
+
+		if ( PropertyType::ARRAY === $type ) {
+			if ( static::isModel( $model ) && $model::idProperty() ) {
+				return true;
+			}
 		}
 		return false;
 	}
