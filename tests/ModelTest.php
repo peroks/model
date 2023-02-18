@@ -183,13 +183,15 @@ final class ModelTest extends TestCase {
 	 */
 	public function testProperty( ModelInterface $model, array $data ): void {
 		$this->assertIsArray( $model::properties() );
-		$this->assertNotEmpty( $model->id() );
 
 		if ( $model instanceof ExtendedTour ) {
+			$this->assertNotEmpty( $model->id() );
 			$this->assertCount( count( Tour::properties() ) + 1, $model::properties() );
 		} elseif ( $model instanceof Tour ) {
+			$this->assertNotEmpty( $model->id() );
 			$this->assertNotEmpty( $model::properties() );
 		} else {
+			$this->assertEmpty( $model->id() );
 			$this->assertEmpty( $model::properties() );
 		}
 	}
