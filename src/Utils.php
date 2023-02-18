@@ -57,12 +57,12 @@ class Utils {
 	public static function group( array $array, string $index, string $column = '' ): array {
 		$result = [];
 
-		foreach ( $array as $entry ) {
-			if ( is_scalar( $key = $entry[ $index ] ?? null ) ) {
-				if ( $column && array_key_exists( $column, $entry ) ) {
-					$result[ $key ][] = $entry[ $column ];
-				} elseif ( empty( $column ) ) {
-					$result[ $key ][] = $entry;
+		foreach ( $array as $item ) {
+			if ( is_scalar( $key = $item[ $index ] ?? null ) ) {
+				if ( empty( $column ) ) {
+					$result[ $key ][] = $item;
+				} elseif ( array_key_exists( $column, $item ) ) {
+					$result[ $key ][] = $item[ $column ];
 				}
 			}
 		}
