@@ -26,7 +26,7 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * @var array An array of cached model properties.
 	 */
-	protected static array $models = [];
+	private static array $models = [];
 
 	/**
 	 * Constructor.
