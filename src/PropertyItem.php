@@ -15,6 +15,7 @@ abstract class PropertyItem {
 	const MODEL       = 'model';        // string, The class name of a model (default: null).
 	const OBJECT      = 'object';       // string, The class or interface name to validate an object against (default: null).
 	const FOREIGN     = 'foreign';      // string, The property contains an id of the (foreign) model class name (default: null).
+	const MATCH       = 'match';        // string, The property of the (foreign) model to match the own id (default: null).
 	const DEFAULT     = 'default';      // mixed, The property default value (default: null).
 	const REQUIRED    = 'required';     // bool, Whether the property is required or not (default: false).
 	const READABLE    = 'readable';     // bool, Whether the property is readable or not (default: true).
