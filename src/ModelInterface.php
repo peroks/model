@@ -20,7 +20,7 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	 *
 	 * @return int|string|null The model id or null.
 	 */
-	public function id();
+	public function id(): int | string | null;
 
 	/**
 	 * Gets an array representing the model's property values.
@@ -48,7 +48,7 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	 *
 	 * @return static The updated model instance.
 	 */
-	public function patch( $data ): self;
+	public function patch( mixed $data ): self;
 
 	/**
 	 * Replaces the model data with given data.
@@ -57,7 +57,7 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	 *
 	 * @return static The updated model instance.
 	 */
-	public function replace( $data ): self;
+	public function replace( mixed $data ): self;
 
 	/**
 	 * Validates the model values against its property definitions.
@@ -75,7 +75,7 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	 *
 	 * @return static A model instance.
 	 */
-	public static function create( $data = [] ): self;
+	public static function create( mixed $data = [] ): self;
 
 	/**
 	 * Loads a model from a json file.
@@ -116,5 +116,5 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Seri
 	 *
 	 * @param Property|array $property A custom property.
 	 */
-	public static function setProperty( $property ): void;
+	public static function setProperty( Property | array $property ): void;
 }

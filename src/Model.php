@@ -320,7 +320,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param mixed $key The property id.
 	 * @param mixed $value The property value.
 	 */
-	public function offsetSet( $key, $value ): void {
+	public function offsetSet( mixed $key, mixed $value ): void {
 		$properties = static::properties();
 
 		if ( $properties ) {
@@ -360,7 +360,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @param mixed $key The property id.
 	 */
-	public function offsetUnset( $key ): void {
+	public function offsetUnset( mixed $key ): void {
 		$properties = static::properties();
 
 		if ( $properties && array_key_exists( $key, $properties ) ) {
@@ -379,7 +379,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @param mixed $value The value to append to the model.
 	 */
-	public function append( $value ): void {
+	public function append( mixed $value ): void {
 		if ( empty( static::properties() ) ) {
 			parent::append( $value );
 		}
@@ -408,7 +408,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return array The data prepared for the model.
 	 */
-	protected static function prepareData( $data, bool $include = true ): array {
+	protected static function prepareData( array | object | string | null $data, bool $include = true ): array {
 		$properties = static::properties();
 		$result     = [];
 
@@ -452,7 +452,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return mixed The prepared property value.
 	 */
-	protected static function prepareProperty( $value, $property ) {
+	protected static function prepareProperty( mixed $value, Property | array $property ): mixed {
 		$type = $property[ PropertyItem::TYPE ] ?? null;
 
 		if ( PropertyType::UUID === $type && true === $value ) {
@@ -580,7 +580,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param string $id The property id.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateRequired( string $id, $property ): void {
+	protected static function validateRequired( string $id, Property | array $property ): void {
 		$name  = $property[ PropertyItem::NAME ];
 		$error = sprintf( 'The property %s (%s) is required in %s', $id, $name, static::class );
 		throw new ModelException( $error, 400 );
@@ -593,7 +593,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param string $type The property type.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateType( $value, string $type, $property ): void {
+	protected static function validateType( mixed $value, string $type, Property | array $property ): void {
 
 		// Check for float or integer values.
 		if ( PropertyType::NUMBER === $type ) {
@@ -652,7 +652,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param string $class The model class.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateModel( $value, string $class, $property ): void {
+	protected static function validateModel( mixed $value, string $class, Property | array $property ): void {
 
 		// Validate a single model.
 		if ( is_object( $value ) ) {
@@ -676,7 +676,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param string $class The model class.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateObject( $value, string $class, $property ): void {
+	protected static function validateObject( mixed $value, string $class, Property | array $property ): void {
 
 		// Validate a single object.
 		if ( is_object( $value ) ) {
@@ -696,7 +696,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param string $pattern The property validation pattern.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validatePattern( $value, string $pattern, $property ): void {
+	protected static function validatePattern( mixed $value, string $pattern, Property | array $property ): void {
 		$regex = '/' . str_replace( '/', '\\/', $pattern ) . '/';
 
 		// Only strings are validated.
@@ -716,7 +716,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param array $enum An array of valid values.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateEnumeration( $value, array $enum, $property ): void {
+	protected static function validateEnumeration( mixed $value, array $enum, Property | array $property ): void {
 
 		// Check enumeration constraint on scalar values.
 		if ( is_scalar( $value ) ) {
@@ -741,7 +741,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param mixed $value The property value to validate.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateMinimum( $value, $property ): void {
+	protected static function validateMinimum( mixed $value, Property | array $property ): void {
 		$min = $property[ PropertyItem::MIN ];
 
 		// Check minimum constraint on numbers.
@@ -774,7 +774,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param mixed $value The property value to validate.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateMaximum( $value, $property ): void {
+	protected static function validateMaximum( mixed $value, Property | array $property ): void {
 		$max = $property[ PropertyItem::MAX ];
 
 		// Check maximum constraint on numbers.
@@ -808,7 +808,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param string $class The object class or interface name.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateClass( object $value, string $class, $property ): void {
+	protected static function validateClass( object $value, string $class, Property | array $property ): void {
 		if ( empty( is_a( $value, $class ) ) ) {
 			$name  = $property[ PropertyItem::NAME ];
 			$error = sprintf( '%s must be an instance of %s, found %s in %s', $name, $class, get_class( $value ), static::class );
@@ -825,15 +825,12 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return bool
 	 */
 	protected static function validateDateTime( string $value, string $type ): bool {
-		switch ( $type ) {
-			case PropertyType::DATETIME:
-				return Utils::validateDate( $value ) || Utils::validateDate( $value, 'Y-m-d\TH:i:s\Z' );
-			case PropertyType::DATE:
-				return Utils::validateDate( $value, 'Y-m-d' );
-			case PropertyType::TIME:
-				return Utils::validateTime( $value );
-		}
-		return false;
+		return match ( $type ) {
+			PropertyType::DATETIME => Utils::validateDate( $value ) || Utils::validateDate( $value, 'Y-m-d\TH:i:s\Z' ),
+			PropertyType::DATE     => Utils::validateDate( $value, 'Y-m-d' ),
+			PropertyType::TIME     => Utils::validateTime( $value ),
+			default                => false,
+		};
 	}
 
 	/**
@@ -843,5 +840,5 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param string $id The property id.
 	 * @param Property|array $property The property definition.
 	 */
-	protected static function validateProperty( $value, string $id, $property ): void {}
+	protected static function validateProperty( mixed $value, string $id, Property | array $property ): void {}
 }

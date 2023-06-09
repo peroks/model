@@ -40,7 +40,7 @@ class Utils {
 	 *
 	 * @return string The encoded json string.
 	 */
-	public static function encode( $data ): string {
+	public static function encode( mixed $data ): string {
 		$flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
 		return json_encode( $data, $flags );
 	}
@@ -122,11 +122,11 @@ class Utils {
 	 * Checks if the given key or index exists in the data.
 	 *
 	 * @param int|string $key The key to check for.
-	 * @param array|ArrayAccess $data An array or object keys to check.
+	 * @param ArrayAccess|array $data An array or object keys to check.
 	 *
 	 * @return bool True if the key exists in the data.
 	 */
-	public static function keyExists( string $key, $data ): bool {
+	public static function keyExists( int | string $key, ArrayAccess | array $data ): bool {
 		if ( is_array( $data ) ) {
 			return array_key_exists( $key, $data );
 		}
@@ -140,10 +140,8 @@ class Utils {
 	 * Checks if the given object or class name is a model.
 	 *
 	 * @param mixed $model The object or class name to check.
-	 *
-	 * @return bool
 	 */
-	public static function isModel( $model ): bool {
+	public static function isModel( mixed $model ): bool {
 		if ( $model ) {
 			if ( is_object( $model ) ) {
 				return $model instanceof ModelInterface;
