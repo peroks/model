@@ -4,7 +4,6 @@ use ArrayAccess;
 use Countable;
 use IteratorAggregate;
 use JsonSerializable;
-use Serializable;
 
 /**
  * The model interface.
@@ -13,7 +12,7 @@ use Serializable;
  * @copyright Per Egil Roksvaag
  * @license MIT
  */
-interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Serializable, JsonSerializable {
+interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, JsonSerializable {
 
 	/**
 	 * Gets the model's id value.
