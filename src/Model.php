@@ -47,7 +47,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return int|string|null The model id or null.
 	 */
-	public function id() {
+	public function id(): int | string | null {
 		return $this[ static::idProperty() ] ?? null;
 	}
 
@@ -310,7 +310,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return bool True if the property exists and is not null.
 	 */
-	public function offsetExists( $key ): bool {
+	public function offsetExists( mixed $key ): bool {
 		return parent::offsetExists( $key ) && $this->offsetGet( $key ) !== null;
 	}
 
@@ -436,7 +436,7 @@ class Model extends ArrayObject implements ModelInterface {
 			foreach ( $properties as $id => $property ) {
 				if ( $include || Utils::keyExists( $id, $data ) ) {
 					$value         = $data[ $id ] ?? $property[ PropertyItem::DEFAULT ] ?? null;
-					$result[ $id ] = static::prepareProperty( $value, $property );
+					$result[ $id ] = isset( $value ) ? static::prepareProperty( $value, $property ) : null;
 				}
 			}
 		}
@@ -459,51 +459,32 @@ class Model extends ArrayObject implements ModelInterface {
 			return Utils::uuid();
 		}
 
+		// Decode a JSON string to an array.
+		if ( PropertyType::OBJECT === $type || PropertyType::ARRAY === $type ) {
+			if ( is_string( $value ) && is_array( $temp = json_decode( $value, true ) ) ) {
+				$value = $temp;
+			}
+		}
+
+		// Create models from objects or arrays.
 		if ( $model = $property[ PropertyItem::MODEL ] ?? null ) {
-			if ( PropertyType::OBJECT === $type ) {
-				if ( isset( $value ) && empty( $value instanceof $model ) ) {
-					if ( is_string( $value ) && is_array( $temp = json_decode( $value, true ) ) ) {
-						$value = $temp;
-					}
-					if ( is_array( $value ) || is_object( $value ) ) {
-						return new $model( $value );
-					}
+			if ( PropertyType::OBJECT === $type && empty( $value instanceof $model ) ) {
+				if ( is_array( $value ) || is_object( $value ) ) {
+					return new $model( $value );
 				}
-			} elseif ( PropertyType::ARRAY === $type && $value ) {
-				if ( is_string( $value ) && is_array( $temp = json_decode( $value ) ) ) {
-					$value = $temp;
-				}
+			} elseif ( PropertyType::ARRAY === $type ) {
 				if ( is_array( $value ) || $value instanceof Traversable ) {
 					return array_map( function( $item ) use ( $model ) {
 						return isset( $item ) && empty( $item instanceof $model ) ? new $model( $item ) : $item;
 					}, $value );
 				}
 			}
-		} elseif ( PropertyType::OBJECT === $type ) {
+		}
+
+		// Convert an array to an object.
+		if ( PropertyType::OBJECT === $type ) {
 			if ( is_array( $value ) ) {
 				return (object) $value;
-			}
-			if ( is_string( $value ) && is_object( $temp = json_decode( $value ) ) ) {
-				return $temp;
-			}
-		} elseif ( PropertyType::ARRAY === $type && $value ) {
-			if ( is_string( $value ) && is_array( $temp = json_decode( $value ) ) ) {
-				return $temp;
-			}
-		} elseif ( PropertyType::INTEGER === $type ) {
-			if ( is_string( $value ) && is_numeric( $value ) ) {
-				return (int) $value;
-			}
-		} elseif ( PropertyType::FLOAT === $type ) {
-			if ( is_string( $value ) && is_numeric( $value ) ) {
-				return (float) $value;
-			}
-		} elseif ( PropertyType::BOOL === $type ) {
-			if ( is_string( $value ) && is_numeric( $value ) ) {
-				$value = (int) $value;
-			}
-			if ( is_int( $value ) ) {
-				return (bool) $value;
 			}
 		}
 
