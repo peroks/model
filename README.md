@@ -277,13 +277,6 @@ exporting model data with `Model::data( ModelData::PROPERTIES )`.
         const FUNCTION = 'function';    // A callable function.
     }
 
-## Storing models (experimental)
-
-This package includes a class for storing models on the local file system as
-json files. The `Store` class and interface are both experimental and only 
-intended for rapid prototyping during development. They are **not** production
-ready and will change in future versions without further notice.
-
 ## Installing
 
 You need **composer** to download and install this package.
