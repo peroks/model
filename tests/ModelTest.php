@@ -27,7 +27,7 @@ final class ModelTest extends TestCase {
 	 *
 	 * @return array[][]
 	 */
-	public function getModels(): array {
+	public static function getModels(): array {
 		require_once dirname( __FILE__ ) . '/Tour.php';
 		require_once dirname( __FILE__ ) . '/ExtendedTour.php';
 

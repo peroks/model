@@ -3,7 +3,7 @@
 	"type": "library",
 	"description": "Models: Classes with built-in data validation",
 	"minimum-stability": "stable",
-	"version": "0.9.1",
+	"version": "1.0.0",
 	"license": "MIT",
 	"authors": [
 		{
@@ -20,7 +20,7 @@
 		"php": "^8.1"
 	},
 	"require-dev": {
-		"phpunit/phpunit": "^9"
+		"phpunit/phpunit": "^10"
 	},
 	"scripts": {
 		"model-test": "./vendor/bin/phpunit tests"
