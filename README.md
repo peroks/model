@@ -16,8 +16,9 @@ place**, and then validate model instances throughout your application in a
 consistent, efficient and clear manner.
 
 Models are similar to **database tables**, where each **model property**
-corresponds to a **table column**. This project aims to automatically create
-database tables based on models in future versions.
+corresponds to a **table column**.
+Install the [Model Store](https://packagist.org/packages/peroks/model-store)
+package to automatically create database tables based on your models.
 
 ## How to use
 
