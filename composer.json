@@ -5,6 +5,12 @@
 	"minimum-stability": "stable",
 	"version": "1.0.0",
 	"license": "MIT",
+	"keywords": [
+		"json",
+		"data-validation",
+		"rest-api",
+		"arrayobject"
+	],
 	"authors": [
 		{
 			"name": "Per Egil Roksvaag",
