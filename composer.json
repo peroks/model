@@ -31,10 +31,6 @@
 	"suggest": {
 		"peroks/model-store": "Permanent data store for models"
 	},
-	"config": {
-		"preferred-install": "dist",
-		"sort-packages": true
-	},
 	"scripts": {
 		"model-test": "./vendor/bin/phpunit tests"
 	}
