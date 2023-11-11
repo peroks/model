@@ -225,7 +225,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return array[] An array of property definitions.
 	 */
 	public static function properties(): array {
-		$properties = static::$models[ static::class ] ?? null;
+		$properties = self::$models[ static::class ] ?? null;
 
 		// Return cached properties if available.
 		if ( isset( $properties ) ) {
@@ -239,7 +239,7 @@ class Model extends ArrayObject implements ModelInterface {
 			}
 		}
 
-		return static::$models[ static::class ] = $properties ?? static::$properties;
+		return self::$models[ static::class ] = $properties ?? static::$properties;
 	}
 
 	/**
@@ -361,9 +361,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @param mixed $key The property id.
 	 */
 	public function offsetUnset( mixed $key ): void {
-		$properties = static::properties();
-
-		if ( $properties && array_key_exists( $key, $properties ) ) {
+		if ( static::properties() ) {
 			$this->offsetSet( $key, null );
 			return;
 		}
@@ -477,7 +475,7 @@ class Model extends ArrayObject implements ModelInterface {
 				return match ( $type ) {
 					PropertyType::INTEGER => (int) $value,
 					PropertyType::FLOAT   => (float) $value,
-					PropertyType::NUMBER  => (float) $value,
+					PropertyType::NUMBER  => str_contains( $value, '.' ) ? (float) $value : (int) $value,
 					PropertyType::BOOL    => (bool) intval( $value ),
 					default               => $value,
 				};
