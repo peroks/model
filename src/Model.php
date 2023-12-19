@@ -1,4 +1,5 @@
-<?php declare( strict_types = 1 ); namespace Peroks\Model;
+<?php declare( strict_types = 1 );
+namespace Peroks\Model;
 
 use ArrayAccess;
 use ArrayObject;
@@ -62,9 +63,14 @@ class Model extends ArrayObject implements ModelInterface {
 		$properties = static::properties();
 		$data       = $this->getArrayCopy();
 
-		// Get a compact data array stripped of all default values.
+		// Get a compact data array stripped of all null values.
 		if ( ModelData::COMPACT === $content ) {
 			return static::dataCompact( $data, $properties );
+		}
+
+		// Get a minimal data array stripped of all null and default values.
+		if ( ModelData::MINIMAL === $content ) {
+			return static::dataMinimal( $data, $properties );
 		}
 
 		// Get an array of model properties including the property value.
@@ -509,7 +515,7 @@ class Model extends ArrayObject implements ModelInterface {
 	}
 
 	/**
-	 * Get a compact data array stripped of all default values.
+	 * Get a compact data array stripped of all null values.
 	 *
 	 * @param array $data The internal data array.
 	 * @param Property[]|array $properties The model properties.
@@ -518,16 +524,59 @@ class Model extends ArrayObject implements ModelInterface {
 	 */
 	protected static function dataCompact( array $data, array $properties ): array {
 		foreach ( $properties as $id => $property ) {
-			if ( array_key_exists( $id, $data ) ) {
-				$default = $property[ PropertyItem::DEFAULT ] ?? null;
-				$value   = $data[ $id ];
+			$value = $data[ $id ];
 
+			if ( isset( $value ) ) {
 				if ( isset( $property[ PropertyItem::MODEL ] ) ) {
 					if ( $value instanceof ModelInterface ) {
 						$value = $value->data( ModelData::COMPACT );
 					} elseif ( is_array( $value ) ) {
 						foreach ( $value as &$item ) {
 							$item = $item->data( ModelData::COMPACT );
+						}
+					}
+				}
+
+				$result[ $id ] = $value;
+			}
+		}
+
+		// Fallback if the model has no properties.
+		if ( empty( $properties ) ) {
+			foreach ( $data as $id => $value ) {
+				if ( isset( $value ) ) {
+					if ( $value instanceof ModelInterface ) {
+						$value = $value->data( ModelData::COMPACT );
+					}
+					$result[ $id ] = $value;
+				}
+			}
+		}
+
+		return $result ?? [];
+	}
+
+	/**
+	 * Get a minimal data array stripped of all null and default values.
+	 *
+	 * @param array $data The internal data array.
+	 * @param Property[]|array $properties The model properties.
+	 *
+	 * @return array The minimal model data.
+	 */
+	protected static function dataMinimal( array $data, array $properties ): array {
+		foreach ( $properties as $id => $property ) {
+			$value = $data[ $id ];
+
+			if ( isset( $value ) ) {
+				$default = $property[ PropertyItem::DEFAULT ] ?? null;
+
+				if ( isset( $property[ PropertyItem::MODEL ] ) ) {
+					if ( $value instanceof ModelInterface ) {
+						$value = $value->data( ModelData::MINIMAL );
+					} elseif ( is_array( $value ) ) {
+						foreach ( $value as &$item ) {
+							$item = $item->data( ModelData::MINIMAL );
 						}
 					}
 				}
@@ -541,10 +590,12 @@ class Model extends ArrayObject implements ModelInterface {
 		// Fallback if the model has no properties.
 		if ( empty( $properties ) ) {
 			foreach ( $data as $id => $value ) {
-				if ( $value instanceof ModelInterface ) {
-					$value = $value->data( ModelData::COMPACT );
+				if ( isset( $value ) ) {
+					if ( $value instanceof ModelInterface ) {
+						$value = $value->data( ModelData::MINIMAL );
+					}
+					$result[ $id ] = $value;
 				}
-				$result[ $id ] = $value;
 			}
 		}
 
