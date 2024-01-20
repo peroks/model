@@ -245,6 +245,12 @@ class Model extends ArrayObject implements ModelInterface {
 			}
 		}
 
+		if ( $primary = static::idProperty() ) {
+			if ( isset( $properties[ $primary ] ) ) {
+				$properties[ $primary ][ PropertyItem::PRIMARY ] = true;
+			}
+		}
+
 		return self::$models[ static::class ] = $properties ?? static::$properties;
 	}
 
@@ -526,19 +532,21 @@ class Model extends ArrayObject implements ModelInterface {
 		foreach ( $properties as $id => $property ) {
 			$value = $data[ $id ];
 
-			if ( isset( $value ) ) {
-				if ( isset( $property[ PropertyItem::MODEL ] ) ) {
-					if ( $value instanceof ModelInterface ) {
-						$value = $value->data( ModelData::COMPACT );
-					} elseif ( is_array( $value ) ) {
-						foreach ( $value as &$item ) {
-							$item = $item->data( ModelData::COMPACT );
-						}
+			if ( is_null( $value ) ) {
+				if ( is_null( $property[ PropertyItem::DEFAULT ] ?? null ) ) {
+					continue;
+				}
+			} elseif ( isset( $property[ PropertyItem::MODEL ] ) ) {
+				if ( $value instanceof ModelInterface ) {
+					$value = $value->data( ModelData::COMPACT );
+				} elseif ( is_array( $value ) ) {
+					foreach ( $value as &$item ) {
+						$item = $item->data( ModelData::COMPACT );
 					}
 				}
-
-				$result[ $id ] = $value;
 			}
+
+			$result[ $id ] = $value;
 		}
 
 		// Fallback if the model has no properties.

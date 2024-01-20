@@ -1,4 +1,5 @@
-<?php declare( strict_types = 1 ); namespace Peroks\Model;
+<?php declare( strict_types = 1 );
+namespace Peroks\Model;
 
 /**
  * PropertyItem constants.
@@ -21,6 +22,7 @@ abstract class PropertyItem {
 	const READABLE    = 'readable';     // bool, Whether the property is readable or not (default: true).
 	const WRITABLE    = 'writable';     // bool, Whether the property is writable or not (default: true).
 	const MUTABLE     = 'mutable';      // bool, Whether the property is mutable (changeable) or not (default: true).
+	const PRIMARY     = 'primary';      // bool, Whether the property is the model's primary key or not (default: false).
 	const INDEX       = 'index';        // string, The index name, properties with the same name are combined (default: null).
 	const UNIQUE      = 'unique';       // string, The unique index name, properties with the same name are combined (default: null).
 	const PATTERN     = 'pattern';      // string, A regex pattern to validate a string value against (default: null).
