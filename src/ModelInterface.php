@@ -1,4 +1,14 @@
-<?php declare( strict_types = 1 ); namespace Peroks\Model;
+<?php
+/**
+ * The model interface.
+ *
+ * @author Per Egil Roksvaag
+ * @copyright Per Egil Roksvaag
+ * @license MIT
+ */
+
+declare( strict_types = 1 );
+namespace Peroks\Model;
 
 use ArrayAccess;
 use Countable;
@@ -7,10 +17,6 @@ use JsonSerializable;
 
 /**
  * The model interface.
- *
- * @author Per Egil Roksvaag
- * @copyright Per Egil Roksvaag
- * @license MIT
  */
 interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, JsonSerializable {
 
@@ -19,7 +25,7 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Json
 	 *
 	 * @return int|string|null The model id or null.
 	 */
-	public function id(): int | string | null;
+	public function id(): int|string|null;
 
 	/**
 	 * Gets an array representing the model's property values.
@@ -115,5 +121,5 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Json
 	 *
 	 * @param Property|array $property A custom property.
 	 */
-	public static function setProperty( Property | array $property ): void;
+	public static function setProperty( Property|array $property ): void;
 }

@@ -1,11 +1,17 @@
-<?php declare( strict_types = 1 ); namespace Peroks\Model;
-
+<?php
 /**
  * PropertyType constants.
  *
  * @author Per Egil Roksvaag
  * @copyright Per Egil Roksvaag
  * @license MIT
+ */
+
+declare( strict_types = 1 );
+namespace Peroks\Model;
+
+/**
+ * PropertyType constants.
  */
 abstract class PropertyType {
 	const MIXED    = '';            // Any type, no validation.

@@ -1,12 +1,17 @@
-<?php declare( strict_types = 1 );
-namespace Peroks\Model;
-
+<?php
 /**
  * PropertyItem constants.
  *
  * @author Per Egil Roksvaag
  * @copyright Per Egil Roksvaag
  * @license MIT
+ */
+
+declare( strict_types = 1 );
+namespace Peroks\Model;
+
+/**
+ * PropertyItem constants.
  */
 abstract class PropertyItem {
 	const ID          = 'id';           // string, The property id (required).

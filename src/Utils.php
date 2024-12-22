@@ -1,14 +1,20 @@
-<?php declare( strict_types = 1 ); namespace Peroks\Model;
-
-use ArrayAccess;
-use DateTime;
-
+<?php
 /**
  * Utility and helper class.
  *
  * @author Per Egil Roksvaag
  * @copyright Per Egil Roksvaag
  * @license MIT
+ */
+
+declare( strict_types = 1 );
+namespace Peroks\Model;
+
+use ArrayAccess;
+use DateTime;
+
+/**
+ * Utility and helper class.
  */
 class Utils {
 
@@ -23,10 +29,10 @@ class Utils {
 		// Generate 16 bytes (128 bits) of random data.
 		$data = random_bytes( 16 );
 
-		// Set version to 0100
+		// Set version to 0100.
 		$data[6] = chr( ord( $data[6] ) & 0x0f | 0x40 );
 
-		// Set bits 6-7 to 10
+		// Set bits 6-7 to 10.
 		$data[8] = chr( ord( $data[8] ) & 0x3f | 0x80 );
 
 		// Output the 36 character UUID.
@@ -48,11 +54,9 @@ class Utils {
 	/**
 	 * Groups an array by the index field.
 	 *
-	 * @param array $array
-	 * @param string $index
-	 * @param string $column
-	 *
-	 * @return array
+	 * @param array $array The array to group.
+	 * @param string $index The key to group the array by.
+	 * @param string $column The column name to use in the grouped array.
 	 */
 	public static function group( array $array, string $index, string $column = '' ): array {
 		$result = [];
@@ -126,7 +130,7 @@ class Utils {
 	 *
 	 * @return bool True if the key exists in the data.
 	 */
-	public static function keyExists( int | string $key, ArrayAccess | array $data ): bool {
+	public static function keyExists( int|string $key, ArrayAccess|array $data ): bool {
 		if ( is_array( $data ) ) {
 			return array_key_exists( $key, $data );
 		}

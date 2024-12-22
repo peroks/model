@@ -1,4 +1,14 @@
-<?php declare( strict_types = 1 ); namespace Peroks\Model;
+<?php
+/**
+ * The property properties.
+ *
+ * @author Per Egil Roksvaag
+ * @copyright Per Egil Roksvaag
+ * @license MIT
+ */
+
+declare( strict_types = 1 );
+namespace Peroks\Model;
 
 /**
  * The property properties.
@@ -23,10 +33,6 @@
  * @property int|float $max The maximum numeric value or string/array length (default: null).
  * @property mixed $value The property value (default: null).
  * @property array $properties An array of model property definitions (default: null).
- *
- * @author Per Egil Roksvaag
- * @copyright Per Egil Roksvaag
- * @license MIT
  */
 class Property extends Model {
 
