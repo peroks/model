@@ -8,7 +8,7 @@
 	<arg name="extensions" value="php" />
 
 	<!-- PHP version -->
-	<config name="testVersion" value="8.2"/>
+	<config name="testVersion" value="8.0-"/>
 
 	<!-- Exclude files -->
 	<exclude-pattern>/build/</exclude-pattern>
@@ -43,12 +43,6 @@
 		<exclude name="WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase"/>
 		<exclude name="WordPress.Security.EscapeOutput.ExceptionNotEscaped"/>
 		<exclude name="WordPress.WP.AlternativeFunctions"/>
-	</rule>
-
-	<rule ref="WordPress.NamingConventions.ValidHookName">
-		<properties>
-			<property name="additionalWordDelimiters" value="/"/>
-		</properties>
 	</rule>
 
 	<rule ref="Generic.Arrays.DisallowLongArraySyntax.Found"/>

@@ -12,6 +12,7 @@ namespace Peroks\Model;
 
 use ArrayAccess;
 use DateTime;
+use DateTimeInterface;
 
 /**
  * Utility and helper class.
@@ -82,7 +83,7 @@ class Utils {
 	 *
 	 * @return bool True if the value is a valid date string, false otherwise.
 	 */
-	public static function validateDate( string $value, string $format = DateTime::ATOM ): bool {
+	public static function validateDate( string $value, string $format = DateTimeInterface::ATOM ): bool {
 		$date = DateTime::createFromFormat( $format, $value );
 		return $date && $date->format( $format ) === $value;
 	}
@@ -95,7 +96,7 @@ class Utils {
 	 * @return bool True, if the value is a valid time string, false otherwise.
 	 */
 	public static function validateTime( string $value ): bool {
-		if ( preg_match( '/^(\d\d):(\d\d)(?::(\d\d))?$/', $value, $matches ) ) {
+		if ( preg_match( '/^(\\d\\d):(\\d\\d)(?::(\\d\\d))?$/', $value, $matches ) ) {
 			array_shift( $matches );
 
 			$matches = array_replace( [ 0, 0, 0 ], $matches );

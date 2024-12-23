@@ -1,10 +1,9 @@
 {
 	"name": "peroks/model",
 	"description": "Models: Classes with built-in data validation",
-	"version": "1.0.0",
 	"license": "MIT",
 	"type": "library",
-	"minimum-stability": "stable",
+	"version": "2.0.0",
 	"keywords": [
 		"json",
 		"data-validation",
@@ -17,13 +16,8 @@
 			"homepage": "https://github.com/peroks"
 		}
 	],
-	"autoload": {
-		"psr-4": {
-			"Peroks\\Model\\": "src/"
-		}
-	},
 	"require": {
-		"php": "^8.2"
+		"php": ">=8.0"
 	},
 	"require-dev": {
 		"ergebnis/composer-normalize": "^2.45.0",
@@ -32,13 +26,16 @@
 	"suggest": {
 		"peroks/model-store": "Permanent data store for models"
 	},
+	"minimum-stability": "stable",
+	"autoload": {
+		"psr-4": {
+			"Peroks\\Model\\": "src/"
+		}
+	},
 	"config": {
 		"allow-plugins": {
 			"dealerdirect/phpcodesniffer-composer-installer": true,
 			"ergebnis/composer-normalize": true
-		},
-		"platform": {
-			"php": "8.2"
 		}
 	},
 	"scripts": {
@@ -49,10 +46,10 @@
 			"@composer install --no-dev"
 		],
 		"format": [
-			"./vendor/bin/phpcbf ."
+			"./vendor/bin/phpcbf ./src"
 		],
 		"lint": [
-			"./vendor/bin/phpcs ."
+			"./vendor/bin/phpcs ./src"
 		],
 		"normalize": [
 			"@composer normalize"
