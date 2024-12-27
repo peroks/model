@@ -82,7 +82,7 @@ from the parent classes.
 use Peroks\Model\PropertyType;
 
 /**
- * The GeoPoint model with altitue. The altitude is optional.
+ * The GeoPoint model with altitude. The altitude is optional.
  *
  * @property float $altitude The geo point altitude.
  */
@@ -159,8 +159,8 @@ $data = [ latitude => 70.6646625, longitude => 23.6807195 ];
 
 // Returns the model instance on success or throws a ModelException on failure.
 $geo = GeoPoint:create( $data )->validate( true ); // Returns the model instance.
-$geo = GeoPoint:create()->validate( true ); // Throws ModelExeption.
-$geo = GeoPoint:create( [ latitude => 70.6646625 ] )->validate( true ); // Throws ModelExeption.
+$geo = GeoPoint:create()->validate( true ); // Throws ModelException.
+$geo = GeoPoint:create( [ latitude => 70.6646625 ] )->validate( true ); // Throws ModelException.
 ```
 
 Models are not validated on creation, only when `Model::validate()` is called.

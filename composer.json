@@ -3,7 +3,7 @@
 	"description": "Models: Classes with built-in data validation",
 	"license": "MIT",
 	"type": "library",
-	"version": "2.1.0",
+	"version": "3.0.0",
 	"keywords": [
 		"json",
 		"data-validation",
@@ -36,23 +36,19 @@
 		"allow-plugins": {
 			"dealerdirect/phpcodesniffer-composer-installer": true,
 			"ergebnis/composer-normalize": true
+		},
+		"platform": {
+			"php": "8.0"
 		}
 	},
 	"scripts": {
-		"build": [
-			"@composer install"
-		],
-		"build-for-deploy": [
-			"@composer install --no-dev"
-		],
-		"format": [
-			"./vendor/bin/phpcbf ./src"
-		],
-		"lint": [
-			"./vendor/bin/phpcs ./src"
-		],
-		"normalize": [
-			"@composer normalize"
-		]
+		"build-deploy": "@composer install --no-dev",
+		"build-install": "@composer install",
+		"build-lock": "@composer update --with-all-dependencies --no-install",
+		"build-normalize": "@composer normalize",
+		"build-update": "@composer update --with-all-dependencies",
+		"clean": "rm -rf ./vendor",
+		"format": "./vendor/bin/phpcbf ./src",
+		"lint": "./vendor/bin/phpcs ./src"
 	}
 }

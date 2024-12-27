@@ -101,8 +101,10 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return static|null The saved model instance on success or null on failure.
 	 */
-	public function save( string $file, int $flags = 0 ): self|null {
-		if ( file_put_contents( $file, $this, $flags ) ) {
+	public function save( string $file, int $flags = 0 ): static|null {
+		$encoded = json_encode( $this, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+
+		if ( file_put_contents( $file, $encoded, $flags ) ) {
 			return $this;
 		}
 		return null;
@@ -115,7 +117,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return static The updated model instance.
 	 */
-	public function patch( $data ): self {
+	public function patch( $data ): static {
 		$existing = $this->getArrayCopy();
 
 		foreach ( static::prepareData( $data, false ) as $id => $value ) {
@@ -132,7 +134,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return static The updated model instance.
 	 */
-	public function replace( $data ): self {
+	public function replace( $data ): static {
 		$this->exchangeArray( $data );
 		return $this;
 	}
@@ -145,7 +147,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return static|null The validated model instance or null if the validation fails.
 	 * @throws ModelException
 	 */
-	public function validate( bool $throwException = false ): self|null {
+	public function validate( bool $throwException = false ): static|null {
 		foreach ( static::properties() as $id => $property ) {
 			$value = $this[ $id ];
 
@@ -203,7 +205,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return static A model instance.
 	 */
-	public static function create( $data = [] ): self {
+	public static function create( $data = [] ): static {
 		return new static( $data );
 	}
 
@@ -218,7 +220,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @throws ModelException
 	 * @throws JsonException
 	 */
-	public static function load( string $path, bool $exception = false, int $traverse = 0 ): self|null {
+	public static function load( string $path, bool $exception = false, int $traverse = 0 ): static|null {
 		$create = function ( string $dir, string $file ) use ( $exception ): static|null {
 			if ( $path = realpath( $dir . DIRECTORY_SEPARATOR . $file ) ) {
 				$content = file_get_contents( $path );
@@ -330,7 +332,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * Gets the model as a json encoded string.
 	 */
 	public function __toString(): string {
-		return json_encode( $this, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+		return json_encode( $this, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 	}
 
 	/* -------------------------------------------------------------------------
@@ -791,7 +793,9 @@ class Model extends ArrayObject implements ModelInterface {
 			static::validateClass( $value, $class, $property );
 			static::validateClass( $value, ModelInterface::class, $property );
 			$value->validate( true );
-		} // Validate an array of models.
+		}
+
+		// Validate an array of models.
 		elseif ( is_array( $value ) ) {
 			foreach ( $value as $item ) {
 				static::validateClass( $item, $class, $property );
@@ -815,7 +819,9 @@ class Model extends ArrayObject implements ModelInterface {
 		// Validate a single object.
 		if ( is_object( $value ) ) {
 			static::validateClass( $value, $class, $property );
-		} // Validate an array of object.
+		}
+
+		// Validate an array of object.
 		elseif ( is_array( $value ) ) {
 			foreach ( $value as $item ) {
 				static::validateClass( $item, $class, $property );
@@ -865,7 +871,9 @@ class Model extends ArrayObject implements ModelInterface {
 				$error = sprintf( 'The property "%s" (%s) must be one of %s, found %s in %s', $id, $name, join( ', ', $enum ), $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
-		} // Check enumeration constraint on arrays.
+		}
+
+		// Check enumeration constraint on arrays.
 		elseif ( is_array( $value ) ) {
 			if ( empty( array_intersect( $value, $enum ) === $value ) ) {
 				$id    = $property[ PropertyItem::ID ];
@@ -895,7 +903,9 @@ class Model extends ArrayObject implements ModelInterface {
 				$error = sprintf( 'The property "%s" (%s) must be at least %d, found %s in %s', $id, $name, $min, $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
-		} // Check minimum constraint on strings.
+		}
+
+		// Check minimum constraint on strings.
 		elseif ( is_string( $value ) ) {
 			if ( strlen( $value ) < $min ) {
 				$id    = $property[ PropertyItem::ID ];
@@ -903,7 +913,9 @@ class Model extends ArrayObject implements ModelInterface {
 				$error = sprintf( 'The property "%s" (%s) must contain at least %d characters, found %s in %s', $id, $name, $min, $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
-		} // Check minimum constraint on arrays.
+		}
+
+		// Check minimum constraint on arrays.
 		elseif ( is_array( $value ) ) {
 			if ( count( $value ) < $min ) {
 				$id    = $property[ PropertyItem::ID ];
