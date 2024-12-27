@@ -12,6 +12,7 @@ namespace Peroks\Model;
 
 use ArrayAccess;
 use ArrayObject;
+use JsonException;
 use Traversable;
 
 /**
@@ -100,7 +101,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return static|null The saved model instance on success or null on failure.
 	 */
-	public function save( string $file, int $flags = 0 ): ?self {
+	public function save( string $file, int $flags = 0 ): self|null {
 		if ( file_put_contents( $file, $this, $flags ) ) {
 			return $this;
 		}
@@ -144,7 +145,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 * @return static|null The validated model instance or null if the validation fails.
 	 * @throws ModelException
 	 */
-	public function validate( bool $throwException = false ): ?self {
+	public function validate( bool $throwException = false ): self|null {
 		foreach ( static::properties() as $id => $property ) {
 			$value = $this[ $id ];
 
@@ -209,21 +210,36 @@ class Model extends ArrayObject implements ModelInterface {
 	/**
 	 * Loads a model from a json file.
 	 *
-	 * @param string $file The full path to a json file.
-	 * @param bool $throwException Whether to throw an exception on error or not.
+	 * @param string $path The full path to a json file.
+	 * @param bool $exception Whether to throw an exception on error or not.
+	 * @param int $traverse Number of directories to traverse up to find the file.
 	 *
 	 * @return static|null A model instance.
 	 * @throws ModelException
+	 * @throws JsonException
 	 */
-	public static function load( string $file, bool $throwException = false ): ?self {
-		if ( $file && is_readable( $file ) ) {
-			$flags   = $throwException ? JSON_THROW_ON_ERROR : 0;
-			$content = file_get_contents( $file );
-			$content = json_decode( $content, true, 512, $flags );
-			return new static( $content );
-		}
+	public static function load( string $path, bool $exception = false, int $traverse = 0 ): self|null {
+		$create = function ( string $dir, string $file ) use ( $exception ): static|null {
+			if ( $path = realpath( $dir . DIRECTORY_SEPARATOR . $file ) ) {
+				$content = file_get_contents( $path );
+				$flags   = $exception ? JSON_THROW_ON_ERROR : 0;
+				$content = json_decode( $content, true, 64, $flags );
+				return new static( $content );
+			}
+			return null;
+		};
 
-		if ( $throwException ) {
+		$dir  = dirname( $path );
+		$file = basename( $path );
+
+		do {
+			if ( $instance = $create( $dir, $file ) ) {
+				return $instance;
+			}
+			$dir = dirname( $dir );
+		} while ( $traverse-- && trim( $dir, DIRECTORY_SEPARATOR ) );
+
+		if ( $exception ) {
 			$error = sprintf( 'The file %s is not found or is not readable in %s', $file, static::class );
 			throw new ModelException( $error, 500 );
 		}

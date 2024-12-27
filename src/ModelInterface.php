@@ -13,6 +13,7 @@ namespace Peroks\Model;
 use ArrayAccess;
 use Countable;
 use IteratorAggregate;
+use JsonException;
 use JsonSerializable;
 
 /**
@@ -70,6 +71,7 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Json
 	 * @param bool $throwException Whether to throw an exception on validation errors or not.
 	 *
 	 * @return static|null The validated model instance or null if the validation fails.
+	 * @throws ModelException
 	 */
 	public function validate( bool $throwException = false ): ?self;
 
@@ -85,13 +87,14 @@ interface ModelInterface extends ArrayAccess, IteratorAggregate, Countable, Json
 	/**
 	 * Loads a model from a json file.
 	 *
-	 * @param string $file The full path to a json file.
-	 * @param bool $throwException Whether to throw an exception on error or not.
+	 * @param string $path The full path to a json file.
+	 * @param bool $exception Whether to throw an exception on error or not.
 	 *
 	 * @return static|null A model instance.
 	 * @throws ModelException
+	 * @throws JsonException
 	 */
-	public static function load( string $file, bool $throwException = false ): ?self;
+	public static function load( string $path, bool $exception = false ): ?self;
 
 	/**
 	 * Gets the model's properties.
