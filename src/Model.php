@@ -117,7 +117,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return static The updated model instance.
 	 */
-	public function patch( $data ): static {
+	public function patch( mixed $data ): static {
 		$existing = $this->getArrayCopy();
 
 		foreach ( static::prepareData( $data, false ) as $id => $value ) {
@@ -134,7 +134,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return static The updated model instance.
 	 */
-	public function replace( $data ): static {
+	public function replace( mixed $data ): static {
 		$this->exchangeArray( $data );
 		return $this;
 	}
@@ -205,7 +205,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return static A model instance.
 	 */
-	public static function create( $data = [] ): static {
+	public static function create( mixed $data = [] ): static {
 		return new static( $data );
 	}
 
@@ -294,7 +294,7 @@ class Model extends ArrayObject implements ModelInterface {
 	 *
 	 * @return array|null The property array matching the id or null if not existing.
 	 */
-	public static function getProperty( string $id ): ?array {
+	public static function getProperty( string $id ): array|null {
 		if ( $id ) {
 			return static::properties()[ $id ] ?? null;
 		}
