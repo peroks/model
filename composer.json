@@ -3,7 +3,6 @@
 	"description": "Models: Classes with built-in data validation",
 	"license": "MIT",
 	"type": "library",
-	"version": "3.0.0",
 	"keywords": [
 		"json",
 		"data-validation",
