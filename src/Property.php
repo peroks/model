@@ -23,7 +23,7 @@ namespace Peroks\Model;
  * @property mixed $default The property default value (default: null).
  * @property bool $required Whether the property is required or not (default: false).
  * @property bool $readable Whether the property is readable or not (default: true).
- * @property bool $writeable Whether the property is writable or not (default: true).
+ * @property bool $writable Whether the property is writable or not (default: true).
  * @property bool $mutable Whether the property is mutable (changeable) or not (default: true).
  * @property string $index The index name, properties with the same name are combined (default: null).
  * @property string $unique The unique index name, properties with the same name are combined (default: null).
