@@ -868,7 +868,8 @@ class Model extends ArrayObject implements ModelInterface {
 			if ( empty( in_array( $value, $enum, true ) ) ) {
 				$id    = $property[ PropertyItem::ID ];
 				$name  = $property[ PropertyItem::NAME ];
-				$error = sprintf( 'The property "%s" (%s) must be one of %s, found %s in %s', $id, $name, join( ', ', $enum ), $value, static::class );
+				$list  = join( ', ', array_filter( $enum ) );
+				$error = sprintf( 'The property "%s" (%s) must be one of %s, found %s in %s', $id, $name, $list, $value, static::class );
 				throw new ModelException( $error, 400 );
 			}
 		}
